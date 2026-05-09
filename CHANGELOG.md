@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.1.4
+
+- Change start/end timeline handles to round playhead-like markers.
+- Use blue for the start handle and orange for the end handle.
+- Increase handle hit targets so they are easier to drag.
+- Move the ClipTap player panel slightly downward.
+- Allow decimal timestamp entry in the player panel.
+
 ## v1.1.2
 
 - Move the ClipTap player panel upward so it no longer blocks the progress bar.

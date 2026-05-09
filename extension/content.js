@@ -51,12 +51,34 @@
     return (titleEl?.textContent || document.title || '').replace(/ - YouTube$/, '').trim();
   }
 
-  function secondsToClock(value) {
+  function secondsToClock(value, fractionDigits = 2) {
     const total = Math.max(0, Number(value) || 0);
-    const hours = Math.floor(total / 3600);
-    const minutes = Math.floor((total % 3600) / 60);
-    const seconds = Math.floor(total % 60);
-    return [hours, minutes, seconds].map(n => String(n).padStart(2, '0')).join(':');
+    const scale = 10 ** fractionDigits;
+    let whole = Math.floor(total);
+    let fraction = Math.round((total - whole) * scale);
+    if (fraction >= scale) {
+      whole += 1;
+      fraction = 0;
+    }
+    const hours = Math.floor(whole / 3600);
+    const minutes = Math.floor((whole % 3600) / 60);
+    const seconds = whole % 60;
+    const base = [hours, minutes, seconds].map(n => String(n).padStart(2, '0')).join(':');
+    return fractionDigits > 0 ? `${base}.${String(fraction).padStart(fractionDigits, '0')}` : base;
+  }
+
+  function clockToSeconds(text) {
+    const raw = String(text || '').trim().replace(',', '.');
+    if (!raw) return NaN;
+    if (/^\d+(?:\.\d+)?$/.test(raw)) return Number(raw);
+
+    const parts = raw.split(':');
+    if (parts.length < 2 || parts.length > 3) return NaN;
+    if (!parts.every(part => /^\d+(?:\.\d+)?$/.test(part))) return NaN;
+
+    const nums = parts.map(Number);
+    if (parts.length === 2) return nums[0] * 60 + nums[1];
+    return nums[0] * 3600 + nums[1] * 60 + nums[2];
   }
 
   function clamp(value, min, max) {
@@ -107,7 +129,7 @@
       #cliptap-player-panel {
         position: absolute;
         right: 12px;
-        bottom: 92px;
+        bottom: 72px;
         z-index: 84;
         width: 276px;
         color: #fff;
@@ -160,9 +182,25 @@
         font-size: 11px;
         margin-bottom: 2px;
       }
-      #cliptap-player-panel .cliptap-time-box strong {
-        font-size: 13px;
-        font-weight: 700;
+      #cliptap-player-panel .cliptap-time-box input {
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        padding: 2px 3px;
+        margin: 0;
+        border: 1px solid transparent;
+        border-radius: 3px;
+        background: transparent;
+        color: #fff;
+        font: 700 13px/1.25 Arial, Helvetica, sans-serif;
+        outline: none;
+      }
+      #cliptap-player-panel .cliptap-time-box input:focus {
+        border-color: rgba(255, 255, 255, .36);
+        background: rgba(255, 255, 255, .10);
+      }
+      #cliptap-player-panel .cliptap-time-box input::placeholder {
+        color: rgba(255, 255, 255, .55);
       }
       #cliptap-player-panel .cliptap-buttons,
       #cliptap-player-panel .cliptap-download-buttons {
@@ -221,31 +259,51 @@
       #cliptap-progress-overlay .cliptap-range-fill {
         position: absolute;
         top: 50%;
-        height: 5px;
+        height: 4px;
         border-radius: 999px;
         transform: translateY(-50%);
-        background: rgba(255, 255, 255, .45);
+        background: linear-gradient(90deg, rgba(47, 140, 255, .70), rgba(255, 157, 46, .70));
         box-shadow: 0 0 0 1px rgba(0, 0, 0, .35);
         pointer-events: none;
       }
       #cliptap-progress-overlay .cliptap-handle {
+        --cliptap-handle-color: #2f8cff;
         position: absolute;
         top: 50%;
-        width: 13px;
-        height: 22px;
-        border-radius: 2px;
+        width: 36px;
+        height: 36px;
+        border: 0;
+        border-radius: 50%;
         transform: translate(-50%, -50%);
-        background: #fff;
-        border: 1px solid rgba(0, 0, 0, .55);
-        box-shadow: 0 1px 4px rgba(0, 0, 0, .45);
+        background: transparent;
+        box-shadow: none;
         cursor: ew-resize;
         pointer-events: auto;
+        touch-action: none;
+      }
+      #cliptap-progress-overlay .cliptap-handle::before {
+        content: '';
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        background: var(--cliptap-handle-color);
+        box-shadow: 0 0 0 2px #fff, 0 1px 5px rgba(0, 0, 0, .55);
+        transition: transform .08s ease;
+      }
+      #cliptap-progress-overlay .cliptap-handle:hover::before,
+      #cliptap-progress-overlay .cliptap-handle:focus-visible::before,
+      #cliptap-progress-overlay .cliptap-handle.cliptap-dragging::before {
+        transform: translate(-50%, -50%) scale(1.16);
       }
       #cliptap-progress-overlay .cliptap-handle::after {
         content: attr(data-label);
         position: absolute;
         left: 50%;
-        bottom: 24px;
+        bottom: 31px;
         transform: translateX(-50%);
         min-width: 34px;
         padding: 2px 5px;
@@ -259,14 +317,15 @@
         pointer-events: none;
       }
       #cliptap-progress-overlay .cliptap-handle:hover::after,
+      #cliptap-progress-overlay .cliptap-handle:focus-visible::after,
       #cliptap-progress-overlay .cliptap-handle.cliptap-dragging::after {
         opacity: 1;
       }
       #cliptap-progress-overlay .cliptap-handle[data-kind="start"] {
-        border-bottom: 4px solid #35a7ff;
+        --cliptap-handle-color: #2f8cff;
       }
       #cliptap-progress-overlay .cliptap-handle[data-kind="end"] {
-        border-bottom: 4px solid #ffcc33;
+        --cliptap-handle-color: #ff9d2e;
       }
     `;
     document.documentElement.appendChild(style);
@@ -315,11 +374,11 @@
         <div class="cliptap-time-grid">
           <div class="cliptap-time-box">
             <span>시작</span>
-            <strong data-role="start">--:--:--</strong>
+            <input data-role="start" type="text" inputmode="decimal" placeholder="--:--:--.--" aria-label="ClipTap 시작 시점" spellcheck="false">
           </div>
           <div class="cliptap-time-box">
             <span>끝</span>
-            <strong data-role="end">--:--:--</strong>
+            <input data-role="end" type="text" inputmode="decimal" placeholder="--:--:--.--" aria-label="ClipTap 끝 시점" spellcheck="false">
           </div>
         </div>
         <div class="cliptap-buttons">
@@ -330,9 +389,11 @@
           <button type="button" data-action="download-section">구간 받기</button>
           <button type="button" data-action="download-full">전체 다운로드</button>
         </div>
-        <div class="cliptap-message" data-role="message">진행바의 흰 손잡이를 드래그해도 돼.</div>
+        <div class="cliptap-message" data-role="message">진행바의 파란/주황 원을 드래그해도 돼.</div>
       `;
       panel.addEventListener('click', handlePanelClick);
+      panel.addEventListener('keydown', handleTimeInputKeydown, true);
+      panel.addEventListener('focusout', handleTimeInputCommit, true);
     }
 
     if (panel.parentElement !== player) {
@@ -401,6 +462,51 @@
     return ratio * duration;
   }
 
+  function getTimeInputKind(input) {
+    if (!input?.matches?.('#cliptap-player-panel input[data-role="start"], #cliptap-player-panel input[data-role="end"]')) return null;
+    return input.dataset.role;
+  }
+
+  function commitTimeInput(input, shouldSeek = true) {
+    const kind = getTimeInputKind(input);
+    if (!kind) return false;
+
+    const seconds = clockToSeconds(input.value);
+    if (!Number.isFinite(seconds)) {
+      setPanelMessage('시간 형식을 확인해줘. 예: 00:14:09.35');
+      renderPanel();
+      return false;
+    }
+
+    setMarker(kind, seconds, shouldSeek);
+    setPanelMessage(kind === 'start' ? '시작 시점 입력됨.' : '끝 시점 입력됨.');
+    return true;
+  }
+
+  function handleTimeInputKeydown(event) {
+    const input = event.target;
+    if (!getTimeInputKind(input)) return;
+
+    event.stopPropagation();
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      commitTimeInput(input, true);
+      input.blur();
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      renderPanel();
+      input.blur();
+    }
+  }
+
+  function handleTimeInputCommit(event) {
+    const input = event.target;
+    if (!getTimeInputKind(input)) return;
+    commitTimeInput(input, true);
+  }
+
   function handlePanelClick(event) {
     const action = event.target?.dataset?.action;
     if (!action) return;
@@ -421,12 +527,12 @@
     }
     if (action === 'start') {
       setMarker('start', video.currentTime, false);
-      setPanelMessage('시작 지점 저장됨. 진행바에서 드래그 가능.');
+      setPanelMessage('시작 지점 저장됨. 파란 원을 드래그해서 조정 가능.');
       return;
     }
     if (action === 'end') {
       setMarker('end', video.currentTime, false);
-      setPanelMessage('끝 지점 저장됨. 진행바에서 드래그 가능.');
+      setPanelMessage('끝 지점 저장됨. 주황 원을 드래그해서 조정 가능.');
       return;
     }
     if (action === 'download-section') {
@@ -584,10 +690,14 @@
     if (!panel) return;
 
     panel.hidden = !state.panelOpen;
-    const startEl = panel.querySelector('[data-role="start"]');
-    const endEl = panel.querySelector('[data-role="end"]');
-    if (startEl) startEl.textContent = state.start == null ? '--:--:--' : secondsToClock(state.start);
-    if (endEl) endEl.textContent = state.end == null ? '--:--:--' : secondsToClock(state.end);
+    const startEl = panel.querySelector('input[data-role="start"]');
+    const endEl = panel.querySelector('input[data-role="end"]');
+    const setInputValue = (input, value) => {
+      if (!input || document.activeElement === input) return;
+      input.value = value == null ? '' : secondsToClock(value);
+    };
+    setInputValue(startEl, state.start);
+    setInputValue(endEl, state.end);
   }
 
   function renderButton() {
