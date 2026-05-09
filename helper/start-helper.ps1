@@ -1,7 +1,2 @@
-Set-Location -LiteralPath $PSScriptRoot
-$python = Get-Command python -ErrorAction SilentlyContinue
-if ($python) {
-  & $python.Source .\server.py
-} else {
-  & py -3 .\server.py
-}
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+Start-Process -FilePath "pyw" -ArgumentList "`"$ScriptDir\ClipTapHelper.pyw`""
