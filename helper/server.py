@@ -10,6 +10,8 @@ from urllib.parse import urlparse
 HOST = "127.0.0.1"
 PORT = 17723
 OUTPUT_DIR = Path.home() / "Downloads" / "ClipTap"
+HELPER_DIR = Path(__file__).resolve().parent
+LOCAL_BIN_DIR = HELPER_DIR / "bin"
 
 FORMAT_MAP = {
     "best": "bv*+ba/b",
@@ -26,8 +28,67 @@ ALLOWED_HOST_SUFFIXES = (
 )
 
 
-def has_command(name: str) -> bool:
-    return shutil.which(name) is not None
+def _first_existing(paths):
+    for path in paths:
+        if path and Path(path).exists():
+            return Path(path)
+    return None
+
+
+def find_yt_dlp():
+    """Return (command_list, description) for yt-dlp.
+
+    v1.1.4 only checked PATH, so `py -m pip install yt-dlp` could still fail on
+    Windows when the Scripts folder was not added to PATH. This fallback allows
+    the helper to run yt-dlp as a Python module from the same Python interpreter.
+    """
+    executable = shutil.which("yt-dlp") or shutil.which("yt-dlp.exe")
+    if executable:
+        return [executable], f"PATH: {executable}"
+
+    try:
+        import yt_dlp  # noqa: F401
+    except Exception:
+        return None, "NOT FOUND"
+
+    return [sys.executable, "-m", "yt_dlp"], f"Python module: {sys.executable} -m yt_dlp"
+
+
+def find_ffmpeg():
+    executable = shutil.which("ffmpeg") or shutil.which("ffmpeg.exe")
+    if executable:
+        return Path(executable), f"PATH: {executable}"
+
+    local = _first_existing([
+        LOCAL_BIN_DIR / "ffmpeg.exe",
+        LOCAL_BIN_DIR / "ffmpeg",
+        HELPER_DIR / "ffmpeg.exe",
+        HELPER_DIR / "ffmpeg",
+    ])
+    if local:
+        return local, f"local: {local}"
+
+    return None, "NOT FOUND"
+
+
+def dependency_status():
+    yt_cmd, yt_desc = find_yt_dlp()
+    ffmpeg_path, ffmpeg_desc = find_ffmpeg()
+    return {
+        "yt_dlp": bool(yt_cmd),
+        "ytDlp": {
+            "ok": bool(yt_cmd),
+            "command": yt_cmd,
+            "description": yt_desc,
+        },
+        "ffmpeg": bool(ffmpeg_path),
+        "ffmpegInfo": {
+            "ok": bool(ffmpeg_path),
+            "path": str(ffmpeg_path) if ffmpeg_path else None,
+            "description": ffmpeg_desc,
+        },
+        "outputDir": str(OUTPUT_DIR),
+    }
 
 
 def seconds_to_clock(value) -> str:
@@ -36,6 +97,15 @@ def seconds_to_clock(value) -> str:
     minutes = int((value % 3600) // 60)
     seconds = int(value % 60)
     millis = round((value - int(value)) * 1000)
+    if millis == 1000:
+        seconds += 1
+        millis = 0
+        if seconds == 60:
+            minutes += 1
+            seconds = 0
+        if minutes == 60:
+            hours += 1
+            minutes = 0
     base = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
     return f"{base}.{millis:03d}" if millis else base
 
@@ -52,6 +122,18 @@ def is_allowed_url(url: str) -> bool:
 
 
 def build_command(payload: dict) -> list[str]:
+    yt_dlp_cmd, _ = find_yt_dlp()
+    ffmpeg_path, _ = find_ffmpeg()
+    if not yt_dlp_cmd:
+        raise RuntimeError(
+            "yt-dlp를 찾을 수 없어. `py -m pip install -U yt-dlp`로 설치하거나 yt-dlp.exe를 PATH에 추가해줘."
+        )
+    if not ffmpeg_path:
+        raise RuntimeError(
+            "ffmpeg.exe를 찾을 수 없어. `pip install ffmpeg`는 ffmpeg 실행 파일을 설치하지 않아. "
+            "winget으로 FFmpeg를 설치하거나 helper/bin/ffmpeg.exe 위치에 넣어줘."
+        )
+
     url = str(payload.get("url", "")).strip()
     if not is_allowed_url(url):
         raise ValueError("지원하는 YouTube URL이 아니야.")
@@ -89,12 +171,14 @@ def build_command(payload: dict) -> list[str]:
         section = None
         output_template = str(OUTPUT_DIR / "%(title).160s [%(id)s].%(ext)s")
 
-    cmd = ["yt-dlp"]
+    cmd = list(yt_dlp_cmd)
 
     if quality == "audio":
         cmd += ["-f", FORMAT_MAP[quality], "-x", "--audio-format", "mp3"]
     else:
         cmd += ["-f", FORMAT_MAP[quality], "--merge-output-format", "mp4"]
+
+    cmd += ["--ffmpeg-location", str(ffmpeg_path)]
 
     if mode == "section":
         cmd += ["--download-sections", section]
@@ -109,7 +193,7 @@ def build_command(payload: dict) -> list[str]:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "ClipTapHelper/1.1.2"
+    server_version = "ClipTapHelper/1.1.5"
 
     def log_message(self, fmt, *args):
         print("[ClipTap] " + fmt % args)
@@ -131,12 +215,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/health":
-            self._json({
-                "ok": True,
-                "yt_dlp": has_command("yt-dlp"),
-                "ffmpeg": has_command("ffmpeg"),
-                "outputDir": str(OUTPUT_DIR),
-            })
+            data = {"ok": True}
+            data.update(dependency_status())
+            self._json(data)
             return
         self._json({"error": "not found"}, 404)
 
@@ -145,24 +226,17 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"error": "not found"}, 404)
             return
 
-        if not has_command("yt-dlp"):
-            self._json({"error": "yt-dlp를 PATH에서 찾을 수 없어."}, 500)
-            return
-        if not has_command("ffmpeg"):
-            self._json({"error": "ffmpeg를 PATH에서 찾을 수 없어."}, 500)
-            return
-
         try:
             length = int(self.headers.get("Content-Length", "0"))
             raw = self.rfile.read(length)
             payload = json.loads(raw.decode("utf-8"))
             cmd = build_command(payload)
         except Exception as exc:
-            self._json({"error": str(exc)}, 400)
+            self._json({"error": str(exc)}, 500)
             return
 
         print("\n[ClipTap] 실행:")
-        print(" ".join(f'"{part}"' if " " in part else part for part in cmd))
+        print(" ".join(f'\"{part}\"' if " " in part else part for part in cmd))
         print()
 
         try:
@@ -178,8 +252,14 @@ def main():
     print("ClipTap helper starting...")
     print(f"Output: {OUTPUT_DIR}")
     print("Checking commands:")
-    print(f"  yt-dlp: {'OK' if has_command('yt-dlp') else 'NOT FOUND'}")
-    print(f"  ffmpeg: {'OK' if has_command('ffmpeg') else 'NOT FOUND'}")
+    status = dependency_status()
+    print(f"  yt-dlp: {'OK' if status['yt_dlp'] else 'NOT FOUND'} ({status['ytDlp']['description']})")
+    print(f"  ffmpeg: {'OK' if status['ffmpeg'] else 'NOT FOUND'} ({status['ffmpegInfo']['description']})")
+    if not status["yt_dlp"]:
+        print("\nTip: py -m pip install -U yt-dlp")
+    if not status["ffmpeg"]:
+        print("Tip: pip install ffmpeg 는 ffmpeg.exe 설치가 아니야. winget/공식 빌드로 FFmpeg를 설치해야 해.")
+        print(f"     또는 ffmpeg.exe를 여기에 넣어도 돼: {LOCAL_BIN_DIR}")
     print(f"\nClipTap helper running at http://{HOST}:{PORT}")
     print("이 창을 닫으면 확장 다운로드 기능도 꺼져.\n")
     server = ThreadingHTTPServer((HOST, PORT), Handler)

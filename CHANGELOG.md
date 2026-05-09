@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.1.5
+
+- Fix helper detection when yt-dlp is installed as a Python module but not added to PATH.
+- Add clearer FFmpeg error guidance and support `helper/bin/ffmpeg.exe` as a local fallback path.
+
 ## v1.1.4
 
 - Change start/end timeline handles to round playhead-like markers.
