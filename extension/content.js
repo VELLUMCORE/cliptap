@@ -373,8 +373,8 @@
       button.id = 'cliptap-control-button';
       button.className = 'ytp-button cliptap-control-button';
       button.type = 'button';
-      button.title = 'ClipTap 구간 다운로드';
-      button.setAttribute('aria-label', 'ClipTap 구간 다운로드');
+      button.title = 'ClipTap section downloader';
+      button.setAttribute('aria-label', 'ClipTap section downloader');
       const iconUrl = chrome.runtime.getURL('icons/cliptap.png');
       button.innerHTML = `<img src="${iconUrl}" alt="" aria-hidden="true">`;
       button.addEventListener('click', event => {
@@ -402,7 +402,7 @@
         <div class="cliptap-panel-title">
           <span>ClipTap</span>
           <div class="cliptap-title-actions">
-            <button type="button" class="cliptap-loop" data-action="toggle-loop" aria-label="선택 구간 반복" aria-pressed="false" title="선택 구간 반복">
+            <button type="button" class="cliptap-loop" data-action="toggle-loop" aria-label="Loop selected range" aria-pressed="false" title="Loop selected range">
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path d="M7 7h9.2c2.1 0 3.8 1.7 3.8 3.8 0 1.1-.5 2.2-1.3 2.9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M17 4l3 3-3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -410,28 +410,28 @@
                 <path d="M7 20l-3-3 3-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </button>
-            <button type="button" class="cliptap-close" data-action="close" aria-label="닫기">×</button>
+            <button type="button" class="cliptap-close" data-action="close" aria-label="Close">×</button>
           </div>
         </div>
         <div class="cliptap-time-grid">
           <div class="cliptap-time-box">
-            <span>시작</span>
-            <input data-role="start" type="text" inputmode="decimal" placeholder="--:--:--.--" aria-label="ClipTap 시작 시점" spellcheck="false">
+            <span>Start</span>
+            <input data-role="start" type="text" inputmode="decimal" placeholder="--:--:--.--" aria-label="ClipTap start time" spellcheck="false">
           </div>
           <div class="cliptap-time-box">
-            <span>끝</span>
-            <input data-role="end" type="text" inputmode="decimal" placeholder="--:--:--.--" aria-label="ClipTap 끝 시점" spellcheck="false">
+            <span>End</span>
+            <input data-role="end" type="text" inputmode="decimal" placeholder="--:--:--.--" aria-label="ClipTap end time" spellcheck="false">
           </div>
         </div>
         <div class="cliptap-buttons">
-          <button type="button" data-action="start">시작 찍기</button>
-          <button type="button" data-action="end">끝 찍기</button>
+          <button type="button" data-action="start">Set Start</button>
+          <button type="button" data-action="end">Set End</button>
         </div>
         <div class="cliptap-download-buttons">
-          <button type="button" data-action="download-section">구간 받기</button>
-          <button type="button" data-action="download-full">전체 다운로드</button>
+          <button type="button" data-action="download-section">Download Section</button>
+          <button type="button" data-action="download-full">Download Full</button>
         </div>
-        <div class="cliptap-message" data-role="message">진행바의 파란/주황 원을 드래그해도 돼.</div>
+        <div class="cliptap-message" data-role="message">You can also drag the blue/orange circles on the timeline.</div>
       `;
       panel.addEventListener('click', handlePanelClick);
       panel.addEventListener('keydown', handleTimeInputKeydown, true);
@@ -453,8 +453,8 @@
       overlay.id = 'cliptap-progress-overlay';
       overlay.innerHTML = `
         <div class="cliptap-range-fill" data-role="range"></div>
-        <div class="cliptap-handle" data-kind="start" data-label="시작" role="slider" aria-label="ClipTap 시작 지점" tabindex="0"></div>
-        <div class="cliptap-handle" data-kind="end" data-label="끝" role="slider" aria-label="ClipTap 끝 지점" tabindex="0"></div>
+        <div class="cliptap-handle" data-kind="start" data-label="Start" role="slider" aria-label="ClipTap start point" tabindex="0"></div>
+        <div class="cliptap-handle" data-kind="end" data-label="End" role="slider" aria-label="ClipTap end point" tabindex="0"></div>
       `;
       overlay.addEventListener('pointerdown', handleDragStart, true);
       overlay.addEventListener('keydown', handleHandleKeydown, true);
@@ -506,7 +506,7 @@
     if (next && !hasValidLoopRange()) {
       state.loopEnabled = false;
       stopLoopWatcher();
-      setPanelMessage('반복할 시작/끝 구간을 먼저 지정해줘.');
+      setPanelMessage('Set a start and end range before turning on loop.');
       renderPanel();
       renderButton();
       return false;
@@ -596,13 +596,13 @@
 
     const seconds = clockToSeconds(input.value);
     if (!Number.isFinite(seconds)) {
-      setPanelMessage('시간 형식을 확인해줘. 예: 00:14:09.35');
+      setPanelMessage('Check the time format. Example: 00:14:09.35');
       renderPanel();
       return false;
     }
 
     setMarker(kind, seconds, shouldSeek);
-    setPanelMessage(kind === 'start' ? '시작 시점 입력됨.' : '끝 시점 입력됨.');
+    setPanelMessage(kind === 'start' ? 'Start time updated.' : 'End time updated.');
     return true;
   }
 
@@ -639,7 +639,7 @@
 
     const video = getVideo();
     if (!video) {
-      setPanelMessage('video 태그를 못 찾았어.');
+      setPanelMessage('Could not find a video element.');
       return;
     }
 
@@ -651,18 +651,18 @@
     if (action === 'toggle-loop') {
       const enabled = setLoopEnabled(!state.loopEnabled);
       if (enabled) {
-        setPanelMessage(state.loopEnabled ? '반복 켜짐. 선택 구간을 자동으로 반복해.' : '반복 꺼짐.');
+        setPanelMessage(state.loopEnabled ? 'Loop enabled. The selected range will repeat automatically.' : 'Loop disabled.');
       }
       return;
     }
     if (action === 'start') {
       setMarker('start', video.currentTime, false);
-      setPanelMessage('시작 지점 저장됨. 파란 원을 드래그해서 조정 가능.');
+      setPanelMessage('Start point saved. Drag the blue circle to adjust it.');
       return;
     }
     if (action === 'end') {
       setMarker('end', video.currentTime, false);
-      setPanelMessage('끝 지점 저장됨. 주황 원을 드래그해서 조정 가능.');
+      setPanelMessage('End point saved. Drag the orange circle to adjust it.');
       return;
     }
     if (action === 'download-section') {
@@ -743,11 +743,11 @@
 
     if (mode === 'section') {
       if (state.start == null || state.end == null) {
-        setPanelMessage('시작/끝을 먼저 찍어줘.');
+        setPanelMessage('Set the start and end points first.');
         return;
       }
       if (state.end <= state.start) {
-        setPanelMessage('끝이 시작보다 뒤여야 해.');
+        setPanelMessage('The end point must be after the start point.');
         return;
       }
       payload.start = state.start;
@@ -755,17 +755,17 @@
     }
 
     try {
-      setPanelMessage(mode === 'full' ? '전체 다운로드 요청 보내는 중...' : '구간 다운로드 요청 보내는 중...');
+      setPanelMessage(mode === 'full' ? 'Sending full download request...' : 'Sending section download request...');
       const res = await fetch('http://127.0.0.1:17723/download', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || '헬퍼 오류');
-      setPanelMessage(mode === 'full' ? '전체 다운로드 시작됨.' : '구간 다운로드 시작됨.');
+      if (!res.ok) throw new Error(data.error || 'Helper error');
+      setPanelMessage(mode === 'full' ? 'Full download started.' : 'Section download started.');
     } catch (error) {
-      setPanelMessage('헬퍼가 꺼졌거나 오류가 났어.');
+      setPanelMessage('The helper is off or an error occurred.');
       console.error('[ClipTap]', error);
     }
   }
@@ -834,7 +834,7 @@
     const loopButton = panel.querySelector('[data-action="toggle-loop"]');
     if (loopButton) {
       loopButton.setAttribute('aria-pressed', String(state.loopEnabled));
-      loopButton.title = state.loopEnabled ? '반복 끄기' : '선택 구간 반복';
+      loopButton.title = state.loopEnabled ? 'Turn loop off' : 'Loop selected range';
     }
   }
 

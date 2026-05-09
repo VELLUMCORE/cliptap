@@ -50,17 +50,17 @@ async function getActiveTab() {
 async function refreshState() {
   try {
     const tab = await getActiveTab();
-    if (!tab || !tab.id) throw new Error('탭을 찾지 못함');
+    if (!tab || !tab.id) throw new Error('Could not find the active tab');
     const response = await chrome.tabs.sendMessage(tab.id, { type: 'CLIPTAP_GET_STATE' });
     activeState = response;
-    els.videoTitle.textContent = response.title || '제목 없음';
+    els.videoTitle.textContent = response.title || 'Untitled';
     els.currentTime.textContent = secondsToClock(response.currentTime || 0);
-    setMessage(response.hasVideo ? '' : '이 페이지에서 video 태그를 못 찾았어.');
+    setMessage(response.hasVideo ? '' : 'Could not find a video element on this page.');
   } catch (error) {
     activeState = null;
-    els.videoTitle.textContent = 'YouTube 영상 페이지에서 열어줘.';
+    els.videoTitle.textContent = 'Open this on a YouTube video page.';
     els.currentTime.textContent = '00:00:00';
-    setMessage('현재 탭 정보를 못 읽었어. 페이지 새로고침 후 다시 눌러봐.');
+    setMessage('Could not read the current tab. Refresh the page and try again.');
   }
 }
 
@@ -68,14 +68,14 @@ async function checkHelper() {
   try {
     const res = await fetch('http://127.0.0.1:17723/health', { method: 'GET' });
     if (!res.ok) throw new Error('bad status');
-    els.helperStatus.textContent = '헬퍼 연결됨';
+    els.helperStatus.textContent = 'Helper connected';
   } catch {
-    els.helperStatus.textContent = '헬퍼 꺼짐';
+    els.helperStatus.textContent = 'Helper off';
   }
 }
 
 function getPayload(mode = 'section') {
-  if (!activeState?.url) throw new Error('영상 URL을 못 찾았어.');
+  if (!activeState?.url) throw new Error('Could not find the video URL.');
 
   const payload = {
     mode,
@@ -89,8 +89,8 @@ function getPayload(mode = 'section') {
   if (mode === 'section') {
     const start = clockToSeconds(els.startInput.value);
     const end = clockToSeconds(els.endInput.value);
-    if (!Number.isFinite(start) || !Number.isFinite(end)) throw new Error('시작/끝 시간을 확인해줘. 예: 00:01:20');
-    if (end <= start) throw new Error('끝 시간이 시작 시간보다 뒤여야 해.');
+    if (!Number.isFinite(start) || !Number.isFinite(end)) throw new Error('Check the start/end time. Example: 00:01:20');
+    if (end <= start) throw new Error('The end time must be after the start time.');
     payload.start = start;
     payload.end = end;
   }
@@ -137,15 +137,15 @@ els.setEndBtn.addEventListener('click', async () => {
 async function sendDownloadRequest(mode) {
   await refreshState();
   const payload = getPayload(mode);
-  setMessage(mode === 'full' ? '전체 다운로드 요청 보내는 중...' : '구간 다운로드 요청 보내는 중...');
+  setMessage(mode === 'full' ? 'Sending full download request...' : 'Sending section download request...');
   const res = await fetch('http://127.0.0.1:17723/download', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || '헬퍼 오류');
-  setMessage(mode === 'full' ? '전체 다운로드 시작됨. helper 창에서 진행률을 볼 수 있어.' : '구간 다운로드 시작됨. helper 창에서 진행률을 볼 수 있어.');
+  if (!res.ok) throw new Error(data.error || 'Helper error');
+  setMessage(mode === 'full' ? 'Full download started. You can watch progress in the helper window.' : 'Section download started. You can watch progress in the helper window.');
 }
 
 els.downloadBtn.addEventListener('click', async () => {
@@ -169,7 +169,7 @@ els.copyBtn.addEventListener('click', async () => {
     await refreshState();
     const payload = getPayload('section');
     await navigator.clipboard.writeText(buildCommand(payload));
-    setMessage('명령어 복사됨. PowerShell에 붙여넣으면 돼.');
+    setMessage('Command copied. Paste it into PowerShell to run it.');
   } catch (error) {
     setMessage(error.message || String(error));
   }

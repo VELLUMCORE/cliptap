@@ -126,21 +126,21 @@ def build_command(payload: dict) -> list[str]:
     ffmpeg_path, _ = find_ffmpeg()
     if not yt_dlp_cmd:
         raise RuntimeError(
-            "yt-dlp를 찾을 수 없어. `py -m pip install -U yt-dlp`로 설치하거나 yt-dlp.exe를 PATH에 추가해줘."
+            "Could not find yt-dlp. Run `py -m pip install -U yt-dlp` or add yt-dlp.exe to PATH."
         )
     if not ffmpeg_path:
         raise RuntimeError(
-            "ffmpeg.exe를 찾을 수 없어. `pip install ffmpeg`는 ffmpeg 실행 파일을 설치하지 않아. "
-            "winget으로 FFmpeg를 설치하거나 helper/bin/ffmpeg.exe 위치에 넣어줘."
+            "Could not find ffmpeg.exe. `pip install ffmpeg` does not install the FFmpeg executable. "
+            "Install FFmpeg with winget or place ffmpeg.exe in helper/bin/ffmpeg.exe."
         )
 
     url = str(payload.get("url", "")).strip()
     if not is_allowed_url(url):
-        raise ValueError("지원하는 YouTube URL이 아니야.")
+        raise ValueError("Unsupported YouTube URL.")
 
     mode = str(payload.get("mode", "section")).strip().lower()
     if mode not in {"section", "full"}:
-        raise ValueError("지원하지 않는 다운로드 모드야.")
+        raise ValueError("Unsupported download mode.")
 
     start = None
     end = None
@@ -149,10 +149,10 @@ def build_command(payload: dict) -> list[str]:
             start = float(payload.get("start"))
             end = float(payload.get("end"))
         except (TypeError, ValueError):
-            raise ValueError("시작/끝 시간이 숫자가 아니야.")
+            raise ValueError("Start/end time must be numeric.")
 
         if start < 0 or end <= start:
-            raise ValueError("끝 시간이 시작 시간보다 뒤여야 해.")
+            raise ValueError("The end time must be after the start time.")
 
     quality = str(payload.get("quality", "best"))
     if quality not in FORMAT_MAP:
@@ -160,7 +160,7 @@ def build_command(payload: dict) -> list[str]:
 
     cookie_browser = str(payload.get("cookieBrowser", "")).strip().lower()
     if cookie_browser not in ALLOWED_COOKIE_BROWSERS:
-        raise ValueError("지원하지 않는 쿠키 브라우저 값이야.")
+        raise ValueError("Unsupported cookie browser value.")
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -193,7 +193,7 @@ def build_command(payload: dict) -> list[str]:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "ClipTapHelper/1.1.5"
+    server_version = "ClipTapHelper/1.1.7"
 
     def log_message(self, fmt, *args):
         print("[ClipTap] " + fmt % args)
@@ -235,14 +235,14 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"error": str(exc)}, 500)
             return
 
-        print("\n[ClipTap] 실행:")
+        print("\n[ClipTap] Running:")
         print(" ".join(f'\"{part}\"' if " " in part else part for part in cmd))
         print()
 
         try:
             subprocess.Popen(cmd, cwd=str(OUTPUT_DIR))
         except Exception as exc:
-            self._json({"error": f"실행 실패: {exc}"}, 500)
+            self._json({"error": f"Failed to run command: {exc}"}, 500)
             return
 
         self._json({"ok": True, "outputDir": str(OUTPUT_DIR)})
@@ -258,10 +258,10 @@ def main():
     if not status["yt_dlp"]:
         print("\nTip: py -m pip install -U yt-dlp")
     if not status["ffmpeg"]:
-        print("Tip: pip install ffmpeg 는 ffmpeg.exe 설치가 아니야. winget/공식 빌드로 FFmpeg를 설치해야 해.")
-        print(f"     또는 ffmpeg.exe를 여기에 넣어도 돼: {LOCAL_BIN_DIR}")
+        print("Tip: pip install ffmpeg does not install ffmpeg.exe. Install FFmpeg with winget or an official build.")
+        print(f"     Or place ffmpeg.exe here: {LOCAL_BIN_DIR}")
     print(f"\nClipTap helper running at http://{HOST}:{PORT}")
-    print("이 창을 닫으면 확장 다운로드 기능도 꺼져.\n")
+    print("Keep this window open while using ClipTap downloads.\n")
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     try:
         server.serve_forever()
@@ -271,5 +271,5 @@ def main():
 
 if __name__ == "__main__":
     if sys.version_info < (3, 9):
-        print("Python 3.9 이상 권장.")
+        print("Python 3.9 or later is recommended.")
     main()

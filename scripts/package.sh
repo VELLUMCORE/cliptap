@@ -2,7 +2,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${ROOT}/dist"
-VERSION="1.1.6"
+VERSION="1.1.7"
 rm -rf "${OUT}"
 mkdir -p "${OUT}"
 (cd "${ROOT}/extension" && zip -qr "${OUT}/cliptap-v${VERSION}.xpi" .)

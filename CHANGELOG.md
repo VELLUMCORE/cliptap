@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.1.7
+
+- Translate the extension UI, helper messages, manifest description, README, and changelog to English.
+- Keep existing ClipTap behavior unchanged.
+
 ## v1.1.6
 
 - Add a repeat toggle button to the ClipTap player panel.
@@ -26,12 +31,10 @@
 - Add helper support for section and full download modes.
 - Use `extension/icons/cliptap.png` for the player control icon so users can replace the logo.
 
-
 ## v1.1.1
 
-- YouTube 페이지 접속 시 멈춤을 유발할 수 있던 전역 MutationObserver 렌더 루프를 제거했습니다.
-- 렌더링을 스로틀링하고 YouTube 내비게이션 이벤트 중심으로 재탐색하도록 변경했습니다.
-
+- Remove the global MutationObserver render loop that could freeze YouTube pages.
+- Throttle rendering and rely more on YouTube navigation events for rediscovery.
 
 ## v1.1.0
 

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -10,44 +10,44 @@
   <main>
     <header>
       <strong>ClipTap</strong>
-      <span id="helperStatus">확인 중</span>
+      <span id="helperStatus">Checking</span>
     </header>
 
     <section class="video-box">
-      <div id="videoTitle">YouTube 영상 페이지에서 열어줘.</div>
+      <div id="videoTitle">Open this on a YouTube video page.</div>
       <div class="time-row">
-        <span>현재</span>
+        <span>Current</span>
         <b id="currentTime">00:00:00</b>
       </div>
     </section>
 
     <section class="grid">
       <label>
-        시작
+        Start
         <input id="startInput" placeholder="00:01:20" />
       </label>
-      <button id="setStartBtn" type="button">현재로 시작</button>
+      <button id="setStartBtn" type="button">Use Current as Start</button>
       <label>
-        끝
+        End
         <input id="endInput" placeholder="00:02:45" />
       </label>
-      <button id="setEndBtn" type="button">현재로 끝</button>
+      <button id="setEndBtn" type="button">Use Current as End</button>
     </section>
 
     <section class="options">
       <label>
-        화질
+        Quality
         <select id="qualitySelect">
-          <option value="best">최고</option>
-          <option value="1080">1080p 이하</option>
-          <option value="720">720p 이하</option>
-          <option value="audio">오디오 MP3</option>
+          <option value="best">Best</option>
+          <option value="1080">Up to 1080p</option>
+          <option value="720">Up to 720p</option>
+          <option value="audio">Audio MP3</option>
         </select>
       </label>
       <label>
-        쿠키
+        Cookies
         <select id="cookieSelect">
-          <option value="">없음</option>
+          <option value="">None</option>
           <option value="edge">Edge</option>
           <option value="chrome">Chrome</option>
           <option value="firefox">Firefox</option>
@@ -55,14 +55,14 @@
       </label>
       <label class="checkline">
         <input id="forceKeyframes" type="checkbox" />
-        정확 컷 사용
+        Use precise cuts
       </label>
     </section>
 
     <section class="actions">
-      <button id="downloadBtn" type="button" class="primary">구간 다운로드</button>
-      <button id="fullDownloadBtn" type="button">전체 다운로드</button>
-      <button id="copyBtn" type="button">구간 명령어 복사</button>
+      <button id="downloadBtn" type="button" class="primary">Download Section</button>
+      <button id="fullDownloadBtn" type="button">Download Full Video</button>
+      <button id="copyBtn" type="button">Copy Section Command</button>
     </section>
 
     <p id="message" role="status"></p>
