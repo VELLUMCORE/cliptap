@@ -1,4 +1,24 @@
+<<<<<<< HEAD
 dist/
 __pycache__/
 *.pyc
 .DS_Store
+=======
+# Build outputs
+build/
+dist/
+*.spec
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Local binaries
+helper/bin/*
+!helper/bin/.gitkeep
+
+# OS files
+.DS_Store
+Thumbs.db
+>>>>>>> 8059d7f (feat: add standalone web manager build)

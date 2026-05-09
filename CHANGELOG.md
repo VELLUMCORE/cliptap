@@ -1,3 +1,19 @@
+<<<<<<< HEAD
+=======
+## 1.4.0
+- Reworked the helper into a single-file Web UI manager source (`helper/ClipTapHelper.py`).
+- Added a one-file Windows helper build script (`helper/build-standalone.ps1`).
+- Added a GitHub Actions workflow for building `ClipTapHelper.exe` on Windows.
+- Embedded the manager HTML, CSS, and JavaScript into the helper source so the standalone executable does not need separate web asset files.
+- Updated package script output names to omit version numbers.
+
+## 1.3.0
+- Replaced the standalone GUI helper app with a local Web UI manager.
+- Removed the PyInstaller executable build path and helper app assets.
+- Added manager endpoints for dependency checks, install actions, download progress, cancellation, and shutdown.
+- Updated README for the Web UI manager workflow.
+
+>>>>>>> 8059d7f (feat: add standalone web manager build)
 ## 1.2.2
 - Updated the helper build to use the bundled ClipTapHelper icon asset for the app window and the built executable.
 - Removed inline [SCREENSHOT] placeholder notes from the README.
