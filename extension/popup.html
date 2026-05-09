@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ClipTap</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <main>
+    <header>
+      <strong>ClipTap</strong>
+      <span id="helperStatus">확인 중</span>
+    </header>
+
+    <section class="video-box">
+      <div id="videoTitle">YouTube 영상 페이지에서 열어줘.</div>
+      <div class="time-row">
+        <span>현재</span>
+        <b id="currentTime">00:00:00</b>
+      </div>
+    </section>
+
+    <section class="grid">
+      <label>
+        시작
+        <input id="startInput" placeholder="00:01:20" />
+      </label>
+      <button id="setStartBtn" type="button">현재로 시작</button>
+      <label>
+        끝
+        <input id="endInput" placeholder="00:02:45" />
+      </label>
+      <button id="setEndBtn" type="button">현재로 끝</button>
+    </section>
+
+    <section class="options">
+      <label>
+        화질
+        <select id="qualitySelect">
+          <option value="best">최고</option>
+          <option value="1080">1080p 이하</option>
+          <option value="720">720p 이하</option>
+          <option value="audio">오디오 MP3</option>
+        </select>
+      </label>
+      <label>
+        쿠키
+        <select id="cookieSelect">
+          <option value="">없음</option>
+          <option value="edge">Edge</option>
+          <option value="chrome">Chrome</option>
+          <option value="firefox">Firefox</option>
+        </select>
+      </label>
+      <label class="checkline">
+        <input id="forceKeyframes" type="checkbox" />
+        정확 컷 사용
+      </label>
+    </section>
+
+    <section class="actions">
+      <button id="downloadBtn" type="button" class="primary">구간 다운로드</button>
+      <button id="copyBtn" type="button">명령어 복사</button>
+    </section>
+
+    <p id="message" role="status"></p>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

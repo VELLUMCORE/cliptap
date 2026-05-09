@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "ClipTap",
+  "version": "1.0.0",
+  "description": "현재 YouTube 재생 시간을 시작/끝으로 찍어 yt-dlp 구간 다운로드를 실행합니다.",
+  "permissions": ["activeTab", "tabs", "storage", "scripting"],
+  "host_permissions": [
+    "*://*.youtube.com/*",
+    "*://youtu.be/*",
+    "http://127.0.0.1:17723/*",
+    "http://localhost:17723/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/*", "*://youtu.be/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "ClipTap",
+    "default_popup": "popup.html"
+  }
+}
