@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ClipTap",
-  "version": "1.1.4",
+  "version": "1.1.6",
   "description": "YouTube 플레이어 안에서 구간 또는 전체 영상을 yt-dlp로 다운로드합니다.",
   "permissions": [
     "activeTab",

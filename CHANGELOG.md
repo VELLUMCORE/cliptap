@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.1.6
+
+- Add a repeat toggle button to the ClipTap player panel.
+- Automatically loop playback inside the selected start/end range while repeat is enabled.
+- Seek to the selected start point when repeat is turned on.
+
 ## v1.1.5
 
 - Fix helper detection when yt-dlp is installed as a Python module but not added to PATH.

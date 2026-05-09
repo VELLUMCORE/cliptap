@@ -9,14 +9,17 @@
     cookieBrowser: '',
     forceKeyframes: false,
     panelOpen: false,
+    loopEnabled: false,
     dragging: null,
     lastVideoKey: ''
   };
 
   const MIN_GAP_SECONDS = 0.05;
+  const LOOP_EPSILON_SECONDS = 0.08;
   const RENDER_MIN_INTERVAL_MS = 300;
   let renderTimer = null;
   let lastRenderAt = 0;
+  let loopRafId = 0;
 
 
   function getVideo() {
@@ -150,19 +153,48 @@
         font-weight: 700;
         margin-bottom: 8px;
       }
+      #cliptap-player-panel .cliptap-title-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+      }
+      #cliptap-player-panel .cliptap-loop,
       #cliptap-player-panel .cliptap-close {
         width: 24px;
         height: 24px;
         color: #fff;
         background: transparent;
-        border: 0;
+        border: 1px solid transparent;
         border-radius: 2px;
         cursor: pointer;
-        font-size: 17px;
         line-height: 1;
       }
+      #cliptap-player-panel .cliptap-loop {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+      }
+      #cliptap-player-panel .cliptap-loop svg {
+        width: 16px;
+        height: 16px;
+        display: block;
+        pointer-events: none;
+      }
+      #cliptap-player-panel .cliptap-loop[aria-pressed="true"] {
+        color: #8fc5ff;
+        background: rgba(47, 140, 255, .18);
+        border-color: rgba(143, 197, 255, .45);
+      }
+      #cliptap-player-panel .cliptap-close {
+        font-size: 17px;
+      }
+      #cliptap-player-panel .cliptap-loop:hover,
       #cliptap-player-panel .cliptap-close:hover {
         background: rgba(255, 255, 255, .12);
+      }
+      #cliptap-player-panel .cliptap-loop[aria-pressed="true"]:hover {
+        background: rgba(47, 140, 255, .26);
       }
       #cliptap-player-panel .cliptap-time-grid {
         display: grid;
@@ -369,7 +401,17 @@
       panel.innerHTML = `
         <div class="cliptap-panel-title">
           <span>ClipTap</span>
-          <button type="button" class="cliptap-close" data-action="close" aria-label="닫기">×</button>
+          <div class="cliptap-title-actions">
+            <button type="button" class="cliptap-loop" data-action="toggle-loop" aria-label="선택 구간 반복" aria-pressed="false" title="선택 구간 반복">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M7 7h9.2c2.1 0 3.8 1.7 3.8 3.8 0 1.1-.5 2.2-1.3 2.9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M17 4l3 3-3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M17 17H7.8C5.7 17 4 15.3 4 13.2c0-1.1.5-2.2 1.3-2.9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M7 20l-3-3 3-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <button type="button" class="cliptap-close" data-action="close" aria-label="닫기">×</button>
+          </div>
         </div>
         <div class="cliptap-time-grid">
           <div class="cliptap-time-box">
@@ -435,6 +477,84 @@
     video.currentTime = duration ? clamp(seconds, 0, duration) : Math.max(0, seconds);
   }
 
+
+  function hasValidLoopRange() {
+    return state.start != null && state.end != null && state.end > state.start + MIN_GAP_SECONDS;
+  }
+
+  function startLoopWatcher() {
+    if (loopRafId) return;
+
+    const tick = () => {
+      loopRafId = 0;
+      handleLoopTick();
+      if (state.loopEnabled) startLoopWatcher();
+    };
+
+    loopRafId = window.requestAnimationFrame(tick);
+  }
+
+  function stopLoopWatcher() {
+    if (!loopRafId) return;
+    window.cancelAnimationFrame(loopRafId);
+    loopRafId = 0;
+  }
+
+  function setLoopEnabled(enabled) {
+    const next = Boolean(enabled);
+
+    if (next && !hasValidLoopRange()) {
+      state.loopEnabled = false;
+      stopLoopWatcher();
+      setPanelMessage('반복할 시작/끝 구간을 먼저 지정해줘.');
+      renderPanel();
+      renderButton();
+      return false;
+    }
+
+    state.loopEnabled = next;
+
+    if (state.loopEnabled) {
+      const video = getVideo();
+      if (video && hasValidLoopRange()) {
+        const wasPaused = video.paused;
+        setCurrentTime(state.start);
+        if (!wasPaused) {
+          const playPromise = video.play();
+          if (playPromise?.catch) playPromise.catch(() => {});
+        }
+      }
+      startLoopWatcher();
+    } else {
+      stopLoopWatcher();
+    }
+
+    renderPanel();
+    renderButton();
+    return true;
+  }
+
+  function handleLoopTick() {
+    if (!state.loopEnabled || !hasValidLoopRange()) return;
+
+    const video = getVideo();
+    if (!video || video.seeking || video.duration <= 0) return;
+
+    const start = state.start;
+    const end = state.end;
+    const tooEarly = video.currentTime < start - LOOP_EPSILON_SECONDS;
+    const reachedEnd = video.currentTime >= end - LOOP_EPSILON_SECONDS;
+
+    if (!tooEarly && !reachedEnd) return;
+
+    const wasPaused = video.paused;
+    video.currentTime = start;
+    if (!wasPaused) {
+      const playPromise = video.play();
+      if (playPromise?.catch) playPromise.catch(() => {});
+    }
+  }
+
   function setMarker(kind, seconds, shouldSeek = false) {
     const duration = getDuration();
     const max = duration || Math.max(seconds, state.start || 0, state.end || 0);
@@ -448,6 +568,9 @@
       if (state.start != null) value = Math.max(value, state.start + MIN_GAP_SECONDS);
       state.end = duration ? Math.min(value, duration) : value;
     }
+
+    if (state.loopEnabled && !hasValidLoopRange()) setLoopEnabled(false);
+    else if (state.loopEnabled) startLoopWatcher();
 
     if (shouldSeek) setCurrentTime(value);
     render();
@@ -523,6 +646,13 @@
     if (action === 'close') {
       state.panelOpen = false;
       render();
+      return;
+    }
+    if (action === 'toggle-loop') {
+      const enabled = setLoopEnabled(!state.loopEnabled);
+      if (enabled) {
+        setPanelMessage(state.loopEnabled ? '반복 켜짐. 선택 구간을 자동으로 반복해.' : '반복 꺼짐.');
+      }
       return;
     }
     if (action === 'start') {
@@ -647,6 +777,8 @@
     state.start = null;
     state.end = null;
     state.panelOpen = false;
+    state.loopEnabled = false;
+    stopLoopWatcher();
   }
 
   function renderProgressOverlay() {
@@ -698,12 +830,18 @@
     };
     setInputValue(startEl, state.start);
     setInputValue(endEl, state.end);
+
+    const loopButton = panel.querySelector('[data-action="toggle-loop"]');
+    if (loopButton) {
+      loopButton.setAttribute('aria-pressed', String(state.loopEnabled));
+      loopButton.title = state.loopEnabled ? '반복 끄기' : '선택 구간 반복';
+    }
   }
 
   function renderButton() {
     const button = document.getElementById('cliptap-control-button');
     if (!button) return;
-    button.classList.toggle('cliptap-active', state.panelOpen || state.start != null || state.end != null);
+    button.classList.toggle('cliptap-active', state.panelOpen || state.start != null || state.end != null || state.loopEnabled);
   }
 
   function render() {
@@ -745,6 +883,7 @@
       duration: video?.duration || 0,
       start: state.start,
       end: state.end,
+      loopEnabled: state.loopEnabled,
       hasVideo: Boolean(video)
     });
     return true;
