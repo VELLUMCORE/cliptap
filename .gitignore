@@ -1,9 +1,3 @@
-<<<<<<< HEAD
-dist/
-__pycache__/
-*.pyc
-.DS_Store
-=======
 # Build outputs
 build/
 dist/
@@ -21,4 +15,3 @@ helper/bin/*
 # OS files
 .DS_Store
 Thumbs.db
->>>>>>> 8059d7f (feat: add standalone web manager build)

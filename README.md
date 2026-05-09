@@ -2,18 +2,10 @@
 
 ClipTap is a browser extension for downloading either a selected section or the full version of a YouTube video using `yt-dlp`.
 
-<<<<<<< HEAD
-It adds a small control directly inside the YouTube player, so the start point, end point, loop toggle, and download actions stay close to the video.
-
-![ClipTap button integrated into the YouTube player controls](docs/images/cliptap-player-button.png)
-
-
-=======
 It adds controls directly inside the YouTube player and uses a local Web UI manager for dependency checks, download progress, cancellation, and live-stream recording status.
 
 ![ClipTap button integrated into the YouTube player controls](docs/images/cliptap-player-button.png)
 
->>>>>>> 8059d7f (feat: add standalone web manager build)
 ## Features
 
 - Mark a start point and end point from the current playback position
