@@ -86,10 +86,12 @@
       .cliptap-control-button.cliptap-active {
         opacity: 1;
       }
-      .cliptap-control-button svg {
-        width: 23px;
-        height: 23px;
+      .cliptap-control-button img {
+        width: 24px;
+        height: 24px;
+        object-fit: contain;
         pointer-events: none;
+        display: block;
       }
       .cliptap-control-button.cliptap-active::after {
         content: '';
@@ -105,9 +107,9 @@
       #cliptap-player-panel {
         position: absolute;
         right: 12px;
-        bottom: 55px;
+        bottom: 92px;
         z-index: 84;
-        width: 254px;
+        width: 276px;
         color: #fff;
         background: rgba(28, 28, 28, .96);
         border: 1px solid rgba(255, 255, 255, .16);
@@ -162,12 +164,20 @@
         font-size: 13px;
         font-weight: 700;
       }
-      #cliptap-player-panel .cliptap-buttons {
+      #cliptap-player-panel .cliptap-buttons,
+      #cliptap-player-panel .cliptap-download-buttons {
         display: grid;
-        grid-template-columns: 1fr 1fr 54px;
         gap: 6px;
       }
-      #cliptap-player-panel .cliptap-buttons button {
+      #cliptap-player-panel .cliptap-buttons {
+        grid-template-columns: 1fr 1fr;
+        margin-bottom: 6px;
+      }
+      #cliptap-player-panel .cliptap-download-buttons {
+        grid-template-columns: 1fr 1fr;
+      }
+      #cliptap-player-panel .cliptap-buttons button,
+      #cliptap-player-panel .cliptap-download-buttons button {
         min-height: 30px;
         border-radius: 4px;
         border: 1px solid rgba(255, 255, 255, .18);
@@ -176,14 +186,19 @@
         font: inherit;
         cursor: pointer;
       }
-      #cliptap-player-panel .cliptap-buttons button:hover {
+      #cliptap-player-panel .cliptap-buttons button:hover,
+      #cliptap-player-panel .cliptap-download-buttons button:hover {
         background: rgba(255, 255, 255, .18);
       }
-      #cliptap-player-panel .cliptap-buttons button[data-action="download"] {
+      #cliptap-player-panel .cliptap-download-buttons button[data-action="download-section"],
+      #cliptap-player-panel .cliptap-download-buttons button[data-action="download-full"] {
         background: #e5e5e5;
         color: #111;
         border-color: #e5e5e5;
         font-weight: 700;
+      }
+      #cliptap-player-panel .cliptap-download-buttons button[data-action="download-full"] {
+        background: #f7f7f7;
       }
       #cliptap-player-panel .cliptap-message {
         min-height: 16px;
@@ -269,12 +284,8 @@
       button.type = 'button';
       button.title = 'ClipTap 구간 다운로드';
       button.setAttribute('aria-label', 'ClipTap 구간 다운로드');
-      button.innerHTML = `
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path fill="currentColor" d="M5.5 7.5h2v9h-2v-9Zm11 0h2v9h-2v-9ZM9.5 10.2h5v3.6h-5v-3.6Z"/>
-          <path fill="currentColor" d="M3.8 5.2h5.4v1.9H3.8V5.2Zm11 0h5.4v1.9h-5.4V5.2ZM3.8 16.9h5.4v1.9H3.8v-1.9Zm11 0h5.4v1.9h-5.4v-1.9Z" opacity=".9"/>
-        </svg>
-      `;
+      const iconUrl = chrome.runtime.getURL('icons/cliptap.png');
+      button.innerHTML = `<img src="${iconUrl}" alt="" aria-hidden="true">`;
       button.addEventListener('click', event => {
         event.preventDefault();
         event.stopPropagation();
@@ -314,7 +325,10 @@
         <div class="cliptap-buttons">
           <button type="button" data-action="start">시작 찍기</button>
           <button type="button" data-action="end">끝 찍기</button>
-          <button type="button" data-action="download">받기</button>
+        </div>
+        <div class="cliptap-download-buttons">
+          <button type="button" data-action="download-section">구간 받기</button>
+          <button type="button" data-action="download-full">전체 다운로드</button>
         </div>
         <div class="cliptap-message" data-role="message">진행바의 흰 손잡이를 드래그해도 돼.</div>
       `;
@@ -415,8 +429,12 @@
       setPanelMessage('끝 지점 저장됨. 진행바에서 드래그 가능.');
       return;
     }
-    if (action === 'download') {
-      requestDownload();
+    if (action === 'download-section') {
+      requestDownload('section');
+      return;
+    }
+    if (action === 'download-full') {
+      requestDownload('full');
     }
   }
 
@@ -477,34 +495,39 @@
     setMarker(kind, next, true);
   }
 
-  async function requestDownload() {
-    if (state.start == null || state.end == null) {
-      setPanelMessage('시작/끝을 먼저 찍어줘.');
-      return;
-    }
-    if (state.end <= state.start) {
-      setPanelMessage('끝이 시작보다 뒤여야 해.');
-      return;
+  async function requestDownload(mode = 'section') {
+    const payload = {
+      mode,
+      url: location.href,
+      title: getTitle(),
+      quality: state.quality,
+      cookieBrowser: state.cookieBrowser,
+      forceKeyframes: state.forceKeyframes
+    };
+
+    if (mode === 'section') {
+      if (state.start == null || state.end == null) {
+        setPanelMessage('시작/끝을 먼저 찍어줘.');
+        return;
+      }
+      if (state.end <= state.start) {
+        setPanelMessage('끝이 시작보다 뒤여야 해.');
+        return;
+      }
+      payload.start = state.start;
+      payload.end = state.end;
     }
 
     try {
-      setPanelMessage('헬퍼로 요청 보내는 중...');
+      setPanelMessage(mode === 'full' ? '전체 다운로드 요청 보내는 중...' : '구간 다운로드 요청 보내는 중...');
       const res = await fetch('http://127.0.0.1:17723/download', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: location.href,
-          title: getTitle(),
-          start: state.start,
-          end: state.end,
-          quality: state.quality,
-          cookieBrowser: state.cookieBrowser,
-          forceKeyframes: state.forceKeyframes
-        })
+        body: JSON.stringify(payload)
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || '헬퍼 오류');
-      setPanelMessage('다운로드 시작됨.');
+      setPanelMessage(mode === 'full' ? '전체 다운로드 시작됨.' : '구간 다운로드 시작됨.');
     } catch (error) {
       setPanelMessage('헬퍼가 꺼졌거나 오류가 났어.');
       console.error('[ClipTap]', error);

@@ -137,6 +137,10 @@ button:hover { background: #eef2f7; }
   gap: 8px;
 }
 
+#copyBtn {
+  grid-column: span 2;
+}
+
 #message {
   min-height: 18px;
   margin: 0;

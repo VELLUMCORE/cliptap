@@ -56,14 +56,21 @@ def build_command(payload: dict) -> list[str]:
     if not is_allowed_url(url):
         raise ValueError("지원하는 YouTube URL이 아니야.")
 
-    try:
-        start = float(payload.get("start"))
-        end = float(payload.get("end"))
-    except (TypeError, ValueError):
-        raise ValueError("시작/끝 시간이 숫자가 아니야.")
+    mode = str(payload.get("mode", "section")).strip().lower()
+    if mode not in {"section", "full"}:
+        raise ValueError("지원하지 않는 다운로드 모드야.")
 
-    if start < 0 or end <= start:
-        raise ValueError("끝 시간이 시작 시간보다 뒤여야 해.")
+    start = None
+    end = None
+    if mode == "section":
+        try:
+            start = float(payload.get("start"))
+            end = float(payload.get("end"))
+        except (TypeError, ValueError):
+            raise ValueError("시작/끝 시간이 숫자가 아니야.")
+
+        if start < 0 or end <= start:
+            raise ValueError("끝 시간이 시작 시간보다 뒤여야 해.")
 
     quality = str(payload.get("quality", "best"))
     if quality not in FORMAT_MAP:
@@ -75,8 +82,12 @@ def build_command(payload: dict) -> list[str]:
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    section = f"*{seconds_to_clock(start)}-{seconds_to_clock(end)}"
-    output_template = str(OUTPUT_DIR / "%(title).160s [%(id)s] %(section_start)s-%(section_end)s.%(ext)s")
+    if mode == "section":
+        section = f"*{seconds_to_clock(start)}-{seconds_to_clock(end)}"
+        output_template = str(OUTPUT_DIR / "%(title).160s [%(id)s] %(section_start)s-%(section_end)s.%(ext)s")
+    else:
+        section = None
+        output_template = str(OUTPUT_DIR / "%(title).160s [%(id)s].%(ext)s")
 
     cmd = ["yt-dlp"]
 
@@ -85,10 +96,10 @@ def build_command(payload: dict) -> list[str]:
     else:
         cmd += ["-f", FORMAT_MAP[quality], "--merge-output-format", "mp4"]
 
-    cmd += ["--download-sections", section]
-
-    if bool(payload.get("forceKeyframes")):
-        cmd.append("--force-keyframes-at-cuts")
+    if mode == "section":
+        cmd += ["--download-sections", section]
+        if bool(payload.get("forceKeyframes")):
+            cmd.append("--force-keyframes-at-cuts")
 
     if cookie_browser:
         cmd += ["--cookies-from-browser", cookie_browser]
@@ -98,7 +109,7 @@ def build_command(payload: dict) -> list[str]:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "ClipTapHelper/1.0"
+    server_version = "ClipTapHelper/1.1.2"
 
     def log_message(self, fmt, *args):
         print("[ClipTap] " + fmt % args)

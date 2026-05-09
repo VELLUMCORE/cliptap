@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.1.2
+
+- Move the ClipTap player panel upward so it no longer blocks the progress bar.
+- Add a full video download button to the player panel and popup.
+- Add helper support for section and full download modes.
+- Use `extension/icons/cliptap.png` for the player control icon so users can replace the logo.
+
+
 ## v1.1.1
 
 - YouTube 페이지 접속 시 멈춤을 유발할 수 있던 전역 MutationObserver 렌더 루프를 제거했습니다.

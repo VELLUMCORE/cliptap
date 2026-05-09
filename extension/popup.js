@@ -10,6 +10,7 @@ const els = {
   cookieSelect: document.getElementById('cookieSelect'),
   forceKeyframes: document.getElementById('forceKeyframes'),
   downloadBtn: document.getElementById('downloadBtn'),
+  fullDownloadBtn: document.getElementById('fullDownloadBtn'),
   copyBtn: document.getElementById('copyBtn'),
   message: document.getElementById('message')
 };
@@ -73,24 +74,32 @@ async function checkHelper() {
   }
 }
 
-function getPayload() {
-  const start = clockToSeconds(els.startInput.value);
-  const end = clockToSeconds(els.endInput.value);
+function getPayload(mode = 'section') {
   if (!activeState?.url) throw new Error('영상 URL을 못 찾았어.');
-  if (!Number.isFinite(start) || !Number.isFinite(end)) throw new Error('시작/끝 시간을 확인해줘. 예: 00:01:20');
-  if (end <= start) throw new Error('끝 시간이 시작 시간보다 뒤여야 해.');
-  return {
+
+  const payload = {
+    mode,
     url: activeState.url,
     title: activeState.title || '',
-    start,
-    end,
     quality: els.qualitySelect.value,
     cookieBrowser: els.cookieSelect.value,
     forceKeyframes: els.forceKeyframes.checked
   };
+
+  if (mode === 'section') {
+    const start = clockToSeconds(els.startInput.value);
+    const end = clockToSeconds(els.endInput.value);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) throw new Error('시작/끝 시간을 확인해줘. 예: 00:01:20');
+    if (end <= start) throw new Error('끝 시간이 시작 시간보다 뒤여야 해.');
+    payload.start = start;
+    payload.end = end;
+  }
+
+  return payload;
 }
 
 function buildCommand(payload) {
+  const isFull = payload.mode === 'full';
   const start = secondsToClock(payload.start);
   const end = secondsToClock(payload.end);
   const formatMap = {
@@ -105,8 +114,10 @@ function buildCommand(payload) {
   } else {
     parts.push('-f', `"${formatMap[payload.quality] || formatMap.best}"`, '--merge-output-format', 'mp4');
   }
-  parts.push('--download-sections', `"*${start}-${end}"`);
-  if (payload.forceKeyframes) parts.push('--force-keyframes-at-cuts');
+  if (!isFull) {
+    parts.push('--download-sections', `"*${start}-${end}"`);
+    if (payload.forceKeyframes) parts.push('--force-keyframes-at-cuts');
+  }
   if (payload.cookieBrowser) parts.push('--cookies-from-browser', payload.cookieBrowser);
   parts.push('-P', '"%USERPROFILE%\\Downloads\\ClipTap"');
   parts.push(`"${payload.url}"`);
@@ -123,19 +134,31 @@ els.setEndBtn.addEventListener('click', async () => {
   if (activeState) els.endInput.value = secondsToClock(activeState.currentTime || 0);
 });
 
+async function sendDownloadRequest(mode) {
+  await refreshState();
+  const payload = getPayload(mode);
+  setMessage(mode === 'full' ? '전체 다운로드 요청 보내는 중...' : '구간 다운로드 요청 보내는 중...');
+  const res = await fetch('http://127.0.0.1:17723/download', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || '헬퍼 오류');
+  setMessage(mode === 'full' ? '전체 다운로드 시작됨. helper 창에서 진행률을 볼 수 있어.' : '구간 다운로드 시작됨. helper 창에서 진행률을 볼 수 있어.');
+}
+
 els.downloadBtn.addEventListener('click', async () => {
   try {
-    await refreshState();
-    const payload = getPayload();
-    setMessage('다운로드 요청 보내는 중...');
-    const res = await fetch('http://127.0.0.1:17723/download', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || '헬퍼 오류');
-    setMessage('다운로드 시작됨. helper 창에서 진행률을 볼 수 있어.');
+    await sendDownloadRequest('section');
+  } catch (error) {
+    setMessage(error.message || String(error));
+  }
+});
+
+els.fullDownloadBtn.addEventListener('click', async () => {
+  try {
+    await sendDownloadRequest('full');
   } catch (error) {
     setMessage(error.message || String(error));
   }
@@ -144,7 +167,7 @@ els.downloadBtn.addEventListener('click', async () => {
 els.copyBtn.addEventListener('click', async () => {
   try {
     await refreshState();
-    const payload = getPayload();
+    const payload = getPayload('section');
     await navigator.clipboard.writeText(buildCommand(payload));
     setMessage('명령어 복사됨. PowerShell에 붙여넣으면 돼.');
   } catch (error) {
