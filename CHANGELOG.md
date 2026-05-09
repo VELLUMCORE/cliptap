@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.1.1
+
+- YouTube 페이지 접속 시 멈춤을 유발할 수 있던 전역 MutationObserver 렌더 루프를 제거했습니다.
+- 렌더링을 스로틀링하고 YouTube 내비게이션 이벤트 중심으로 재탐색하도록 변경했습니다.
+
+
 ## v1.1.0
 
 - Move ClipTap from a fixed page panel into YouTube's player controls.

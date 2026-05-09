@@ -14,6 +14,10 @@
   };
 
   const MIN_GAP_SECONDS = 0.05;
+  const RENDER_MIN_INTERVAL_MS = 300;
+  let renderTimer = null;
+  let lastRenderAt = 0;
+
 
   function getVideo() {
     const videos = [...document.querySelectorAll('video')];
@@ -613,10 +617,32 @@
     return true;
   });
 
-  loadOptions();
-  render();
+  function scheduleRender() {
+    if (renderTimer) return;
 
-  const observer = new MutationObserver(() => render());
-  observer.observe(document.documentElement, { childList: true, subtree: true });
-  setInterval(render, 500);
+    const now = Date.now();
+    const delay = Math.max(0, RENDER_MIN_INTERVAL_MS - (now - lastRenderAt));
+    renderTimer = window.setTimeout(() => {
+      renderTimer = null;
+      lastRenderAt = Date.now();
+      render();
+    }, delay);
+  }
+
+  loadOptions();
+  scheduleRender();
+
+  // YouTube mutates a huge amount of DOM while loading/playing.
+  // v1.1 rendered on every subtree mutation and could stall the page.
+  // Keep discovery lightweight: listen to navigation events, throttle root changes,
+  // and do a slow safety tick for controls recreated by YouTube.
+  ['yt-navigate-finish', 'ytd-navigate-finish', 'yt-page-data-updated'].forEach(name => {
+    window.addEventListener(name, scheduleRender, true);
+  });
+  window.addEventListener('popstate', scheduleRender, true);
+  window.addEventListener('hashchange', scheduleRender, true);
+
+  const observer = new MutationObserver(scheduleRender);
+  observer.observe(document.documentElement, { childList: true });
+  setInterval(scheduleRender, 1500);
 })();

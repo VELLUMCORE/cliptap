@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ClipTap",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "YouTube 플레이어 안에서 시작/끝 지점을 찍고 yt-dlp로 구간 다운로드합니다.",
   "permissions": [
     "activeTab",
