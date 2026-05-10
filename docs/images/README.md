@@ -1,16 +1,14 @@
 # Shared documentation images
 
-These screenshots are shared by both `README.md` and the GitHub Pages promotional site.
+These images are shared by the GitHub Pages promotional website and the project README.
 
-Keep the same file names when replacing screenshots:
-
-- `cliptap-helper-dashboard.png` — full Helper dashboard overview.
-- `cliptap-helper-queue.png` — Queue page with active/completed downloads.
-- `cliptap-helper-settings.png` — Settings page with download defaults.
-- `cliptap-helper-tools.png` — Tools/dependency check page.
-- `cliptap-helper-logs.png` — Logs page.
-- `cliptap-player-button.png` — ClipTap button placed in the YouTube player controls.
-- `cliptap-player-panel.png` — ClipTap player panel.
-- `cliptap-timeline-handles.png` — YouTube timeline with start/end handles.
-
-The website displays images with their natural aspect ratios. Do not crop screenshots just to fit a fixed card size.
+- `hero-video-preview.png`: Product composite used in the promo site hero section.
+- `cta-download-illustration.png`: Download illustration used in the final CTA banner.
+- `cliptap-helper-dashboard.png`: ClipTap Helper dashboard screenshot.
+- `cliptap-helper-queue.png`: ClipTap Helper queue page screenshot.
+- `cliptap-helper-settings.png`: ClipTap Helper settings page screenshot.
+- `cliptap-helper-tools.png`: ClipTap Helper tools page screenshot.
+- `cliptap-helper-logs.png`: ClipTap Helper logs page screenshot.
+- `cliptap-player-button.png`: ClipTap player button placement screenshot.
+- `cliptap-player-panel.png`: ClipTap player panel screenshot.
+- `cliptap-timeline-handles.png`: ClipTap timeline handles screenshot.

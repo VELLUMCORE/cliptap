@@ -6,8 +6,9 @@
 - No helper changes in this release.
 
 **ClipTap**
-- Rebuilt the GitHub Pages promotional website to closely match the provided desktop mockup with a dark utility-product layout, CSS product preview, compact feature cards, workflow steps, screenshot cards, final CTA, and footer.
-- Reused shared screenshot assets from `docs/images` for both the website and README.
+- Rebuilt the GitHub Pages promotional website to match the provided dark desktop mockup.
+- Replaced CSS-only promo visuals with supplied hero and CTA image assets.
+- Replaced the final CTA illustration with supplied product preview artwork.
 
 ## v1.2.1
 
