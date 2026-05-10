@@ -42,25 +42,25 @@ INDEX_HTML = r"""<!doctype html>
   <title>ClipTap Helper</title>
   <link rel="stylesheet" href="/manager.css">
 </head>
-<body>
+<body data-page="dashboard">
   <div class="app-shell">
     <aside class="sidebar" aria-label="ClipTap navigation">
       <div class="brand side-brand">
         <div class="brand-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="24" height="24" fill="none"><path d="M12 4v10" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/><path d="m7.5 10 4.5 4.5L16.5 10" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 18h14" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/></svg>
         </div>
-        <div>
+        <div class="brand-copy">
           <h1>ClipTap Helper</h1>
           <p>Local helper for ClipTap downloads</p>
         </div>
       </div>
       <nav class="nav-list">
-        <a href="#dashboard" class="nav-item active"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10.8 12 3l9 7.8"/><path d="M5.8 9.3V21h4.4v-6.3h3.6V21h4.4V9.3"/></svg></span><span>Dashboard</span></a>
-        <a href="#queue" class="nav-item"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.4 2"/></svg></span><span>Queue</span></a>
-        <a href="#history" class="nav-item"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 6h12"/><path d="M8 12h12"/><path d="M8 18h12"/><circle cx="4.5" cy="6" r="1.2"/><circle cx="4.5" cy="12" r="1.2"/><circle cx="4.5" cy="18" r="1.2"/></svg></span><span>History</span></a>
-        <a href="#tools" class="nav-item"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14.7 5.3a4.2 4.2 0 0 0 4.9 5.9l-7.8 7.8a2.6 2.6 0 1 1-3.7-3.7l7.8-7.8a4.2 4.2 0 0 0-1.2-2.2Z"/><circle cx="9.9" cy="17.2" r=".9"/></svg></span><span>Tools</span></a>
-        <a href="#defaults" class="nav-item"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Z"/><path d="M19.2 12a7.5 7.5 0 0 0-.1-1.1l2-1.5-2-3.5-2.4 1a8.3 8.3 0 0 0-1.9-1.1L14.5 3h-5l-.4 2.8c-.7.3-1.3.6-1.9 1.1l-2.4-1-2 3.5 2 1.5a7.5 7.5 0 0 0 0 2.2l-2 1.5 2 3.5 2.4-1c.6.5 1.2.8 1.9 1.1l.4 2.8h5l.4-2.8c.7-.3 1.3-.6 1.9-1.1l2.4 1 2-3.5-2-1.5c.1-.4.1-.7.1-1.1Z"/></svg></span><span>Settings</span></a>
-        <a href="#logs" class="nav-item"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3.5h7l4 4V20.5H7z"/><path d="M14 3.5V8h4"/><path d="M9.5 12h5"/><path d="M9.5 16h5"/></svg></span><span>Logs</span></a>
+        <a href="#" class="nav-item active" data-page="dashboard" aria-current="page"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10.8 12 3l9 7.8"/><path d="M5.8 9.3V21h4.4v-6.3h3.6V21h4.4V9.3"/></svg></span><span>Dashboard</span></a>
+        <a href="#" class="nav-item" data-page="queue"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.4 2"/></svg></span><span>Queue</span></a>
+        <a href="#" class="nav-item" data-page="history"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 6h12"/><path d="M8 12h12"/><path d="M8 18h12"/><circle cx="4.5" cy="6" r="1.2"/><circle cx="4.5" cy="12" r="1.2"/><circle cx="4.5" cy="18" r="1.2"/></svg></span><span>History</span></a>
+        <a href="#" class="nav-item" data-page="tools"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14.7 5.3a4.2 4.2 0 0 0 4.9 5.9l-7.8 7.8a2.6 2.6 0 1 1-3.7-3.7l7.8-7.8a4.2 4.2 0 0 0-1.2-2.2Z"/><circle cx="9.9" cy="17.2" r=".9"/></svg></span><span>Tools</span></a>
+        <a href="#" class="nav-item" data-page="settings"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Z"/><path d="M19.2 12a7.5 7.5 0 0 0-.1-1.1l2-1.5-2-3.5-2.4 1a8.3 8.3 0 0 0-1.9-1.1L14.5 3h-5l-.4 2.8c-.7.3-1.3.6-1.9 1.1l-2.4-1-2 3.5 2 1.5a7.5 7.5 0 0 0 0 2.2l-2 1.5 2 3.5 2.4-1c.6.5 1.2.8 1.9 1.1l.4 2.8h5l.4-2.8c.7-.3 1.3-.6 1.9-1.1l2.4 1 2-3.5-2-1.5c.1-.4.1-.7.1-1.1Z"/></svg></span><span>Settings</span></a>
+        <a href="#" class="nav-item" data-page="logs"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3.5h7l4 4V20.5H7z"/><path d="M14 3.5V8h4"/><path d="M9.5 12h5"/><path d="M9.5 16h5"/></svg></span><span>Logs</span></a>
       </nav>
 
       <div class="side-note">
@@ -128,6 +128,16 @@ INDEX_HTML = r"""<!doctype html>
           <label class="field"><span>Cookies from browser</span><select id="cookieBrowser"><option>None</option><option>Chrome</option><option>Edge</option><option>Firefox</option></select></label>
           <label class="check-line"><input id="autoMerge" type="checkbox" checked> <span>Auto-merge with ffmpeg</span></label>
           <button id="saveDefaults" class="button save" type="button">Save Settings</button>
+        </article>
+
+        <article class="card history-card" id="history" aria-label="Download history">
+          <div class="section-head">
+            <h2><span class="title-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 6h12"/><path d="M8 12h12"/><path d="M8 18h12"/><circle cx="4.5" cy="6" r="1.2"/><circle cx="4.5" cy="12" r="1.2"/><circle cx="4.5" cy="18" r="1.2"/></svg></span>DOWNLOAD HISTORY</h2>
+          </div>
+          <div class="placeholder-panel">
+            <strong>No saved history yet.</strong>
+            <p>Completed downloads remain visible in the queue during this helper session.</p>
+          </div>
         </article>
 
         <article class="card logs-card" id="logs">
@@ -209,11 +219,11 @@ button, input, select { font: inherit; }
   gap: 18px;
   overflow: hidden;
 }
-.brand { display: flex; align-items: center; gap: 13px; min-width: 0; }
-.side-brand { flex: 0 0 auto; padding: 0 10px 5px; }
+.brand { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
+.side-brand { flex: 0 0 auto; padding: 0 4px 5px; }
 .brand-icon {
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   border-radius: 5px;
   display: grid;
   place-items: center;
@@ -221,10 +231,10 @@ button, input, select { font: inherit; }
   background: linear-gradient(135deg, #4e6bff, #765cff);
   border: 1px solid rgba(255,255,255,.16);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.18);
-  flex: 0 0 40px;
+  flex: 0 0 38px;
 }
-.brand h1 { margin: 0; font-size: 23px; line-height: 1.05; letter-spacing: -.03em; font-weight: 760; }
-.brand p { margin: 5px 0 0; color: var(--muted); font-size: 13px; white-space: nowrap; }
+.brand h1 { margin: 0; font-size: 20px; line-height: 1.08; letter-spacing: -.025em; font-weight: 760; white-space: nowrap; }
+.brand p { margin: 5px 0 0; color: var(--muted); font-size: 12px; line-height: 1.32; white-space: normal; overflow-wrap: anywhere; }
 .nav-list { display: grid; gap: 6px; margin: 7px 0 0; flex: 0 0 auto; }
 .nav-item {
   min-height: 38px;
@@ -460,6 +470,62 @@ button, input, select { font: inherit; }
 .install-drawer { position: fixed; right: 24px; bottom: 24px; width: min(560px, calc(100vw - 48px)); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 18px 50px rgba(0,0,0,.36); }
 .install-head { display: flex; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--line-soft); }
 #installLog { height: 220px; border-top: 0; }
+
+.brand-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+body[data-page="dashboard"] .history-card {
+  display: none;
+}
+body:not([data-page="dashboard"]) .layout-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+body:not([data-page="dashboard"]) .layout-grid > .card {
+  display: none;
+}
+body[data-page="queue"] .layout-grid > .queue-card,
+body[data-page="history"] .layout-grid > .history-card,
+body[data-page="tools"] .layout-grid > .tools-card,
+body[data-page="settings"] .layout-grid > .defaults-card,
+body[data-page="logs"] .layout-grid > .logs-card {
+  display: block;
+  grid-column: 1 / -1;
+}
+body[data-page="queue"] .queue-card,
+body[data-page="history"] .history-card,
+body[data-page="tools"] .tools-card,
+body[data-page="settings"] .defaults-card,
+body[data-page="logs"] .logs-card {
+  min-height: min(620px, calc(100vh - 98px));
+}
+body[data-page="tools"] .tools-card,
+body[data-page="settings"] .defaults-card {
+  max-width: 920px;
+}
+body[data-page="logs"] .logs-card pre {
+  height: calc(100vh - 175px);
+  min-height: 360px;
+}
+.placeholder-panel {
+  margin-top: 10px;
+  min-height: 240px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  text-align: center;
+  gap: 7px;
+  color: var(--muted);
+  border-top: 1px solid var(--line-soft);
+}
+.placeholder-panel strong {
+  color: #e7edf8;
+  font-size: 14px;
+}
+.placeholder-panel p {
+  margin: 0;
+}
+
 @keyframes pulse { 0% { opacity: .65; } 50% { opacity: 1; } 100% { opacity: .65; } }
 @media (max-width: 1180px) {
   html, body { overflow: hidden; }
@@ -479,7 +545,7 @@ button, input, select { font: inherit; }
   .side-brand { padding: 0; }
   .nav-list { display: flex; flex-wrap: wrap; margin: 0; }
   .side-note, .sidebar-footer { display: none; }
-  .main { grid-column: 1; height: auto; min-height: 0; overflow-y: auto; padding: 12px 16px 20px; }
+  .main { grid-column: 1; height: calc(100vh - 78px); min-height: 0; overflow-y: auto; padding: 12px 16px 20px; }
   .main-header { margin-bottom: 12px; }
   .layout-grid { grid-template-columns: 1fr; }
 }
@@ -747,6 +813,39 @@ $('#clearLogs')?.addEventListener('click', () => { logLines = []; renderLogs(); 
 $('#saveDefaults')?.addEventListener('click', saveDefaults);
 $('#checkUpdatesLink')?.addEventListener('click', () => addLog('info', 'Update check is manual in this local build.'));
 
+
+function pageFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const page = params.get('page') || 'dashboard';
+  return ['dashboard', 'queue', 'history', 'tools', 'settings', 'logs'].includes(page) ? page : 'dashboard';
+}
+
+function setPage(page, push = true) {
+  document.body.dataset.page = page;
+  document.querySelectorAll('.nav-item[data-page]').forEach((item) => {
+    const active = item.dataset.page === page;
+    item.classList.toggle('active', active);
+    if (active) item.setAttribute('aria-current', 'page');
+    else item.removeAttribute('aria-current');
+  });
+  if (push) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', page);
+    history.pushState({ page }, '', url);
+  }
+  document.querySelector('.main')?.scrollTo({ top: 0, behavior: 'instant' });
+}
+
+document.querySelectorAll('.nav-item[data-page]').forEach((item) => {
+  item.addEventListener('click', (event) => {
+    event.preventDefault();
+    setPage(item.dataset.page || 'dashboard');
+  });
+});
+
+window.addEventListener('popstate', () => setPage(pageFromUrl(), false));
+
+setPage(pageFromUrl(), false);
 loadDefaults();
 addLog('info', 'Server started on http://127.0.0.1:17723');
 addLog('info', 'Extension requests will appear in the queue automatically.');

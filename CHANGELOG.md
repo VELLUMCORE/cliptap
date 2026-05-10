@@ -30,8 +30,11 @@
 - Fixed the Helper AppShell layout so the main dashboard fills the remaining viewport width.
 - Constrained page scrolling to the main content area while keeping the sidebar fixed at full viewport height.
 - Removed the dashboard width cap and adjusted wide-screen grid columns so cards use available space naturally.
+- Fixed clipped sidebar brand text by tightening the brand block and allowing the subtitle to wrap.
+- Changed sidebar navigation from in-page anchor scrolling to page-style dashboard view switching.
 
 **ClipTap**
+- Updated package script defaults to `v1.2-6`.
 - Updated package script defaults to `v1.2-5`.
 - Restored package output names to use version and specific build IDs.
 - Updated package script defaults to `v1.2-4`.
