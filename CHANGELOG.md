@@ -1,8 +1,18 @@
 # Changelog
 
+## v1.3
+
+**ClipTap Helper**
+- No helper changes in this release.
+
+**ClipTap**
+- Updated the GitHub Pages website to reuse the shared README screenshots from `docs/images`.
+
 ## v1.2.1
 
 **ClipTap Helper**
+- Shortened queue status labels such as `Downloading...` and `Trimming...` to prevent wrapped status text in the manager table.
+- Slightly widened the Status column and applied no-wrap ellipsis styling for compact queue rows.
 - Changed selected section trimming to accurate FFmpeg transcoding so exported clips match the start/end positions selected in YouTube.
 - Moved section download working files from the visible download folder to the OS temporary directory.
 - Added cleanup for leftover `.part`, `.ytdl`, `.temp`, and legacy `.cliptap-temp` files after jobs finish when no other downloads are active.

@@ -427,8 +427,8 @@ button, input, select { font: inherit; }
 .queue-table th:first-child, .queue-table td:first-child { width: 42px; text-align: center; padding-inline: 4px; }
 .queue-table th:nth-child(3), .queue-table td:nth-child(3) { width: 150px; padding-left: 14px; padding-right: 18px; }
 .queue-table th:nth-child(4), .queue-table td:nth-child(4) { width: 150px; padding-left: 14px; padding-right: 18px; }
-.queue-table th:nth-child(5), .queue-table td:nth-child(5) { width: 180px; }
-.queue-table th:nth-child(6), .queue-table td:nth-child(6) { width: 104px; }
+.queue-table th:nth-child(5), .queue-table td:nth-child(5) { width: 160px; }
+.queue-table th:nth-child(6), .queue-table td:nth-child(6) { width: 136px; }
 .title-cell strong { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .title-cell small { display: block; margin-top: 2px; color: #9ba9ba; font-size: 11px; }
 .platform { display: inline-flex; align-items: center; gap: 6px; color: #dbe3ef; }
@@ -439,7 +439,7 @@ button, input, select { font: inherit; }
 .progress-bar { flex: 1; min-width: 80px; height: 7px; border-radius: 99px; background: #202a3a; overflow: hidden; }
 .progress-fill { height: 100%; width: 0%; border-radius: inherit; background: linear-gradient(90deg, #6f65ff, #8c7dff); }
 .progress-fill.live { width: 100%; background: linear-gradient(90deg, var(--orange), #ffd07a, var(--orange)); animation: pulse 1.35s linear infinite; }
-.status-badge { color: var(--blue-2); }
+.status-badge { color: var(--blue-2); display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status-badge.done { color: var(--green); }
 .status-badge.failed { color: var(--red); }
 .status-badge.queued { color: #e7edf8; }
@@ -1497,7 +1497,7 @@ def iter_process_records(process: subprocess.Popen, cancel_event: threading.Even
             buffer = ""
 
 def prepare_metadata(job: DownloadJob):
-    update_job(job, status="Reading video information...", phase="metadata")
+    update_job(job, status="Reading info...", phase="metadata")
     result = subprocess.run(
         build_metadata_command(job.payload),
         stdout=subprocess.PIPE,
@@ -1551,7 +1551,7 @@ def run_section_download(job: DownloadJob):
         if match:
             source_progress = max(0.0, min(100.0, float(match.group(1))))
             changes["progress"] = max(1.0, min(85.0, source_progress * 0.84 + 1.0))
-            changes["status"] = "Downloading source media for selected section..."
+            changes["status"] = "Downloading..."
         speed_match = speed_re.search(line)
         eta_match = eta_re.search(line)
         size_match = size_re.search(line)
@@ -1562,7 +1562,7 @@ def run_section_download(job: DownloadJob):
         if size_match:
             changes["downloaded"] = size_match.group(1)
         if "Merger" in line or "Merging formats" in line:
-            changes["status"] = "Preparing source media..."
+            changes["status"] = "Preparing..."
             changes["phase"] = "processing"
         if changes:
             update_job(job, **changes)
@@ -1585,13 +1585,13 @@ def run_section_download(job: DownloadJob):
             trim_progress = max(0.0, min(100.0, (elapsed / duration) * 100.0))
             update_job(
                 job,
-                status="Cutting selected section...",
+                status="Trimming...",
                 phase="processing",
                 progress=max(job.progress, min(99.0, 86.0 + trim_progress * 0.13)),
             )
 
     try:
-        update_job(job, status="Downloading source media for selected section...", phase="downloading", progress=1.0)
+        update_job(job, status="Downloading...", phase="downloading", progress=1.0)
         source_command = build_source_download_command(job, temp_dir)
         job.process = popen_text(source_command, temp_dir)
         for line in iter_process_records(job.process, job.cancel_event):
@@ -1606,7 +1606,7 @@ def run_section_download(job: DownloadJob):
 
         source_file = find_source_media_file(temp_dir)
         output_file = section_output_path(job, source_file)
-        update_job(job, status="Cutting selected section...", phase="processing", progress=max(job.progress, 86.0), speed="", eta="")
+        update_job(job, status="Trimming...", phase="processing", progress=max(job.progress, 86.0), speed="", eta="")
         trim_command = ffmpeg_trim_command(job, source_file, output_file)
         job.process = popen_text(trim_command, temp_dir)
         for line in iter_process_records(job.process, job.cancel_event):
@@ -1639,7 +1639,7 @@ def run_download(job: DownloadJob):
             return
 
         if job.is_live and job.payload["mode"] == "full":
-            status = "Recording live stream..."
+            status = "Recording..."
             phase = "live"
         else:
             status = "Downloading..."
@@ -1701,7 +1701,7 @@ def run_download(job: DownloadJob):
                     elapsed = clock_to_seconds(ffmpeg_time_match.group(1))
                 if elapsed is not None:
                     changes["progress"] = section_progress_from_elapsed(elapsed)
-                    changes["status"] = "Downloading selected section..."
+                    changes["status"] = "Downloading..."
 
             speed_match = speed_re.search(line)
             eta_match = eta_re.search(line)
@@ -1714,14 +1714,14 @@ def run_download(job: DownloadJob):
                 changes["downloaded"] = size_match.group(1)
 
             if "[download] Destination:" in line:
-                changes["status"] = "Downloading media..."
+                changes["status"] = "Downloading..."
                 if section_duration and job.progress <= 0:
                     changes["progress"] = 1.0
             elif "Merger" in line or "Merging formats" in line:
-                changes["status"] = "Merging video and audio..."
+                changes["status"] = "Merging..."
                 changes["phase"] = "processing"
             elif "Deleting original file" in line:
-                changes["status"] = "Cleaning temporary files..."
+                changes["status"] = "Cleaning..."
                 changes["phase"] = "processing"
 
             if changes:

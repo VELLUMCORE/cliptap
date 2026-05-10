@@ -19,7 +19,7 @@ GitHub will publish the site at the default GitHub Pages domain.
 Add real screenshots to:
 
 ```text
-docs/assets/screenshots/
+docs/images/
 ```
 
 The landing page already references the expected filenames. Missing screenshots are replaced with simple fallback blocks until real images are added.

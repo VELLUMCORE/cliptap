@@ -2,8 +2,8 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${ROOT}/dist"
-VERSION="${CLIPTAP_VERSION:-v1.2.1}"
-SPECIFIC_ID="${CLIPTAP_SPECIFIC_ID:-4}"
+VERSION="${CLIPTAP_VERSION:-v1.3}"
+SPECIFIC_ID="${CLIPTAP_SPECIFIC_ID:-1}"
 if [ -n "${SPECIFIC_ID}" ]; then
   BASENAME="cliptap-${VERSION}-${SPECIFIC_ID}"
 else
