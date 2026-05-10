@@ -1224,6 +1224,11 @@ def build_download_command(job: DownloadJob) -> list[str]:
     if mode == "section":
         section = f"*{seconds_to_clock(payload['start'])}-{seconds_to_clock(payload['end'])}"
         command += ["--download-sections", section]
+        # yt-dlp uses FFmpeg for selected time ranges. On Windows, FFmpeg can
+        # update progress with carriage-return or key=value progress records
+        # instead of normal yt-dlp percentage lines, so ask FFmpeg to emit a
+        # machine-readable progress stream that the manager can parse.
+        command += ["--downloader-args", "ffmpeg:-progress pipe:1 -stats_period 0.5 -nostats"]
         output_template = str(OUTPUT_DIR / "%(title).160s [%(id)s] %(section_start)s-%(section_end)s.%(ext)s")
         if payload.get("forceKeyframes"):
             command.append("--force-keyframes-at-cuts")
@@ -1354,8 +1359,16 @@ def prepare_metadata(job: DownloadJob):
 def run_download(job: DownloadJob):
     try:
         prepare_metadata(job)
-        status = "Recording live stream..." if job.is_live and job.payload["mode"] == "full" else "Downloading..."
-        update_job(job, status=status, phase="live" if job.is_live and job.payload["mode"] == "full" else "downloading")
+        if job.is_live and job.payload["mode"] == "full":
+            status = "Recording live stream..."
+            phase = "live"
+        elif job.payload["mode"] == "section":
+            status = "Starting selected section download..."
+            phase = "downloading"
+        else:
+            status = "Downloading..."
+            phase = "downloading"
+        update_job(job, status=status, phase=phase)
 
         command = build_download_command(job)
         job.process = popen_text(command, OUTPUT_DIR)
@@ -1366,9 +1379,22 @@ def run_download(job: DownloadJob):
         size_re = re.compile(r"of\s+~?([^\s]+)")
 
         ffmpeg_time_re = re.compile(r"\btime=(\d+:\d+:\d+(?:\.\d+)?)")
+        ffmpeg_out_time_re = re.compile(r"\bout_time=(\d+:\d+:\d+(?:\.\d+)?)")
+        ffmpeg_out_time_raw_re = re.compile(r"\bout_time_(?:ms|us)=(\d+)")
         section_duration = None
+        section_start = 0.0
+        section_end = 0.0
         if job.payload["mode"] == "section":
-            section_duration = max(0.1, float(job.payload["end"]) - float(job.payload["start"]))
+            section_start = float(job.payload["start"])
+            section_end = float(job.payload["end"])
+            section_duration = max(0.1, section_end - section_start)
+
+        def section_progress_from_elapsed(elapsed: float) -> float:
+            # FFmpeg may report either output-relative time such as 00:00:12
+            # or source-relative time such as 00:09:13 depending on the input.
+            if section_duration and elapsed > section_duration and section_start <= elapsed <= section_end + 5:
+                elapsed -= section_start
+            return max(1.0, min(99.0, (elapsed / section_duration) * 100.0))
 
         for line in iter_process_records(job.process, job.cancel_event):
             if job.cancel_event.is_set():
@@ -1380,11 +1406,26 @@ def run_download(job: DownloadJob):
             if match and not (job.is_live and job.payload["mode"] == "full"):
                 changes["progress"] = max(0.0, min(100.0, float(match.group(1))))
 
-            ffmpeg_time_match = ffmpeg_time_re.search(line)
-            if section_duration and ffmpeg_time_match and not changes.get("progress"):
-                elapsed = clock_to_seconds(ffmpeg_time_match.group(1))
-                changes["progress"] = max(1.0, min(99.0, (elapsed / section_duration) * 100.0))
-                changes["status"] = "Downloading selected section..."
+            if section_duration and not changes.get("progress"):
+                elapsed = None
+                ffmpeg_out_time_raw_match = ffmpeg_out_time_raw_re.search(line)
+                ffmpeg_out_time_match = ffmpeg_out_time_re.search(line)
+                ffmpeg_time_match = ffmpeg_time_re.search(line)
+                if ffmpeg_out_time_raw_match:
+                    raw_time = float(ffmpeg_out_time_raw_match.group(1))
+                    # FFmpeg's out_time_ms is historically microseconds in many
+                    # builds despite the name. Prefer microseconds, but fall back
+                    # to milliseconds if the result is implausibly tiny.
+                    elapsed = raw_time / 1_000_000.0
+                    if elapsed < 0.01 and raw_time > 0:
+                        elapsed = raw_time / 1000.0
+                elif ffmpeg_out_time_match:
+                    elapsed = clock_to_seconds(ffmpeg_out_time_match.group(1))
+                elif ffmpeg_time_match:
+                    elapsed = clock_to_seconds(ffmpeg_time_match.group(1))
+                if elapsed is not None:
+                    changes["progress"] = section_progress_from_elapsed(elapsed)
+                    changes["status"] = "Downloading selected section..."
 
             speed_match = speed_re.search(line)
             eta_match = eta_re.search(line)

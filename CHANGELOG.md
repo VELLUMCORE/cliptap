@@ -3,6 +3,10 @@
 ## v1.2.1
 
 **ClipTap Helper**
+- Added FFmpeg `-progress pipe:1` output for section downloads so the manager can receive real selected-range progress updates instead of staying at 1%.
+- Added parsing for FFmpeg `out_time`, `out_time_ms`, and `out_time_us` progress records.
+- Improved section progress calculation for both output-relative and source-timestamp-relative FFmpeg time values.
+- Changed section jobs to enter a selected-section download status before media processing starts.
 - Fixed section downloads appearing stuck at 0% by reading yt-dlp/FFmpeg progress output split by both newlines and carriage returns.
 - Added FFmpeg time-based progress parsing for selected section downloads.
 - Prefer the external `python -m yt_dlp` launcher before the embedded helper wrapper when running from source.
