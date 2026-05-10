@@ -2,6 +2,12 @@
 
 ## v1.4.0
 
+- Redesigned the helper Web Manager into a dark dashboard layout based on the provided mockup.
+- Moved the ClipTap Helper brand block from the sidebar into a full-width top header.
+- Removed divider styling from the top header and left navigation so both blend into the main background.
+- Increased the left navigation item text size for better readability.
+- Replaced text-based navigation and section icons with inline SVG icons.
+
 - Reworked the helper into a single-file Web UI manager source (`helper/ClipTapHelper.py`).
 - Added a one-file Windows helper build script (`helper/build-standalone.ps1`).
 - Added a GitHub Actions workflow for building `ClipTapHelper.exe` on Windows.

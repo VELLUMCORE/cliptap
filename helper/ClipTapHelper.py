@@ -44,8 +44,8 @@ INDEX_HTML = r"""<!doctype html>
 </head>
 <body>
   <div class="app-shell">
-    <aside class="sidebar" aria-label="ClipTap navigation">
-      <div class="brand">
+    <header class="topbar">
+      <div class="brand top-brand">
         <div class="brand-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="24" height="24" fill="none"><path d="M12 4v10" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/><path d="m7.5 10 4.5 4.5L16.5 10" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 18h14" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/></svg>
         </div>
@@ -54,18 +54,21 @@ INDEX_HTML = r"""<!doctype html>
           <p>Local helper for ClipTap downloads</p>
         </div>
       </div>
+      <div class="run-pill"><span></span>Running</div>
+    </header>
 
+    <aside class="sidebar" aria-label="ClipTap navigation">
       <nav class="nav-list">
-        <a href="#dashboard" class="nav-item active"><span class="nav-icon">⌂</span>Dashboard</a>
-        <a href="#queue" class="nav-item"><span class="nav-icon">◷</span>Queue</a>
-        <a href="#history" class="nav-item"><span class="nav-icon">☷</span>History</a>
-        <a href="#tools" class="nav-item"><span class="nav-icon">⌘</span>Tools</a>
-        <a href="#defaults" class="nav-item"><span class="nav-icon">⚙</span>Settings</a>
-        <a href="#logs" class="nav-item"><span class="nav-icon">▧</span>Logs</a>
+        <a href="#dashboard" class="nav-item active"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10.8 12 3l9 7.8"/><path d="M5.8 9.3V21h4.4v-6.3h3.6V21h4.4V9.3"/></svg></span><span>Dashboard</span></a>
+        <a href="#queue" class="nav-item"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.4 2"/></svg></span><span>Queue</span></a>
+        <a href="#history" class="nav-item"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 6h12"/><path d="M8 12h12"/><path d="M8 18h12"/><circle cx="4.5" cy="6" r="1.2"/><circle cx="4.5" cy="12" r="1.2"/><circle cx="4.5" cy="18" r="1.2"/></svg></span><span>History</span></a>
+        <a href="#tools" class="nav-item"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14.7 5.3a4.2 4.2 0 0 0 4.9 5.9l-7.8 7.8a2.6 2.6 0 1 1-3.7-3.7l7.8-7.8a4.2 4.2 0 0 0-1.2-2.2Z"/><circle cx="9.9" cy="17.2" r=".9"/></svg></span><span>Tools</span></a>
+        <a href="#defaults" class="nav-item"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Z"/><path d="M19.2 12a7.5 7.5 0 0 0-.1-1.1l2-1.5-2-3.5-2.4 1a8.3 8.3 0 0 0-1.9-1.1L14.5 3h-5l-.4 2.8c-.7.3-1.3.6-1.9 1.1l-2.4-1-2 3.5 2 1.5a7.5 7.5 0 0 0 0 2.2l-2 1.5 2 3.5 2.4-1c.6.5 1.2.8 1.9 1.1l.4 2.8h5l.4-2.8c.7-.3 1.3-.6 1.9-1.1l2.4 1 2-3.5-2-1.5c.1-.4.1-.7.1-1.1Z"/></svg></span><span>Settings</span></a>
+        <a href="#logs" class="nav-item"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3.5h7l4 4V20.5H7z"/><path d="M14 3.5V8h4"/><path d="M9.5 12h5"/><path d="M9.5 16h5"/></svg></span><span>Logs</span></a>
       </nav>
 
       <div class="side-note">
-        <span class="note-icon">ⓘ</span>
+        <span class="note-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 10.5v5"/><path d="M12 7.8h.01"/></svg></span>
         <p>The browser extension sends requests here automatically.</p>
       </div>
 
@@ -76,29 +79,24 @@ INDEX_HTML = r"""<!doctype html>
     </aside>
 
     <main class="main" id="dashboard">
-      <header class="topbar">
-        <div class="top-spacer"></div>
-        <div class="run-pill"><span></span>Running</div>
-      </header>
-
       <section class="layout-grid">
         <article class="card server-card">
-          <div class="card-title"><span class="title-icon">&lt;/&gt;</span>SERVER STATUS</div>
+          <div class="card-title"><span class="title-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m8 8-4 4 4 4"/><path d="m16 8 4 4-4 4"/><path d="m14 5-4 14"/></svg></span>SERVER STATUS</div>
           <div class="status-rows">
-            <div class="status-row"><span>Local address:</span><strong data-role="server-url">http://127.0.0.1:17723</strong><button id="copyAddress" class="icon-button" type="button" title="Copy address">⧉</button></div>
+            <div class="status-row"><span>Local address:</span><strong data-role="server-url">http://127.0.0.1:17723</strong><button id="copyAddress" class="icon-button" type="button" title="Copy address"><svg viewBox="0 0 24 24"><path d="M8 8h10v12H8z"/><path d="M6 16H4V4h10v2"/></svg></button></div>
             <div class="status-row"><span>Extension connection:</span><strong class="ok">Connected</strong></div>
             <div class="status-row"><span>Requests today:</span><strong data-role="requests-today">0</strong></div>
           </div>
           <div class="button-row">
-            <button id="openOutput" class="button" type="button">▣ Open Download Folder</button>
-            <button id="copyAddressBottom" class="button" type="button">⧉ Copy Address</button>
-            <button id="restartHint" class="button" type="button">↻ Restart Helper</button>
-            <button id="moreMenu" class="button square" type="button">⋯</button>
+            <button id="openOutput" class="button" type="button"><span class="button-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3.5 6.5h6l2 2h9v9.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><path d="M3.5 10h17"/></svg></span>Open Download Folder</button>
+            <button id="copyAddressBottom" class="button" type="button"><span class="button-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 8h10v12H8z"/><path d="M6 16H4V4h10v2"/></svg></span>Copy Address</button>
+            <button id="restartHint" class="button" type="button"><span class="button-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg></span>Restart Helper</button>
+            <button id="moreMenu" class="button square" type="button" aria-label="More actions"><span class="button-icon dots" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18" cy="12" r="1.4"/></svg></span></button>
           </div>
         </article>
 
         <article class="card tools-card" id="tools">
-          <div class="card-title"><span class="title-icon">⌘</span>TOOLS / DEPENDENCY CHECK</div>
+          <div class="card-title"><span class="title-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14.7 5.3a4.2 4.2 0 0 0 4.9 5.9l-7.8 7.8a2.6 2.6 0 1 1-3.7-3.7l7.8-7.8a4.2 4.2 0 0 0-1.2-2.2Z"/><circle cx="9.9" cy="17.2" r=".9"/></svg></span>TOOLS / DEPENDENCY CHECK</div>
           <div class="tool-table">
             <div class="tool-row"><span>yt-dlp</span><strong data-role="yt-state" class="pending">Checking</strong><em data-role="yt-desc">—</em><button id="installYtDlp" class="mini-button" type="button">Check Again</button></div>
             <div class="tool-row"><span>ffmpeg</span><strong data-role="ffmpeg-state" class="pending">Checking</strong><em data-role="ffmpeg-desc">—</em><button id="installFfmpeg" class="mini-button" type="button">Check Again</button></div>
@@ -111,8 +109,8 @@ INDEX_HTML = r"""<!doctype html>
           <div class="section-head">
             <h2>ACTIVE DOWNLOAD QUEUE (<span data-role="active-count">0</span>)</h2>
             <div class="head-actions">
-              <button id="pauseQueue" class="button compact" type="button">Ⅱ Pause Queue</button>
-              <button id="cancelAll" class="button compact" type="button">⊘ Cancel All</button>
+              <button id="pauseQueue" class="button compact" type="button"><span class="button-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14"/><path d="M16 5v14"/></svg></span>Pause Queue</button>
+              <button id="cancelAll" class="button compact" type="button"><span class="button-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m7 17 10-10"/></svg></span>Cancel All</button>
             </div>
           </div>
           <div class="queue-table-wrap">
@@ -125,7 +123,7 @@ INDEX_HTML = r"""<!doctype html>
         </article>
 
         <article class="card defaults-card" id="defaults">
-          <div class="card-title"><span class="title-icon">⚙</span>DOWNLOAD DEFAULTS</div>
+          <div class="card-title"><span class="title-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Z"/><path d="M19.2 12a7.5 7.5 0 0 0-.1-1.1l2-1.5-2-3.5-2.4 1a8.3 8.3 0 0 0-1.9-1.1L14.5 3h-5l-.4 2.8c-.7.3-1.3.6-1.9 1.1l-2.4-1-2 3.5 2 1.5a7.5 7.5 0 0 0 0 2.2l-2 1.5 2 3.5 2.4-1c.6.5 1.2.8 1.9 1.1l.4 2.8h5l.4-2.8c.7-.3 1.3-.6 1.9-1.1l2.4 1 2-3.5-2-1.5c.1-.4.1-.7.1-1.1Z"/></svg></span>DOWNLOAD DEFAULTS</div>
           <label class="field"><span>Save folder</span><div class="field-line"><input data-role="output-dir" readonly value="Loading..."><button id="browseOutput" class="mini-button" type="button">Browse</button></div></label>
           <label class="field"><span>Filename rule</span><input id="filenameRule" value="%(uploader)s - %(title)s.%(ext)s"></label>
           <label class="field"><span>Preferred video format</span><select id="videoFormat"><option>mp4 (h264/aac)</option><option>webm (vp9/opus)</option><option>best available</option></select></label>
@@ -137,8 +135,8 @@ INDEX_HTML = r"""<!doctype html>
 
         <article class="card logs-card" id="logs">
           <div class="section-head">
-            <h2>▧ RECENT LOGS</h2>
-            <div class="head-actions"><label class="auto-scroll"><input id="autoScroll" type="checkbox" checked> Auto-scroll</label><button id="clearLogs" class="button compact" type="button">Clear</button><button id="openLogs" class="button compact" type="button">▣ Open Logs Folder</button></div>
+            <h2><span class="title-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3.5h7l4 4V20.5H7z"/><path d="M14 3.5V8h4"/><path d="M9.5 12h5"/><path d="M9.5 16h5"/></svg></span>RECENT LOGS</h2>
+            <div class="head-actions"><label class="auto-scroll"><input id="autoScroll" type="checkbox" checked> Auto-scroll</label><button id="clearLogs" class="button compact" type="button">Clear</button><button id="openLogs" class="button compact" type="button"><span class="button-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3.5 6.5h6l2 2h9v9.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><path d="M3.5 10h17"/></svg></span>Open Logs Folder</button></div>
           </div>
           <pre id="logOutput" aria-label="Recent logs"></pre>
         </article>
@@ -152,13 +150,11 @@ INDEX_HTML = r"""<!doctype html>
   </div>
   <script src="/manager.js"></script>
 </body>
-</html>
-"""
+</html>"""
 
 MANAGER_CSS = r""":root {
   color-scheme: dark;
   --bg: #070c15;
-  --sidebar: #080d18;
   --panel: #0d1422;
   --panel-2: #111a2b;
   --panel-3: #151f33;
@@ -189,13 +185,24 @@ body {
 }
 button, input, select { font: inherit; }
 button { color: inherit; }
-.app-shell { display: grid; grid-template-columns: 255px 1fr; min-height: 100vh; }
-.sidebar {
-  position: sticky; top: 0; height: 100vh;
-  padding: 22px 16px 18px;
-  background: linear-gradient(180deg, rgba(11, 17, 31, .98), rgba(5, 10, 18, .98));
-  border-right: 1px solid var(--line-soft);
-  display: flex; flex-direction: column; gap: 20px;
+svg { display: block; }
+svg path, svg circle { vector-effect: non-scaling-stroke; }
+.app-shell {
+  display: grid;
+  grid-template-columns: 255px 1fr;
+  grid-template-rows: 86px 1fr;
+  min-height: 100vh;
+}
+.topbar {
+  grid-column: 1 / -1;
+  height: 86px;
+  padding: 18px 29px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  background: transparent;
+  border: 0;
 }
 .brand { display: flex; align-items: center; gap: 14px; min-height: 50px; }
 .brand-icon {
@@ -208,20 +215,53 @@ button { color: inherit; }
 }
 .brand h1 { margin: 0; font-size: 24px; letter-spacing: -.02em; }
 .brand p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
-.nav-list { display: grid; gap: 8px; margin-top: 2px; }
+.sidebar {
+  position: sticky; top: 86px; height: calc(100vh - 86px);
+  padding: 9px 16px 18px;
+  background: transparent;
+  border: 0;
+  display: flex; flex-direction: column; gap: 20px;
+}
+.nav-list { display: grid; gap: 8px; margin-top: 0; }
 .nav-item {
-  height: 48px; display: flex; align-items: center; gap: 14px;
-  color: #e8edf6; text-decoration: none; padding: 0 15px; border-radius: 4px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  color: #eef3fb;
+  text-decoration: none;
+  padding: 0 16px;
+  border-radius: 4px;
   border: 1px solid transparent;
+  font-size: 16px;
+  font-weight: 560;
 }
 .nav-item:hover { background: rgba(255,255,255,.045); }
 .nav-item.active {
-  color: #bec7ff;
+  color: #c2caff;
   background: linear-gradient(90deg, rgba(116, 104, 255, .34), rgba(116, 104, 255, .12));
   border-left: 3px solid var(--blue);
-  padding-left: 12px;
+  padding-left: 13px;
 }
-.nav-icon { width: 25px; color: #dce4ff; font-size: 22px; line-height: 1; }
+.nav-icon {
+  width: 25px;
+  height: 25px;
+  color: #dce4ff;
+  display: grid;
+  place-items: center;
+  flex: 0 0 25px;
+}
+.nav-icon svg, .title-icon svg, .button-icon svg, .note-icon svg, .brand-icon svg, .icon-button svg {
+  width: 100%;
+  height: 100%;
+}
+.nav-icon svg, .title-icon svg, .button-icon svg, .note-icon svg, .icon-button svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .side-note {
   margin-top: auto; padding: 16px 14px;
   display: grid; grid-template-columns: 22px 1fr; gap: 10px;
@@ -229,12 +269,11 @@ button { color: inherit; }
   background: rgba(116,104,255,.1); color: #b9c3ff;
 }
 .side-note p { margin: 0; line-height: 1.45; }
-.note-icon { color: #aeb8ff; }
+.note-icon { width: 20px; height: 20px; color: #aeb8ff; }
 .sidebar-footer { color: #ccd5e5; }
 .sidebar-footer p { margin: 0 0 8px; }
 .link-button { background: transparent; border: 0; padding: 0; color: #9da8ff; text-decoration: underline; cursor: pointer; }
-.main { padding: 18px 24px 28px; min-width: 0; }
-.topbar { height: 46px; display: flex; align-items: center; justify-content: flex-end; }
+.main { padding: 0 24px 28px; min-width: 0; }
 .run-pill {
   min-width: 108px; height: 40px; padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; gap: 10px;
   border: 1px solid rgba(65, 219, 120, .32); border-radius: 5px;
@@ -254,7 +293,7 @@ button { color: inherit; }
   margin: 0; display: flex; align-items: center; gap: 10px;
   color: #dce5f6; font-weight: 700; font-size: 14px; letter-spacing: .02em;
 }
-.title-icon { color: #eaf0ff; opacity: .95; }
+.title-icon { width: 18px; height: 18px; color: #eaf0ff; opacity: .95; display: inline-grid; place-items: center; flex: 0 0 18px; }
 .status-rows { margin-top: 17px; display: grid; }
 .status-row {
   display: grid; grid-template-columns: 190px minmax(0, 1fr) 34px; align-items: center;
@@ -266,17 +305,21 @@ button { color: inherit; }
 .warn { color: var(--orange) !important; }
 .bad { color: var(--red) !important; }
 .pending { color: var(--muted) !important; }
-.icon-button { width: 30px; height: 30px; border: 0; border-radius: 4px; background: transparent; color: #c7d1e4; cursor: pointer; }
+.icon-button { width: 30px; height: 30px; border: 0; border-radius: 4px; background: transparent; color: #c7d1e4; cursor: pointer; display: grid; place-items: center; padding: 6px; }
 .icon-button:hover { background: rgba(255,255,255,.07); }
 .button-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
 .button, .mini-button {
   height: 36px; border-radius: 5px; border: 1px solid #2c384c; background: #111a2a;
   color: #f0f4fb; padding: 0 14px; cursor: pointer; font-weight: 650; font-size: 13px;
 }
+.button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .button:hover, .mini-button:hover { background: #172237; border-color: #3a4860; }
 .button.square { width: 38px; padding: 0; }
 .button.compact { height: 32px; font-size: 12px; }
-.button.save { display: block; margin: 18px auto 0; min-width: 108px; }
+.button.save { display: flex; margin: 18px auto 0; min-width: 108px; }
+.button-icon { width: 16px; height: 16px; color: #dce5f4; display: inline-grid; place-items: center; flex: 0 0 16px; }
+.button-icon.dots { width: 18px; height: 18px; }
+.button-icon.dots svg { fill: currentColor; stroke: none; }
 .mini-button { height: 30px; padding: 0 12px; justify-self: end; }
 .tool-table { margin-top: 13px; border-top: 1px solid var(--line-soft); }
 .tool-row {
@@ -334,14 +377,17 @@ button { color: inherit; }
 #installLog { height: 220px; border-top: 0; }
 @keyframes pulse { 0% { opacity: .65; } 50% { opacity: 1; } 100% { opacity: .65; } }
 @media (max-width: 1180px) {
-  .app-shell { grid-template-columns: 1fr; }
-  .sidebar { position: relative; height: auto; flex-direction: row; align-items: center; flex-wrap: wrap; }
+  .app-shell { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; }
+  .topbar { grid-column: 1; height: auto; padding: 16px; }
+  .sidebar { position: relative; top: 0; height: auto; flex-direction: row; align-items: center; flex-wrap: wrap; padding: 0 16px 12px; }
   .nav-list { display: flex; flex-wrap: wrap; }
   .side-note, .sidebar-footer { display: none; }
   .layout-grid { grid-template-columns: 1fr; }
+  .main { padding: 0 16px 20px; }
 }
 @media (max-width: 760px) {
-  .main { padding: 12px; }
+  .topbar { align-items: flex-start; flex-direction: column; }
+  .main { padding: 0 12px 16px; }
   .status-row, .tool-row { grid-template-columns: 1fr; gap: 5px; padding: 9px 0; }
   .section-head, .button-row, .head-actions { align-items: stretch; flex-direction: column; }
   .field-line { grid-template-columns: 1fr; }
