@@ -3,6 +3,9 @@
 ## v1.2.1
 
 **ClipTap Helper**
+- Reworked selected section downloads to avoid the yt-dlp `--download-sections` stall path by downloading source media to a temporary file and trimming it locally with FFmpeg.
+- Added staged section progress: source media download first, then FFmpeg section cutting.
+- Added automatic cleanup for temporary section download files.
 - Added FFmpeg `-progress pipe:1` output for section downloads so the manager can receive real selected-range progress updates instead of staying at 1%.
 - Added parsing for FFmpeg `out_time`, `out_time_ms`, and `out_time_us` progress records.
 - Improved section progress calculation for both output-relative and source-timestamp-relative FFmpeg time values.

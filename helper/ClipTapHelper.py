@@ -19,6 +19,7 @@ import subprocess
 import sys
 import threading
 import time
+import tempfile
 import uuid
 import webbrowser
 from dataclasses import dataclass, field
@@ -1244,6 +1245,100 @@ def build_download_command(job: DownloadJob) -> list[str]:
     return command
 
 
+
+def safe_filename(value: str, fallback: str = "cliptap") -> str:
+    value = re.sub(r"[\\/:*?\"<>|\x00-\x1f]", " ", value or "")
+    value = re.sub(r"\s+", " ", value).strip(" .")
+    if not value:
+        value = fallback
+    reserved = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
+    if value.upper() in reserved:
+        value = f"{value}_file"
+    return value[:150].rstrip(" .") or fallback
+
+
+def unique_path(path: Path) -> Path:
+    if not path.exists():
+        return path
+    stem = path.stem
+    suffix = path.suffix
+    parent = path.parent
+    for index in range(2, 1000):
+        candidate = parent / f"{stem} ({index}){suffix}"
+        if not candidate.exists():
+            return candidate
+    return parent / f"{stem} {uuid.uuid4().hex[:8]}{suffix}"
+
+
+def build_source_download_command(job: DownloadJob, temp_dir: Path) -> list[str]:
+    yt_dlp_cmd, _ = find_yt_dlp()
+    ffmpeg_path, _ = find_ffmpeg()
+    if not yt_dlp_cmd:
+        raise ClipTapError("yt-dlp is not installed.")
+    if not ffmpeg_path:
+        raise ClipTapError("FFmpeg is not installed.")
+
+    payload = job.payload
+    quality = payload["quality"]
+    temp_dir.mkdir(parents=True, exist_ok=True)
+
+    command = list(yt_dlp_cmd) + ["--newline", "--no-playlist", "--force-overwrites"]
+    if quality == "audio":
+        command += ["-f", FORMAT_MAP[quality], "-x", "--audio-format", "mp3"]
+    else:
+        command += ["-f", FORMAT_MAP[quality], "--merge-output-format", "mp4"]
+    command += ["--ffmpeg-location", str(ffmpeg_path)]
+    if payload.get("cookieBrowser"):
+        command += ["--cookies-from-browser", payload["cookieBrowser"]]
+    command += ["-o", str(temp_dir / "source.%(ext)s"), payload["url"]]
+    return command
+
+
+def find_source_media_file(temp_dir: Path) -> Path:
+    ignored_suffixes = {".part", ".ytdl", ".temp", ".tmp"}
+    candidates = [
+        item for item in temp_dir.iterdir()
+        if item.is_file() and item.suffix.lower() not in ignored_suffixes and not item.name.endswith(".part-Frag")
+    ]
+    if not candidates:
+        raise ClipTapError("The source media download finished, but no media file was found.")
+    candidates.sort(key=lambda item: (item.stat().st_size, item.stat().st_mtime), reverse=True)
+    return candidates[0]
+
+
+def section_output_path(job: DownloadJob, source_file: Path) -> Path:
+    payload = job.payload
+    title = safe_filename(job.title, "cliptap")
+    start = seconds_to_clock(payload["start"]).replace(":", "-")
+    end = seconds_to_clock(payload["end"]).replace(":", "-")
+    suffix = ".mp3" if payload.get("quality") == "audio" else source_file.suffix.lower()
+    if not suffix or len(suffix) > 8:
+        suffix = ".mp4"
+    return unique_path(OUTPUT_DIR / f"{title} [{job.id}] {start}-{end}{suffix}")
+
+
+def ffmpeg_trim_command(job: DownloadJob, source_file: Path, output_file: Path) -> list[str]:
+    ffmpeg_path, _ = find_ffmpeg()
+    if not ffmpeg_path:
+        raise ClipTapError("FFmpeg is not installed.")
+    duration = max(0.1, float(job.payload["end"]) - float(job.payload["start"]))
+    command = [
+        str(ffmpeg_path),
+        "-hide_banner",
+        "-y",
+        "-ss", seconds_to_clock(job.payload["start"]),
+        "-i", str(source_file),
+        "-t", seconds_to_clock(duration),
+        "-map", "0",
+        "-c", "copy",
+        "-avoid_negative_ts", "make_zero",
+        "-progress", "pipe:1",
+        "-nostats",
+        str(output_file),
+    ]
+    return command
+
+
 def update_job(job: DownloadJob, **changes):
     with LOCK:
         for key, value in changes.items():
@@ -1356,15 +1451,115 @@ def prepare_metadata(job: DownloadJob):
     )
 
 
+
+def run_section_download(job: DownloadJob):
+    payload = job.payload
+    temp_dir = OUTPUT_DIR / ".cliptap-temp" / job.id
+    percent_re = re.compile(r"\[download\]\s+(\d+(?:\.\d+)?)%")
+    speed_re = re.compile(r"\bat\s+([^\s]+/s)")
+    eta_re = re.compile(r"\bETA\s+([^\s]+)")
+    size_re = re.compile(r"of\s+~?([^\s]+)")
+    ffmpeg_out_time_re = re.compile(r"\bout_time=(\d+:\d+:\d+(?:\.\d+)?)")
+    ffmpeg_out_time_raw_re = re.compile(r"\bout_time_(?:ms|us)=(\d+)")
+    ffmpeg_time_re = re.compile(r"\btime=(\d+:\d+:\d+(?:\.\d+)?)")
+    duration = max(0.1, float(payload["end"]) - float(payload["start"]))
+
+    def update_from_download_line(line: str):
+        changes = {}
+        match = percent_re.search(line)
+        if match:
+            source_progress = max(0.0, min(100.0, float(match.group(1))))
+            changes["progress"] = max(1.0, min(85.0, source_progress * 0.84 + 1.0))
+            changes["status"] = "Downloading source media for selected section..."
+        speed_match = speed_re.search(line)
+        eta_match = eta_re.search(line)
+        size_match = size_re.search(line)
+        if speed_match:
+            changes["speed"] = speed_match.group(1)
+        if eta_match:
+            changes["eta"] = eta_match.group(1)
+        if size_match:
+            changes["downloaded"] = size_match.group(1)
+        if "Merger" in line or "Merging formats" in line:
+            changes["status"] = "Preparing source media..."
+            changes["phase"] = "processing"
+        if changes:
+            update_job(job, **changes)
+
+    def update_from_trim_line(line: str):
+        elapsed = None
+        raw_match = ffmpeg_out_time_raw_re.search(line)
+        out_time_match = ffmpeg_out_time_re.search(line)
+        time_match = ffmpeg_time_re.search(line)
+        if raw_match:
+            raw_time = float(raw_match.group(1))
+            elapsed = raw_time / 1_000_000.0
+            if elapsed < 0.01 and raw_time > 0:
+                elapsed = raw_time / 1000.0
+        elif out_time_match:
+            elapsed = clock_to_seconds(out_time_match.group(1))
+        elif time_match:
+            elapsed = clock_to_seconds(time_match.group(1))
+        if elapsed is not None:
+            trim_progress = max(0.0, min(100.0, (elapsed / duration) * 100.0))
+            update_job(
+                job,
+                status="Cutting selected section...",
+                phase="processing",
+                progress=max(job.progress, min(99.0, 86.0 + trim_progress * 0.13)),
+            )
+
+    try:
+        update_job(job, status="Downloading source media for selected section...", phase="downloading", progress=1.0)
+        source_command = build_source_download_command(job, temp_dir)
+        job.process = popen_text(source_command, OUTPUT_DIR)
+        for line in iter_process_records(job.process, job.cancel_event):
+            if job.cancel_event.is_set():
+                raise CancelledError()
+            update_from_download_line(line)
+        if job.cancel_event.is_set():
+            raise CancelledError()
+        code = job.process.wait()
+        if code != 0:
+            raise ClipTapError(f"yt-dlp exited with code {code} while downloading source media.")
+
+        source_file = find_source_media_file(temp_dir)
+        output_file = section_output_path(job, source_file)
+        update_job(job, status="Cutting selected section...", phase="processing", progress=max(job.progress, 86.0), speed="", eta="")
+        trim_command = ffmpeg_trim_command(job, source_file, output_file)
+        job.process = popen_text(trim_command, OUTPUT_DIR)
+        for line in iter_process_records(job.process, job.cancel_event):
+            if job.cancel_event.is_set():
+                raise CancelledError()
+            update_from_trim_line(line)
+        if job.cancel_event.is_set():
+            raise CancelledError()
+        code = job.process.wait()
+        if code != 0:
+            raise ClipTapError(f"FFmpeg exited with code {code} while cutting the selected section.")
+        update_job(job, status="Finished", phase="finished", progress=100.0, downloaded=str(output_file))
+    finally:
+        if job.process and job.process.poll() is None:
+            try:
+                job.process.kill()
+            except Exception:
+                pass
+        try:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+        except Exception:
+            pass
+
+
 def run_download(job: DownloadJob):
     try:
         prepare_metadata(job)
+        if job.payload["mode"] == "section":
+            run_section_download(job)
+            return
+
         if job.is_live and job.payload["mode"] == "full":
             status = "Recording live stream..."
             phase = "live"
-        elif job.payload["mode"] == "section":
-            status = "Starting selected section download..."
-            phase = "downloading"
         else:
             status = "Downloading..."
             phase = "downloading"
