@@ -1,17 +1,16 @@
-# Screenshot assets
+# Shared documentation images
 
-These images are shared by the README and the GitHub Pages promo site.
+These screenshots are shared by both `README.md` and the GitHub Pages promotional site.
 
-Recommended files:
+Keep the same file names when replacing screenshots:
 
-- `cliptap-helper-dashboard.png`
-- `cliptap-player-button.png`
-- `cliptap-player-panel.png`
-- `cliptap-timeline-handles.png`
-- `cliptap-helper-queue.png`
-- `cliptap-helper-settings.png`
-- `cliptap-helper-tools.png`
-- `cliptap-helper-logs.png`
-- `cliptap-helper-history.png`
+- `cliptap-helper-dashboard.png` — full Helper dashboard overview.
+- `cliptap-helper-queue.png` — Queue page with active/completed downloads.
+- `cliptap-helper-settings.png` — Settings page with download defaults.
+- `cliptap-helper-tools.png` — Tools/dependency check page.
+- `cliptap-helper-logs.png` — Logs page.
+- `cliptap-player-button.png` — ClipTap button placed in the YouTube player controls.
+- `cliptap-player-panel.png` — ClipTap player panel.
+- `cliptap-timeline-handles.png` — YouTube timeline with start/end handles.
 
-The promo site uses the natural aspect ratio of each screenshot, so keep the captures close to their actual UI dimensions.
+The website displays images with their natural aspect ratios. Do not crop screenshots just to fit a fixed card size.

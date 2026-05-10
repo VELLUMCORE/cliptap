@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="ClipTap is a browser extension and local helper for downloading selected YouTube sections or full videos with yt-dlp." />
-  <meta name="theme-color" content="#0c1224" />
+  <meta name="description" content="ClipTap adds section clipping controls to YouTube and sends downloads to a local yt-dlp helper dashboard." />
+  <meta name="theme-color" content="#070b16" />
   <meta property="og:title" content="ClipTap" />
   <meta property="og:description" content="Clip YouTube sections by timestamp and download them locally with yt-dlp." />
   <meta property="og:type" content="website" />
@@ -24,216 +24,218 @@
       </span>
       <span>ClipTap</span>
     </a>
+
     <nav class="nav" aria-label="Primary navigation">
       <a href="#features">Features</a>
+      <a href="#player">Player</a>
       <a href="#helper">Helper</a>
       <a href="#install">Install</a>
-      <a href="#screenshots">Screenshots</a>
       <a href="#faq">FAQ</a>
     </nav>
-    <a class="header-action" href="https://github.com/VELLUMCORE/cliptap/releases/latest">Download</a>
+
+    <div class="header-actions">
+      <a class="ghost-link" href="https://github.com/VELLUMCORE/cliptap">GitHub</a>
+      <a class="header-action" href="https://github.com/VELLUMCORE/cliptap/releases/latest">Download</a>
+    </div>
   </header>
 
   <main id="top">
-    <section class="hero section-pad">
+    <section class="hero section-full bleed-right">
       <div class="hero-copy">
-        <p class="eyebrow">Browser extension · Local helper · yt-dlp</p>
-        <h1>Clip the exact part you need from YouTube.</h1>
-        <p class="hero-text">
-          ClipTap adds start/end controls to the YouTube player and sends downloads to a local Helper dashboard powered by yt-dlp and FFmpeg.
+        <p class="eyebrow">YouTube clipping · local helper · yt-dlp</p>
+        <h1>Download the exact part you meant to save.</h1>
+        <p class="lead">
+          ClipTap puts start and end controls directly inside the YouTube player, then sends the job to a local Helper dashboard that manages yt-dlp, FFmpeg, progress, settings, and logs.
         </p>
-        <div class="hero-actions" aria-label="Download actions">
-          <a class="button primary" href="https://github.com/VELLUMCORE/cliptap/releases/latest">Get latest release</a>
-          <a class="button secondary" href="https://github.com/VELLUMCORE/cliptap">View on GitHub</a>
+        <div class="hero-actions">
+          <a class="button primary" href="https://github.com/VELLUMCORE/cliptap/releases/latest">Get the latest release</a>
+          <a class="button secondary" href="#install">Install guide</a>
         </div>
-        <div class="badges" aria-label="Supported platforms">
-          <span>Firefox</span>
-          <span>Chrome / Edge</span>
+        <div class="release-pills" aria-label="Release contents">
+          <span>Firefox package</span>
+          <span>Chrome / Edge package</span>
           <span>Windows Helper</span>
         </div>
       </div>
 
-      <div class="hero-showcase" aria-label="ClipTap Helper preview">
-        <div class="browser-shell">
-          <div class="browser-topbar">
-            <span></span><span></span><span></span>
-            <strong>127.0.0.1:17723</strong>
-          </div>
-          <div class="dashboard-preview">
-            <img data-placeholder src="images/cliptap-helper-dashboard.png" alt="ClipTap Helper dashboard with server status, dependency checks, active download queue, download defaults, and recent logs" />
-          </div>
-        </div>
-      </div>
+      <figure class="hero-shot image-panel">
+        <img data-placeholder src="images/cliptap-helper-dashboard.png" alt="ClipTap Helper dashboard showing server status, dependency checks, active downloads, download defaults, and logs" />
+      </figure>
     </section>
 
-    <section class="section-pad strip" aria-label="Project summary">
-      <div class="stat-card">
-        <strong>Section downloads</strong>
-        <span>Set a start and end point directly in the YouTube player.</span>
-      </div>
-      <div class="stat-card">
-        <strong>Local-first</strong>
-        <span>Your downloads run on your own machine through the Helper.</span>
-      </div>
-      <div class="stat-card">
-        <strong>Manager UI</strong>
-        <span>Queue, settings, dependency checks, and logs in one dashboard.</span>
-      </div>
+    <section class="status-strip section-full" aria-label="Project highlights">
+      <span>Local-first downloads</span>
+      <span>Player-native range controls</span>
+      <span>Queue, settings, and logs</span>
+      <span>yt-dlp + FFmpeg</span>
     </section>
 
-    <section id="features" class="section-pad section-block">
-      <div class="section-heading">
-        <p class="eyebrow">Player controls</p>
-        <h2>Made for fast clipping while watching.</h2>
-        <p>ClipTap stays inside the YouTube player so the tools are close to the timeline, fullscreen button, settings, and other player controls.</p>
+    <section id="features" class="section-full section-space">
+      <div class="section-heading centered">
+        <p class="eyebrow">Features</p>
+        <h2>Small controls in the player. Real management in the helper.</h2>
+        <p>ClipTap keeps YouTube interaction lightweight while the local dashboard handles the messy download work.</p>
       </div>
+
       <div class="feature-grid">
         <article class="feature-card">
-          <span class="icon-dot">A</span>
-          <h3>Start and end handles</h3>
-          <p>Mark the section from the current playback position, then fine-tune it by dragging handles on the timeline.</p>
+          <span class="feature-icon">01</span>
+          <h3>Set start and end points</h3>
+          <p>Capture timestamps from the current playback position or type exact values with decimal seconds.</p>
         </article>
         <article class="feature-card">
-          <span class="icon-dot">B</span>
-          <h3>Precise timestamps</h3>
-          <p>Type timestamps manually, including decimal seconds, when you need more exact clips.</p>
+          <span class="feature-icon">02</span>
+          <h3>Drag timeline handles</h3>
+          <p>Blue and orange handles appear on the YouTube progress bar so the selected range stays visible.</p>
         </article>
         <article class="feature-card">
-          <span class="icon-dot">C</span>
-          <h3>Loop preview</h3>
-          <p>Loop the selected range before downloading to quickly check whether the cut feels right.</p>
+          <span class="feature-icon">03</span>
+          <h3>Preview with loop</h3>
+          <p>Loop the selected range before downloading to check whether the clip begins and ends correctly.</p>
         </article>
         <article class="feature-card">
-          <span class="icon-dot">D</span>
+          <span class="feature-icon">04</span>
+          <h3>Track jobs locally</h3>
+          <p>The Helper dashboard shows the queue, progress, dependency checks, logs, and download defaults.</p>
+        </article>
+        <article class="feature-card">
+          <span class="feature-icon">05</span>
           <h3>Section or full video</h3>
-          <p>Download only the selected range, or send a full video request from the same player panel.</p>
+          <p>Download the selected range or send the whole video to yt-dlp from the same player panel.</p>
+        </article>
+        <article class="feature-card">
+          <span class="feature-icon">06</span>
+          <h3>Built for practical use</h3>
+          <p>Save folder, filename rule, preferred formats, browser cookies, and merge options are managed in one place.</p>
         </article>
       </div>
     </section>
 
-    <section id="helper" class="section-pad split-section">
-      <div class="section-heading compact">
-        <p class="eyebrow">ClipTap Helper</p>
-        <h2>A local dashboard for downloads.</h2>
-        <p>The Helper runs locally at <code>127.0.0.1:17723</code>. It receives extension requests, checks tools, tracks progress, and shows logs.</p>
-      </div>
-      <div class="helper-list">
-        <div class="helper-row">
-          <strong>Dependency checks</strong>
-          <span>yt-dlp, FFmpeg, Python runtime, and update status.</span>
-        </div>
-        <div class="helper-row">
-          <strong>Download queue</strong>
-          <span>Title, platform, format, progress, status, and cancellation controls.</span>
-        </div>
-        <div class="helper-row">
-          <strong>Download defaults</strong>
-          <span>Save folder, filename rule, format, audio format, cookies, and merge behavior.</span>
-        </div>
-        <div class="helper-row">
-          <strong>Recent logs</strong>
-          <span>Useful messages from the local server and yt-dlp output.</span>
-        </div>
-      </div>
-    </section>
-
-    <section id="screenshots" class="section-pad screenshots">
+    <section id="player" class="section-full showcase-section">
       <div class="section-heading">
-        <p class="eyebrow">Screenshots</p>
-        <h2>Show the extension and Helper in context.</h2>
-        <p>Screenshots are loaded from the shared docs/images folder used by the README.</p>
+        <p class="eyebrow">Inside YouTube</p>
+        <h2>Clip without leaving the player.</h2>
+        <p>The ClipTap button lives beside YouTube’s own controls. The panel opens above the utility area, and the selected range appears directly on the timeline.</p>
       </div>
-      <div class="screenshot-grid">
-        <figure class="screenshot-card span-12" style="--shot-ratio: 1685 / 931;">
-          <img data-placeholder src="images/cliptap-helper-dashboard.png" alt="ClipTap Helper dashboard with server status, dependency checks, active download queue, download defaults, and recent logs" />
-          <figcaption>Helper dashboard</figcaption>
+
+      <div class="player-showcase">
+        <figure class="image-panel wide-image">
+          <img data-placeholder src="images/cliptap-timeline-handles.png" alt="YouTube player timeline with a blue start handle and orange end handle for the selected ClipTap range" />
         </figure>
-        <figure class="screenshot-card span-7" style="--shot-ratio: 1383 / 347;">
-          <img data-placeholder src="images/cliptap-timeline-handles.png" alt="Blue start handle and orange end handle on the YouTube timeline" />
-          <figcaption>Timeline handles</figcaption>
-        </figure>
-        <figure class="screenshot-card span-5" style="--shot-ratio: 607 / 385;">
-          <img data-placeholder src="images/cliptap-player-panel.png" alt="ClipTap player panel with start point, end point, loop toggle, section download, and full download buttons" />
-          <figcaption>Player panel</figcaption>
-        </figure>
-        <figure class="screenshot-card span-5" style="--shot-ratio: 608 / 332;">
-          <img data-placeholder src="images/cliptap-player-button.png" alt="ClipTap player button placed next to the YouTube player controls" />
-          <figcaption>Player button</figcaption>
-        </figure>
-        <figure class="screenshot-card span-7" style="--shot-ratio: 975 / 502;">
-          <img data-placeholder src="images/cliptap-helper-queue.png" alt="ClipTap Helper queue page with platform, format, progress, and status columns" />
-          <figcaption>Download queue</figcaption>
-        </figure>
-        <figure class="screenshot-card span-6" style="--shot-ratio: 1827 / 876;">
-          <img data-placeholder src="images/cliptap-helper-settings.png" alt="ClipTap Helper settings page with save folder, filename rule, video format, audio format, cookies, and merge option" />
-          <figcaption>Download defaults</figcaption>
-        </figure>
-        <figure class="screenshot-card span-6" style="--shot-ratio: 1745 / 864;">
-          <img data-placeholder src="images/cliptap-helper-tools.png" alt="ClipTap Helper tools page showing dependency checks for yt-dlp, FFmpeg, Python runtime, and update status" />
-          <figcaption>Dependency checks</figcaption>
-        </figure>
-        <figure class="screenshot-card span-12" style="--shot-ratio: 1749 / 888;">
-          <img data-placeholder src="images/cliptap-helper-logs.png" alt="ClipTap Helper logs page with auto-scroll, clear, and open logs folder controls" />
-          <figcaption>Recent logs</figcaption>
-        </figure>
+        <div class="player-stack">
+          <figure class="image-panel">
+            <img data-placeholder src="images/cliptap-player-panel.png" alt="ClipTap player panel with start point, end point, loop, section download, and full download buttons" />
+          </figure>
+          <figure class="image-panel">
+            <img data-placeholder src="images/cliptap-player-button.png" alt="ClipTap button placed next to YouTube player utility controls" />
+          </figure>
+        </div>
       </div>
     </section>
 
-    <section id="install" class="section-pad install-section">
-      <div class="section-heading compact">
-        <p class="eyebrow">Install</p>
-        <h2>Use the release files from GitHub.</h2>
-        <p>Download the latest release, run the Helper, then load the extension in your browser.</p>
+    <section id="helper" class="section-full showcase-section helper-section">
+      <div class="section-heading centered">
+        <p class="eyebrow">ClipTap Helper</p>
+        <h2>A local dashboard for downloads, not a terminal you have to babysit.</h2>
+        <p>Keep the browser extension simple and let the Helper handle yt-dlp, FFmpeg, status, settings, and logs.</p>
       </div>
-      <div class="steps">
+
+      <figure class="image-panel dashboard-panel">
+        <img data-placeholder src="images/cliptap-helper-dashboard.png" alt="ClipTap Helper dashboard overview with active queue, dependency checks, download defaults, and logs" />
+      </figure>
+
+      <div class="helper-grid">
+        <article class="helper-copy">
+          <p class="eyebrow">Manager pages</p>
+          <h3>Focused pages for each task.</h3>
+          <p>Queue, Settings, Tools, Logs, and History are separated into dedicated pages so each view stays readable.</p>
+        </article>
+        <figure class="image-panel">
+          <img data-placeholder src="images/cliptap-helper-queue.png" alt="ClipTap Helper queue page showing platform, format, progress, and status columns" />
+        </figure>
+        <figure class="image-panel">
+          <img data-placeholder src="images/cliptap-helper-settings.png" alt="ClipTap Helper settings page with save folder, filename rule, format options, cookies, and merge option" />
+        </figure>
+        <figure class="image-panel">
+          <img data-placeholder src="images/cliptap-helper-tools.png" alt="ClipTap Helper tools page showing yt-dlp, FFmpeg, Python runtime, and update status" />
+        </figure>
+      </div>
+
+      <figure class="image-panel logs-panel">
+        <img data-placeholder src="images/cliptap-helper-logs.png" alt="ClipTap Helper logs page showing recent helper and download messages" />
+      </figure>
+    </section>
+
+    <section id="install" class="section-full install-section">
+      <div class="section-heading centered">
+        <p class="eyebrow">Install</p>
+        <h2>Three parts, one workflow.</h2>
+        <p>Install the extension, start the local Helper, then clip from the YouTube player.</p>
+      </div>
+
+      <div class="install-grid">
         <article class="step-card">
           <span>1</span>
-          <h3>Start ClipTap Helper</h3>
-          <p>Run <code>ClipTapHelper.exe</code>. The manager opens at <code>http://127.0.0.1:17723</code>.</p>
+          <h3>Run ClipTap Helper</h3>
+          <p>Start <code>ClipTapHelper.exe</code>. The local manager opens at <code>127.0.0.1:17723</code>.</p>
         </article>
         <article class="step-card">
           <span>2</span>
           <h3>Install the extension</h3>
-          <p>Use the Firefox <code>.xpi</code>, or load the Chrome package as an unpacked extension.</p>
+          <p>Use the Firefox XPI or load the Chrome / Edge package as an unpacked extension.</p>
         </article>
         <article class="step-card">
           <span>3</span>
-          <h3>Clip and download</h3>
-          <p>Open a YouTube video, set the range, and send the request to the Helper.</p>
+          <h3>Clip from YouTube</h3>
+          <p>Set the range in the player and send a section or full-video download to the Helper queue.</p>
         </article>
+      </div>
+
+      <div class="download-card">
+        <div>
+          <p class="eyebrow">Latest release</p>
+          <h3>Download ClipTap from GitHub Releases.</h3>
+          <p>Release builds include the source package, Firefox extension, Chrome / Edge package, and Helper build files.</p>
+        </div>
+        <a class="button primary" href="https://github.com/VELLUMCORE/cliptap/releases/latest">Open releases</a>
       </div>
     </section>
 
-    <section id="faq" class="section-pad faq-section">
-      <div class="section-heading compact">
+    <section id="faq" class="section-full faq-section">
+      <div class="section-heading centered">
         <p class="eyebrow">FAQ</p>
-        <h2>Things worth knowing.</h2>
+        <h2>Small notes before you install.</h2>
       </div>
-      <div class="faq-list">
-        <details open>
-          <summary>Why does ClipTap need a Helper?</summary>
-          <p>Browser extensions cannot directly run local programs like yt-dlp or FFmpeg. The Helper runs locally and performs the download work.</p>
-        </details>
-        <details>
-          <summary>Does ClipTap upload videos to a server?</summary>
-          <p>No. ClipTap is designed around a local Helper, so download requests are handled on your own computer.</p>
-        </details>
-        <details>
-          <summary>Can it download full videos too?</summary>
-          <p>Yes. The player panel includes both section download and full video download actions.</p>
-        </details>
-        <details>
-          <summary>What about live streams?</summary>
-          <p>Full video requests for live streams are shown as active recording instead of a normal fixed percentage progress bar.</p>
-        </details>
+      <div class="faq-grid">
+        <article>
+          <h3>Why does ClipTap need a Helper?</h3>
+          <p>Browser extensions cannot directly run local programs like yt-dlp or FFmpeg. The Helper receives requests locally and performs the actual download.</p>
+        </article>
+        <article>
+          <h3>Does it download only sections?</h3>
+          <p>ClipTap supports both selected sections and full videos. Section downloads are handled by the Helper for better reliability.</p>
+        </article>
+        <article>
+          <h3>Where are screenshots stored?</h3>
+          <p>The website and README share images from <code>docs/images</code>, so you only need one screenshot set.</p>
+        </article>
+        <article>
+          <h3>Can I use a custom domain?</h3>
+          <p>Yes, but it also works with the default GitHub Pages domain. No server-side setup is required for the promo site.</p>
+        </article>
       </div>
     </section>
   </main>
 
-  <footer class="site-footer">
-    <div>
+  <footer class="site-footer section-full">
+    <div class="footer-brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" role="img">
+          <rect x="3" y="3" width="26" height="26" rx="7" />
+          <path d="M16 8v11m0 0 5-5m-5 5-5-5M9 23h14" />
+        </svg>
+      </span>
       <strong>ClipTap</strong>
-      <p>Local YouTube clipping with yt-dlp.</p>
     </div>
     <div class="footer-links">
       <a href="https://github.com/VELLUMCORE/cliptap">GitHub</a>
