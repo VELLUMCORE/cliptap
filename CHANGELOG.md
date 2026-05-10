@@ -6,7 +6,8 @@
 - No helper changes in this release.
 
 **ClipTap**
-- Rebuilt the GitHub Pages promotional website with a full-width dark layout and shared natural-ratio screenshots from `docs/images`.
+- Rebuilt the GitHub Pages promotional website to closely match the provided desktop mockup with a dark utility-product layout, CSS product preview, compact feature cards, workflow steps, screenshot cards, final CTA, and footer.
+- Reused shared screenshot assets from `docs/images` for both the website and README.
 
 ## v1.2.1
 

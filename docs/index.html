@@ -3,244 +3,260 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="ClipTap adds section clipping controls to YouTube and sends downloads to a local yt-dlp helper dashboard." />
-  <meta name="theme-color" content="#070b16" />
+  <meta name="description" content="ClipTap is a local-first video downloader with browser controls and a private helper dashboard." />
+  <meta name="theme-color" content="#050711" />
   <meta property="og:title" content="ClipTap" />
-  <meta property="og:description" content="Clip YouTube sections by timestamp and download them locally with yt-dlp." />
+  <meta property="og:description" content="Download videos the smart way with a browser extension and local helper app." />
   <meta property="og:type" content="website" />
   <meta property="og:image" content="images/cliptap-helper-dashboard.png" />
-  <title>ClipTap — YouTube section downloads with yt-dlp</title>
+  <title>ClipTap — Download videos the smart way</title>
   <link rel="icon" href="assets/cliptap-mark.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="assets/site.css" />
 </head>
 <body>
   <header class="site-header" data-header>
     <a class="brand" href="#top" aria-label="ClipTap home">
-      <span class="brand-mark" aria-hidden="true">
+      <span class="brand-icon" aria-hidden="true">
         <svg viewBox="0 0 32 32" role="img">
-          <rect x="3" y="3" width="26" height="26" rx="7" />
-          <path d="M16 8v11m0 0 5-5m-5 5-5-5M9 23h14" />
+          <rect x="4" y="4" width="24" height="24" rx="7" />
+          <path d="M16 8.5v10.7m0 0 4.9-4.8M16 19.2l-4.9-4.8M9.5 23.2h13" />
         </svg>
       </span>
-      <span>ClipTap</span>
+      <span class="brand-name">ClipTap</span>
     </a>
 
-    <nav class="nav" aria-label="Primary navigation">
+    <nav class="site-nav" aria-label="Primary navigation">
       <a href="#features">Features</a>
-      <a href="#player">Player</a>
-      <a href="#helper">Helper</a>
-      <a href="#install">Install</a>
+      <a href="#how">How it Works</a>
+      <a href="#screenshots">Screenshots</a>
       <a href="#faq">FAQ</a>
+      <a href="#download">Download</a>
     </nav>
 
-    <div class="header-actions">
-      <a class="ghost-link" href="https://github.com/VELLUMCORE/cliptap">GitHub</a>
-      <a class="header-action" href="https://github.com/VELLUMCORE/cliptap/releases/latest">Download</a>
-    </div>
+    <a class="nav-cta" href="https://github.com/VELLUMCORE/cliptap/releases/latest">Download Now</a>
   </header>
 
   <main id="top">
-    <section class="hero section-full bleed-right">
+    <section class="hero section-wrap" aria-labelledby="hero-title">
       <div class="hero-copy">
-        <p class="eyebrow">YouTube clipping · local helper · yt-dlp</p>
-        <h1>Download the exact part you meant to save.</h1>
-        <p class="lead">
-          ClipTap puts start and end controls directly inside the YouTube player, then sends the job to a local Helper dashboard that manages yt-dlp, FFmpeg, progress, settings, and logs.
+        <div class="mini-badge"><span></span> Local. Private. Powerful.</div>
+        <h1 id="hero-title"><span>Download videos.</span><span>The smart way.</span></h1>
+        <p class="hero-lead">
+          ClipTap works with your browser and a local helper app to download videos from 1,000+ sites quickly, privately, and in high quality.
         </p>
         <div class="hero-actions">
-          <a class="button primary" href="https://github.com/VELLUMCORE/cliptap/releases/latest">Get the latest release</a>
-          <a class="button secondary" href="#install">Install guide</a>
+          <a class="button button-primary" href="https://github.com/VELLUMCORE/cliptap/releases/latest">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5v9.1m0 0 3.8-3.7M10 11.6 6.2 7.9M4.2 15.5h11.6" /></svg>
+            Download for Windows
+          </a>
+          <a class="button button-secondary" href="https://github.com/VELLUMCORE/cliptap">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7.8 16.5c-4.1 1.1-4.1-2-5.7-2.4m11.4 3.1v-2.8c0-.8-.3-1.4-.8-1.8 2.7-.3 5.5-1.3 5.5-6A4.6 4.6 0 0 0 17 3.4c.1-.3.5-1.6-.1-3.2 0 0-1-.3-3.3 1.2A11.2 11.2 0 0 0 7.6 1.4C5.3-.1 4.3.2 4.3.2c-.6 1.6-.2 2.9-.1 3.2A4.6 4.6 0 0 0 3 6.6c0 4.6 2.8 5.7 5.5 6-.4.4-.8 1-.8 1.8v2.8" /></svg>
+            View on GitHub
+          </a>
         </div>
-        <div class="release-pills" aria-label="Release contents">
-          <span>Firefox package</span>
-          <span>Chrome / Edge package</span>
-          <span>Windows Helper</span>
+        <div class="trust-chips" aria-label="ClipTap highlights">
+          <span><i></i>100% Local Processing</span>
+          <span><i></i>No Sign-in Required</span>
+          <span><i></i>Open Source</span>
         </div>
       </div>
 
-      <figure class="hero-shot image-panel">
-        <img data-placeholder src="images/cliptap-helper-dashboard.png" alt="ClipTap Helper dashboard showing server status, dependency checks, active downloads, download defaults, and logs" />
-      </figure>
+      <div class="product-preview" aria-label="ClipTap product preview">
+        <div class="preview-glow" aria-hidden="true"></div>
+        <div class="browser-card">
+          <div class="browser-bar"><span></span><span></span><span></span></div>
+          <div class="video-surface">
+            <div class="video-lines">
+              <b></b><b></b><b></b>
+            </div>
+            <button class="play-button" aria-label="Play preview">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 4.5 15 10l-8 5.5z" /></svg>
+            </button>
+            <div class="video-controls"><em></em><em></em><em></em></div>
+          </div>
+        </div>
+
+        <div class="extension-card">
+          <div class="extension-top">
+            <strong>ClipTap</strong>
+            <span>Ready</span>
+          </div>
+          <p>Detected video</p>
+          <b>1080p60 · MP4</b>
+          <button>Download</button>
+        </div>
+
+        <div class="helper-card">
+          <div class="helper-sidebar">
+            <span></span><span></span><span></span><span></span>
+          </div>
+          <div class="helper-main">
+            <div class="helper-header">
+              <strong>ClipTap Helper</strong>
+              <small><i></i>Running</small>
+            </div>
+            <div class="helper-status-grid">
+              <div><b>yt-dlp</b><span>Installed</span></div>
+              <div><b>ffmpeg</b><span>Installed</span></div>
+            </div>
+            <div class="helper-table">
+              <div><span>Lofi Girl - Snowman</span><em>42%</em></div>
+              <div><span>NewJeans clip</span><em>Done</em></div>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
-    <section class="status-strip section-full" aria-label="Project highlights">
-      <span>Local-first downloads</span>
-      <span>Player-native range controls</span>
-      <span>Queue, settings, and logs</span>
-      <span>yt-dlp + FFmpeg</span>
-    </section>
-
-    <section id="features" class="section-full section-space">
-      <div class="section-heading centered">
-        <p class="eyebrow">Features</p>
-        <h2>Small controls in the player. Real management in the helper.</h2>
-        <p>ClipTap keeps YouTube interaction lightweight while the local dashboard handles the messy download work.</p>
+    <section id="features" class="features-section section-wrap section-block">
+      <div class="section-heading">
+        <p>Powerful Features</p>
+        <h2>Everything you need, nothing you don’t</h2>
+        <span>Built for speed, privacy, and control.</span>
       </div>
 
       <div class="feature-grid">
         <article class="feature-card">
-          <span class="feature-icon">01</span>
-          <h3>Set start and end points</h3>
-          <p>Capture timestamps from the current playback position or type exact values with decimal seconds.</p>
+          <div class="feature-icon">⚡</div>
+          <h3>Blazing Fast</h3>
+          <p>Multi-threaded downloads with resumable support for maximum speed.</p>
         </article>
         <article class="feature-card">
-          <span class="feature-icon">02</span>
-          <h3>Drag timeline handles</h3>
-          <p>Blue and orange handles appear on the YouTube progress bar so the selected range stays visible.</p>
+          <div class="feature-icon">🔒</div>
+          <h3>Private & Local</h3>
+          <p>All processing happens on your machine. Your data stays yours.</p>
         </article>
         <article class="feature-card">
-          <span class="feature-icon">03</span>
-          <h3>Preview with loop</h3>
-          <p>Loop the selected range before downloading to check whether the clip begins and ends correctly.</p>
+          <div class="feature-icon">🌐</div>
+          <h3>1,000+ Sites</h3>
+          <p>Works on YouTube, Vimeo, Twitter, Facebook, and many more.</p>
         </article>
         <article class="feature-card">
-          <span class="feature-icon">04</span>
-          <h3>Track jobs locally</h3>
-          <p>The Helper dashboard shows the queue, progress, dependency checks, logs, and download defaults.</p>
+          <div class="feature-icon">⬆</div>
+          <h3>High Quality</h3>
+          <p>Download in up to 8K, including 4K, 1080p, 60fps and more.</p>
         </article>
         <article class="feature-card">
-          <span class="feature-icon">05</span>
-          <h3>Section or full video</h3>
-          <p>Download the selected range or send the whole video to yt-dlp from the same player panel.</p>
+          <div class="feature-icon">▦</div>
+          <h3>Smart Organization</h3>
+          <p>Custom file naming, download rules, and auto organization.</p>
         </article>
         <article class="feature-card">
-          <span class="feature-icon">06</span>
-          <h3>Built for practical use</h3>
-          <p>Save folder, filename rule, preferred formats, browser cookies, and merge options are managed in one place.</p>
+          <div class="feature-icon">♡</div>
+          <h3>Open Source</h3>
+          <p>Transparent, auditable, and built with love by the community.</p>
         </article>
       </div>
     </section>
 
-    <section id="player" class="section-full showcase-section">
+    <section id="how" class="how-section section-wrap section-block">
       <div class="section-heading">
-        <p class="eyebrow">Inside YouTube</p>
-        <h2>Clip without leaving the player.</h2>
-        <p>The ClipTap button lives beside YouTube’s own controls. The panel opens above the utility area, and the selected range appears directly on the timeline.</p>
+        <p>How It Works</p>
+        <h2>Simple 3-step process</h2>
+        <span>From click to save in seconds.</span>
       </div>
 
-      <div class="player-showcase">
-        <figure class="image-panel wide-image">
-          <img data-placeholder src="images/cliptap-timeline-handles.png" alt="YouTube player timeline with a blue start handle and orange end handle for the selected ClipTap range" />
+      <div class="steps" aria-label="How ClipTap works">
+        <article class="step-card">
+          <div class="step-icon"><span>1</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10v10H7zM12 3v4m0 10v4M3 12h4m10 0h4" /></svg></div>
+          <h3>Install Extension</h3>
+          <p>Add ClipTap to your browser. It runs silently in the background.</p>
+        </article>
+        <article class="step-card">
+          <div class="step-icon"><span>2</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 12h8m-4-4v8M4 5h16v14H4z" /></svg></div>
+          <h3>Connect Helper</h3>
+          <p>Run the local helper app. The extension connects automatically.</p>
+        </article>
+        <article class="step-card">
+          <div class="step-icon"><span>3</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10m0 0 4-4m-4 4-4-4M5 20h14" /></svg></div>
+          <h3>Download</h3>
+          <p>Browse any site and click the ClipTap button to download instantly.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="screenshots" class="screenshots-section section-wrap section-block">
+      <div class="section-heading">
+        <p>Sleek & Powerful</p>
+        <h2>Made for power users</h2>
+        <span>Clean interface. Powerful under the hood.</span>
+      </div>
+
+      <div class="screenshot-carousel">
+        <button class="carousel-arrow left" aria-label="Previous screenshot">‹</button>
+        <figure class="shot-card shot-left">
+          <img data-placeholder src="images/cliptap-player-panel.png" alt="ClipTap player panel with section and full download buttons" />
         </figure>
-        <div class="player-stack">
-          <figure class="image-panel">
-            <img data-placeholder src="images/cliptap-player-panel.png" alt="ClipTap player panel with start point, end point, loop, section download, and full download buttons" />
-          </figure>
-          <figure class="image-panel">
-            <img data-placeholder src="images/cliptap-player-button.png" alt="ClipTap button placed next to YouTube player utility controls" />
-          </figure>
+        <figure class="shot-card shot-center">
+          <img data-placeholder src="images/cliptap-helper-dashboard.png" alt="ClipTap Helper dashboard with queue, settings, server status, and logs" />
+        </figure>
+        <figure class="shot-card shot-right">
+          <img data-placeholder src="images/cliptap-helper-queue.png" alt="ClipTap Helper active download queue table" />
+        </figure>
+        <button class="carousel-arrow right" aria-label="Next screenshot">›</button>
+      </div>
+      <div class="dots" aria-label="Screenshot pagination"><span class="active"></span><span></span><span></span></div>
+    </section>
+
+    <section id="download" class="cta-banner section-wrap">
+      <div class="cta-copy">
+        <h2>Ready to level up your downloads?</h2>
+        <p>Join thousands of users who trust ClipTap.</p>
+        <div class="cta-actions">
+          <a class="button button-primary" href="https://github.com/VELLUMCORE/cliptap/releases/latest">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5v9.1m0 0 3.8-3.7M10 11.6 6.2 7.9M4.2 15.5h11.6" /></svg>
+            Download for Windows
+          </a>
+          <a class="button button-secondary" href="https://github.com/VELLUMCORE/cliptap">View on GitHub</a>
         </div>
+        <small>Windows 10/11 (64-bit) · Free & Open Source</small>
+      </div>
+      <div class="cta-illustration" aria-hidden="true">
+        <span class="bubble video">▶</span>
+        <span class="download-tile"><svg viewBox="0 0 32 32"><path d="M16 7v13m0 0 6-6m-6 6-6-6M8 25h16" /></svg></span>
+        <span class="bubble music">♪</span>
       </div>
     </section>
 
-    <section id="helper" class="section-full showcase-section helper-section">
-      <div class="section-heading centered">
-        <p class="eyebrow">ClipTap Helper</p>
-        <h2>A local dashboard for downloads, not a terminal you have to babysit.</h2>
-        <p>Keep the browser extension simple and let the Helper handle yt-dlp, FFmpeg, status, settings, and logs.</p>
-      </div>
-
-      <figure class="image-panel dashboard-panel">
-        <img data-placeholder src="images/cliptap-helper-dashboard.png" alt="ClipTap Helper dashboard overview with active queue, dependency checks, download defaults, and logs" />
-      </figure>
-
-      <div class="helper-grid">
-        <article class="helper-copy">
-          <p class="eyebrow">Manager pages</p>
-          <h3>Focused pages for each task.</h3>
-          <p>Queue, Settings, Tools, Logs, and History are separated into dedicated pages so each view stays readable.</p>
-        </article>
-        <figure class="image-panel">
-          <img data-placeholder src="images/cliptap-helper-queue.png" alt="ClipTap Helper queue page showing platform, format, progress, and status columns" />
-        </figure>
-        <figure class="image-panel">
-          <img data-placeholder src="images/cliptap-helper-settings.png" alt="ClipTap Helper settings page with save folder, filename rule, format options, cookies, and merge option" />
-        </figure>
-        <figure class="image-panel">
-          <img data-placeholder src="images/cliptap-helper-tools.png" alt="ClipTap Helper tools page showing yt-dlp, FFmpeg, Python runtime, and update status" />
-        </figure>
-      </div>
-
-      <figure class="image-panel logs-panel">
-        <img data-placeholder src="images/cliptap-helper-logs.png" alt="ClipTap Helper logs page showing recent helper and download messages" />
-      </figure>
-    </section>
-
-    <section id="install" class="section-full install-section">
-      <div class="section-heading centered">
-        <p class="eyebrow">Install</p>
-        <h2>Three parts, one workflow.</h2>
-        <p>Install the extension, start the local Helper, then clip from the YouTube player.</p>
-      </div>
-
-      <div class="install-grid">
-        <article class="step-card">
-          <span>1</span>
-          <h3>Run ClipTap Helper</h3>
-          <p>Start <code>ClipTapHelper.exe</code>. The local manager opens at <code>127.0.0.1:17723</code>.</p>
-        </article>
-        <article class="step-card">
-          <span>2</span>
-          <h3>Install the extension</h3>
-          <p>Use the Firefox XPI or load the Chrome / Edge package as an unpacked extension.</p>
-        </article>
-        <article class="step-card">
-          <span>3</span>
-          <h3>Clip from YouTube</h3>
-          <p>Set the range in the player and send a section or full-video download to the Helper queue.</p>
-        </article>
-      </div>
-
-      <div class="download-card">
-        <div>
-          <p class="eyebrow">Latest release</p>
-          <h3>Download ClipTap from GitHub Releases.</h3>
-          <p>Release builds include the source package, Firefox extension, Chrome / Edge package, and Helper build files.</p>
-        </div>
-        <a class="button primary" href="https://github.com/VELLUMCORE/cliptap/releases/latest">Open releases</a>
-      </div>
-    </section>
-
-    <section id="faq" class="section-full faq-section">
-      <div class="section-heading centered">
-        <p class="eyebrow">FAQ</p>
-        <h2>Small notes before you install.</h2>
+    <section id="faq" class="faq-section section-wrap section-block">
+      <div class="section-heading">
+        <p>FAQ</p>
+        <h2>Good to know</h2>
+        <span>Small details before you install.</span>
       </div>
       <div class="faq-grid">
         <article>
-          <h3>Why does ClipTap need a Helper?</h3>
-          <p>Browser extensions cannot directly run local programs like yt-dlp or FFmpeg. The Helper receives requests locally and performs the actual download.</p>
+          <h3>Why does ClipTap need a helper app?</h3>
+          <p>Browsers cannot directly run yt-dlp or FFmpeg. The local helper receives requests and performs downloads on your machine.</p>
         </article>
         <article>
-          <h3>Does it download only sections?</h3>
-          <p>ClipTap supports both selected sections and full videos. Section downloads are handled by the Helper for better reliability.</p>
+          <h3>Does it work offline?</h3>
+          <p>The helper runs locally, but downloads still need access to the source website and any required video streams.</p>
         </article>
         <article>
-          <h3>Where are screenshots stored?</h3>
-          <p>The website and README share images from <code>docs/images</code>, so you only need one screenshot set.</p>
-        </article>
-        <article>
-          <h3>Can I use a custom domain?</h3>
-          <p>Yes, but it also works with the default GitHub Pages domain. No server-side setup is required for the promo site.</p>
+          <h3>Is it open source?</h3>
+          <p>Yes. ClipTap is built as an auditable local-first utility.</p>
         </article>
       </div>
     </section>
   </main>
 
-  <footer class="site-footer section-full">
-    <div class="footer-brand">
-      <span class="brand-mark" aria-hidden="true">
-        <svg viewBox="0 0 32 32" role="img">
-          <rect x="3" y="3" width="26" height="26" rx="7" />
-          <path d="M16 8v11m0 0 5-5m-5 5-5-5M9 23h14" />
-        </svg>
-      </span>
+  <footer class="site-footer section-wrap">
+    <div class="footer-left">
       <strong>ClipTap</strong>
+      <span>Local video downloading, done right.</span>
     </div>
-    <div class="footer-links">
+    <nav class="footer-nav" aria-label="Footer navigation">
+      <a href="#features">Features</a>
+      <a href="#how">How It Works</a>
+      <a href="#screenshots">Screenshots</a>
+      <a href="#faq">FAQ</a>
+      <a href="#download">Download</a>
+    </nav>
+    <div class="footer-right">
       <a href="https://github.com/VELLUMCORE/cliptap">GitHub</a>
-      <a href="https://github.com/VELLUMCORE/cliptap/releases/latest">Releases</a>
-      <a href="#top">Back to top</a>
+      <span>MIT License</span>
+      <span>© 2024 ClipTap</span>
     </div>
   </footer>
 
