@@ -521,10 +521,11 @@ button { font: inherit; }
 .native-service-card {
   width: 333px;
   height: 82px;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  padding: 0 20px;
-  position: relative;
+  column-gap: 18px;
+  padding: 0 12px 0 16px;
 }
 .soon-service-card {
   min-width: 0;
@@ -584,6 +585,10 @@ button { font: inherit; }
 .service-card-copy {
   min-width: 0;
 }
+.native-service-card .service-card-copy {
+  min-width: 0;
+  padding-right: 8px;
+}
 .service-card-copy h3 {
   color: #fff;
   font-size: 15px;
@@ -604,9 +609,7 @@ button { font: inherit; }
   border-radius: 999px;
 }
 .service-status.native {
-  position: absolute;
-  right: 12px;
-  top: 20px;
+  justify-self: end;
   height: 24px;
   padding: 0 10px;
   gap: 7px;
