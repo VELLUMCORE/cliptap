@@ -39,6 +39,8 @@
 - Changed sidebar navigation from in-page anchor scrolling to page-style dashboard view switching.
 
 **ClipTap**
+- Added a GitHub Pages-ready promotional website under `docs/` with a dark landing page, product sections, installation steps, screenshot slots, and deployment notes.
+- Updated package script defaults to `v1.2-8`.
 - Updated package script defaults to `v1.2-7`.
 - Updated package script defaults to `v1.2-6`.
 - Updated package script defaults to `v1.2-5`.
