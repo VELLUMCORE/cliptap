@@ -6,7 +6,9 @@
 - No helper changes in this release.
 
 **ClipTap**
-- Updated the GitHub Pages website to reuse the shared README screenshots from `docs/images`.
+- Added a GitHub Pages promotional website.
+- Reused shared `docs/images` screenshots across the README and website.
+- Updated the website layout to use full-width header/content spacing and natural screenshot aspect ratios.
 
 ## v1.2.1
 
