@@ -2,8 +2,8 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${ROOT}/dist"
-VERSION="${CLIPTAP_VERSION:-v1.4.0}"
-SPECIFIC_ID="${CLIPTAP_SPECIFIC_ID:-2}"
+VERSION="${CLIPTAP_VERSION:-v1.2}"
+SPECIFIC_ID="${CLIPTAP_SPECIFIC_ID:-3}"
 BASENAME="cliptap-${VERSION}-${SPECIFIC_ID}"
 rm -rf "${OUT}"
 mkdir -p "${OUT}"

@@ -28,7 +28,7 @@ from urllib.parse import urlparse
 HOST = "127.0.0.1"
 PORT = 17723
 APP_NAME = "ClipTap Manager"
-APP_VERSION = "1.4.0"
+APP_VERSION = "1.2"
 OUTPUT_DIR = Path.home() / "Downloads" / "ClipTap"
 FROZEN = bool(getattr(sys, "frozen", False))
 APP_DIR = Path(sys.executable).resolve().parent if FROZEN else Path(__file__).resolve().parent
@@ -220,17 +220,17 @@ svg path, svg circle { vector-effect: non-scaling-stroke; }
   padding: 9px 16px 18px;
   background: transparent;
   border: 0;
-  display: flex; flex-direction: column; gap: 20px;
+  display: flex; flex-direction: column; gap: 14px;
 }
-.nav-list { display: grid; gap: 8px; margin-top: 0; }
+.nav-list { display: grid; gap: 5px; margin-top: 0; }
 .nav-item {
-  height: 52px;
+  height: 44px;
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 12px;
   color: #eef3fb;
   text-decoration: none;
-  padding: 0 16px;
+  padding: 0 14px;
   border-radius: 4px;
   border: 1px solid transparent;
   font-size: 16px;
@@ -241,7 +241,7 @@ svg path, svg circle { vector-effect: non-scaling-stroke; }
   color: #c2caff;
   background: linear-gradient(90deg, rgba(116, 104, 255, .34), rgba(116, 104, 255, .12));
   border-left: 3px solid var(--blue);
-  padding-left: 13px;
+  padding-left: 11px;
 }
 .nav-icon {
   width: 25px;

@@ -1,50 +1,31 @@
 # Changelog
 
-## v1.4.0
+## v1.2
 
+**ClipTap Helper**
+- Reworked the helper into a single-file Web UI manager source (`helper/ClipTapHelper.py`).
+- Added a one-file Windows helper build script (`helper/build-standalone.ps1`).
+- Added a GitHub Actions workflow for building `ClipTapHelper.exe` on Windows.
+- Embedded the manager HTML, CSS, and JavaScript into the helper source so the standalone executable does not need separate web asset files.
+- Replaced the standalone GUI helper app with a local Web UI manager.
+- Removed the PyInstaller executable build path and old helper app assets.
+- Added manager endpoints for dependency checks, install actions, download progress, cancellation, and shutdown.
 - Redesigned the helper Web Manager into a dark dashboard layout based on the provided mockup.
 - Moved the ClipTap Helper brand block from the sidebar into a full-width top header.
 - Removed divider styling from the top header and left navigation so both blend into the main background.
 - Increased the left navigation item text size for better readability.
 - Replaced text-based navigation and section icons with inline SVG icons.
-
-- Reworked the helper into a single-file Web UI manager source (`helper/ClipTapHelper.py`).
-- Added a one-file Windows helper build script (`helper/build-standalone.ps1`).
-- Added a GitHub Actions workflow for building `ClipTapHelper.exe` on Windows.
-- Embedded the manager HTML, CSS, and JavaScript into the helper source so the standalone executable does not need separate web asset files.
-- Redesigned the Web UI manager to closely match the dark sidebar dashboard mockup.
-- Added dashboard-style sections for server status, dependency checks, active queue, download defaults, and recent logs.
-- Restored package output names to use version and specific build IDs.
-
-## v1.3.0
-
-- Replaced the standalone GUI helper app with a local Web UI manager.
-- Removed the PyInstaller executable build path and helper app assets.
-- Added manager endpoints for dependency checks, install actions, download progress, cancellation, and shutdown.
-- Updated README for the Web UI manager workflow.
-
-## v1.2.2
-
-- Updated the helper build to use the bundled ClipTapHelper icon asset for the app window and the built executable.
-- Removed inline screenshot placeholder notes from the README.
-
-## v1.2.1
-
-- Refreshed the helper app UI with a darker blue interface.
-- Added stronger blue and orange accent colors for dependency actions and live recording state.
-- Improved download request cards with darker panels, clearer thumbnail placeholders, and better contrast.
-- Reduced the bright white helper window feel.
-
-## v1.2.0
-
-- Added standalone Windows GUI helper app.
-- Replaced terminal-first helper workflow with `ClipTapHelper.pyw` and a Windows `.exe` build script.
+- Reduced the left toolbar item height and tightened spacing between toolbar elements.
 - Added dependency status UI for yt-dlp and FFmpeg.
 - Added install/update button for yt-dlp.
 - Added FFmpeg install button through winget.
-- Added download request cards with thumbnail, title, status, progress, speed, ETA, and cancel button.
+- Added download request cards with thumbnail, title, status, progress, speed, ETA, and cancel controls.
 - Added live-stream full-download display mode using an active recording indicator instead of percentage progress.
-- Updated README for the GUI helper workflow.
+- Updated README for the Web UI manager workflow.
+
+**ClipTap**
+- Restored package output names to use version and specific build IDs.
+- Updated package script defaults to `v1.2-3`.
 
 ## v1.1.7
 
