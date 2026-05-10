@@ -504,7 +504,10 @@ button { font: inherit; }
   padding: 15px;
 }
 .current-panel {
-  height: 112px;
+  min-height: 112px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
 }
 .soon-panel {
   height: 149px;
@@ -519,13 +522,14 @@ button { font: inherit; }
   border: 1px solid rgba(130, 145, 190, 0.18);
 }
 .native-service-card {
-  width: 520px;
-  height: 82px;
+  width: auto;
+  min-width: 0;
+  min-height: 92px;
   display: grid;
-  grid-template-columns: 44px minmax(220px, 1fr) auto;
-  align-items: center;
-  column-gap: 18px;
-  padding: 0 14px 0 20px;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: 16px;
+  padding: 16px 16px 14px 18px;
 }
 .soon-service-card {
   min-width: 0;
@@ -588,6 +592,7 @@ button { font: inherit; }
 .native-service-card .service-card-copy {
   min-width: 0;
   padding-right: 0;
+  align-self: start;
 }
 .service-card-copy h3 {
   color: #fff;
@@ -602,7 +607,8 @@ button { font: inherit; }
   line-height: 1.45;
 }
 .native-service-card .service-card-copy p {
-  max-width: 240px;
+  max-width: none;
+  margin-top: 4px;
 }
 .service-status {
   display: inline-flex;
@@ -613,6 +619,8 @@ button { font: inherit; }
 }
 .service-status.native {
   justify-self: end;
+  align-self: start;
+  margin-top: 2px;
   height: 24px;
   padding: 0 10px;
   gap: 7px;
@@ -753,6 +761,9 @@ button { font: inherit; }
   }
 }
 @media (max-width: 900px) {
+  .current-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .supported-header {
     padding: 0 26px;
     grid-template-columns: 180px minmax(0, 1fr) 126px;
@@ -775,6 +786,9 @@ button { font: inherit; }
   }
 }
 @media (max-width: 640px) {
+  .current-panel {
+    grid-template-columns: 1fr;
+  }
   .supported-header {
     height: auto;
     padding: 18px 20px;
@@ -802,6 +816,7 @@ button { font: inherit; }
     width: 100%;
     height: auto;
     min-height: 92px;
+    grid-template-columns: 44px minmax(0, 1fr);
     padding: 16px;
   }
   .service-status.native {
