@@ -6,6 +6,7 @@
 - No helper changes in this release.
 
 **ClipTap**
+- Fixed the Supported Sites native support badge layout so it no longer overlaps or crushes service descriptions.
 - Refined the Supported Sites service card layout to prevent the native support badge from overlapping service descriptions.
 - Rebuilt the GitHub Pages promotional website to match the provided dark desktop mockup.
 - Added a separate Supported Sites page for native ClipTap service support and planned integrations.
