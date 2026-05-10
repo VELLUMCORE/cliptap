@@ -32,6 +32,7 @@ PORT = 17723
 APP_NAME = "ClipTap Manager"
 APP_VERSION = "1.2.1"
 OUTPUT_DIR = Path.home() / "Downloads" / "ClipTap"
+TEMP_ROOT = Path(tempfile.gettempdir()) / "ClipTap"
 FROZEN = bool(getattr(sys, "frozen", False))
 APP_DIR = Path(sys.executable).resolve().parent if FROZEN else Path(__file__).resolve().parent
 LOCAL_BIN_DIR = APP_DIR / "bin"
@@ -1213,7 +1214,13 @@ def build_download_command(job: DownloadJob) -> list[str]:
     quality = payload["quality"]
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    command = list(yt_dlp_cmd) + ["--newline", "--no-playlist", "--force-overwrites"]
+    TEMP_ROOT.mkdir(parents=True, exist_ok=True)
+    command = list(yt_dlp_cmd) + [
+        "--newline",
+        "--no-playlist",
+        "--force-overwrites",
+        "--paths", f"temp:{TEMP_ROOT}",
+    ]
 
     if quality == "audio":
         command += ["-f", FORMAT_MAP[quality], "-x", "--audio-format", "mp3"]
@@ -1282,7 +1289,13 @@ def build_source_download_command(job: DownloadJob, temp_dir: Path) -> list[str]
     quality = payload["quality"]
     temp_dir.mkdir(parents=True, exist_ok=True)
 
-    command = list(yt_dlp_cmd) + ["--newline", "--no-playlist", "--force-overwrites"]
+    TEMP_ROOT.mkdir(parents=True, exist_ok=True)
+    command = list(yt_dlp_cmd) + [
+        "--newline",
+        "--no-playlist",
+        "--force-overwrites",
+        "--paths", f"temp:{TEMP_ROOT}",
+    ]
     if quality == "audio":
         command += ["-f", FORMAT_MAP[quality], "-x", "--audio-format", "mp3"]
     else:
@@ -1311,9 +1324,7 @@ def section_output_path(job: DownloadJob, source_file: Path) -> Path:
     title = safe_filename(job.title, "cliptap")
     start = seconds_to_clock(payload["start"]).replace(":", "-")
     end = seconds_to_clock(payload["end"]).replace(":", "-")
-    suffix = ".mp3" if payload.get("quality") == "audio" else source_file.suffix.lower()
-    if not suffix or len(suffix) > 8:
-        suffix = ".mp4"
+    suffix = ".mp3" if payload.get("quality") == "audio" else ".mp4"
     return unique_path(OUTPUT_DIR / f"{title} [{job.id}] {start}-{end}{suffix}")
 
 
@@ -1321,22 +1332,92 @@ def ffmpeg_trim_command(job: DownloadJob, source_file: Path, output_file: Path) 
     ffmpeg_path, _ = find_ffmpeg()
     if not ffmpeg_path:
         raise ClipTapError("FFmpeg is not installed.")
-    duration = max(0.1, float(job.payload["end"]) - float(job.payload["start"]))
+
+    start_time = float(job.payload["start"])
+    duration = max(0.1, float(job.payload["end"]) - start_time)
+
+    # Re-encode the selected range. Stream-copy cuts are keyframe-aligned and
+    # can export a different start/end than the handles selected in YouTube.
+    # With transcoding, FFmpeg's default accurate seeking discards pre-roll
+    # frames while still avoiding a full decode from the beginning.
     command = [
         str(ffmpeg_path),
         "-hide_banner",
         "-y",
-        "-ss", seconds_to_clock(job.payload["start"]),
+        "-ss", seconds_to_clock(start_time),
         "-i", str(source_file),
         "-t", seconds_to_clock(duration),
-        "-map", "0",
-        "-c", "copy",
-        "-avoid_negative_ts", "make_zero",
         "-progress", "pipe:1",
         "-nostats",
-        str(output_file),
     ]
+
+    if job.payload.get("quality") == "audio":
+        command += [
+            "-vn",
+            "-map", "0:a:0?",
+            "-c:a", "libmp3lame",
+            "-q:a", "2",
+        ]
+    else:
+        command += [
+            "-map", "0:v:0?",
+            "-map", "0:a?",
+            "-c:v", "libx264",
+            "-preset", "veryfast",
+            "-crf", "18",
+            "-c:a", "aac",
+            "-b:a", "192k",
+            "-movflags", "+faststart",
+        ]
+
+    command.append(str(output_file))
     return command
+
+
+TEMP_FILE_SUFFIXES = (".part", ".ytdl", ".temp", ".tmp")
+
+
+def is_temporary_download_file(path: Path) -> bool:
+    name = path.name.lower()
+    return (
+        path.is_file()
+        and (
+            name.endswith(TEMP_FILE_SUFFIXES)
+            or ".part-" in name
+            or name.endswith(".part-frag")
+        )
+    )
+
+
+def has_other_active_jobs(current_job_id: str | None = None) -> bool:
+    active_phases = {"queued", "downloading", "processing", "live", "cancelling"}
+    with LOCK:
+        return any(
+            job.id != current_job_id and job.phase in active_phases
+            for job in JOBS.values()
+        )
+
+
+def cleanup_output_temporary_files(current_job_id: str | None = None):
+    if has_other_active_jobs(current_job_id):
+        return
+    try:
+        legacy_temp = OUTPUT_DIR / ".cliptap-temp"
+        if legacy_temp.exists():
+            shutil.rmtree(legacy_temp, ignore_errors=True)
+    except Exception:
+        pass
+    try:
+        if not OUTPUT_DIR.exists():
+            return
+        for item in OUTPUT_DIR.iterdir():
+            if is_temporary_download_file(item):
+                try:
+                    item.unlink()
+                except Exception:
+                    pass
+    except Exception:
+        pass
 
 
 def update_job(job: DownloadJob, **changes):
@@ -1454,7 +1535,7 @@ def prepare_metadata(job: DownloadJob):
 
 def run_section_download(job: DownloadJob):
     payload = job.payload
-    temp_dir = OUTPUT_DIR / ".cliptap-temp" / job.id
+    temp_dir = TEMP_ROOT / "section" / job.id
     percent_re = re.compile(r"\[download\]\s+(\d+(?:\.\d+)?)%")
     speed_re = re.compile(r"\bat\s+([^\s]+/s)")
     eta_re = re.compile(r"\bETA\s+([^\s]+)")
@@ -1512,7 +1593,7 @@ def run_section_download(job: DownloadJob):
     try:
         update_job(job, status="Downloading source media for selected section...", phase="downloading", progress=1.0)
         source_command = build_source_download_command(job, temp_dir)
-        job.process = popen_text(source_command, OUTPUT_DIR)
+        job.process = popen_text(source_command, temp_dir)
         for line in iter_process_records(job.process, job.cancel_event):
             if job.cancel_event.is_set():
                 raise CancelledError()
@@ -1527,7 +1608,7 @@ def run_section_download(job: DownloadJob):
         output_file = section_output_path(job, source_file)
         update_job(job, status="Cutting selected section...", phase="processing", progress=max(job.progress, 86.0), speed="", eta="")
         trim_command = ffmpeg_trim_command(job, source_file, output_file)
-        job.process = popen_text(trim_command, OUTPUT_DIR)
+        job.process = popen_text(trim_command, temp_dir)
         for line in iter_process_records(job.process, job.cancel_event):
             if job.cancel_event.is_set():
                 raise CancelledError()
@@ -1665,6 +1746,7 @@ def run_download(job: DownloadJob):
                 job.process.kill()
             except Exception:
                 pass
+        cleanup_output_temporary_files(job.id)
 
 
 def create_job(payload: dict) -> str:
@@ -1930,6 +2012,8 @@ def main():
     args = parser.parse_args()
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    TEMP_ROOT.mkdir(parents=True, exist_ok=True)
+    cleanup_output_temporary_files()
     should_open = args.open or (FROZEN and not args.no_open)
 
     try:

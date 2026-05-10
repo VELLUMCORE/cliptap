@@ -3,6 +3,9 @@
 ## v1.2.1
 
 **ClipTap Helper**
+- Changed selected section trimming to accurate FFmpeg transcoding so exported clips match the start/end positions selected in YouTube.
+- Moved section download working files from the visible download folder to the OS temporary directory.
+- Added cleanup for leftover `.part`, `.ytdl`, `.temp`, and legacy `.cliptap-temp` files after jobs finish when no other downloads are active.
 - Reworked selected section downloads to avoid the yt-dlp `--download-sections` stall path by downloading source media to a temporary file and trimming it locally with FFmpeg.
 - Added staged section progress: source media download first, then FFmpeg section cutting.
 - Added automatic cleanup for temporary section download files.
