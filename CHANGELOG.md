@@ -23,9 +23,18 @@
 - Added live-stream full-download display mode using an active recording indicator instead of percentage progress.
 - Updated README for the Web UI manager workflow.
 
+- Tightened the Helper dashboard layout to better match the target mockup.
+- Reduced card padding, table row height, form control height, button sizing, and grid gaps for a denser dashboard.
+- Refined the dark blue/purple theme, card contrast, borders, sidebar spacing, queue table, defaults form, and logs panel styling.
+
+- Fixed the Helper AppShell layout so the main dashboard fills the remaining viewport width.
+- Constrained page scrolling to the main content area while keeping the sidebar fixed at full viewport height.
+- Removed the dashboard width cap and adjusted wide-screen grid columns so cards use available space naturally.
+
 **ClipTap**
+- Updated package script defaults to `v1.2-5`.
 - Restored package output names to use version and specific build IDs.
-- Updated package script defaults to `v1.2-3`.
+- Updated package script defaults to `v1.2-4`.
 
 ## v1.1.7
 
