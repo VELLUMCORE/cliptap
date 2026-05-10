@@ -2,13 +2,11 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${ROOT}/dist"
-VERSION="${CLIPTAP_VERSION:-v1.2}"
-SPECIFIC_ID="${CLIPTAP_SPECIFIC_ID:-8}"
-BASENAME="cliptap-${VERSION}-${SPECIFIC_ID}"
+VERSION="1.1.7"
 rm -rf "${OUT}"
 mkdir -p "${OUT}"
-(cd "${ROOT}/extension" && zip -qr "${OUT}/${BASENAME}.xpi" .)
+(cd "${ROOT}/extension" && zip -qr "${OUT}/cliptap-v${VERSION}.xpi" .)
 mkdir -p "${OUT}/chrome/cliptap"
 cp -R "${ROOT}/extension/." "${OUT}/chrome/cliptap/"
-(cd "${OUT}/chrome" && zip -qr "${OUT}/${BASENAME}-chrome.zip" cliptap)
-(cd "${ROOT}/.." && zip -qr "${OUT}/${BASENAME}.zip" cliptap   -x "cliptap/dist/*"   -x "cliptap/build/*"   -x "cliptap/**/__pycache__/*"   -x "cliptap/**/*.pyc")
+(cd "${OUT}/chrome" && zip -qr "${OUT}/cliptap-v${VERSION}-chrome.zip" cliptap)
+(cd "${ROOT}/.." && zip -qr "${OUT}/cliptap-v${VERSION}.zip" cliptap -x "cliptap/dist/*" "cliptap/**/__pycache__/*" "cliptap/**/*.pyc")

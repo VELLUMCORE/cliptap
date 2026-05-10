@@ -1,3 +1,4 @@
 @echo off
+setlocal
 cd /d "%~dp0"
-py ClipTapHelper.py --open
+start "ClipTap Helper" pyw ClipTapHelper.pyw
