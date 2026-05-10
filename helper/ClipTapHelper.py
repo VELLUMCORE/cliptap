@@ -349,7 +349,7 @@ button, input, select { font: inherit; }
   box-shadow: inset 0 1px 0 rgba(255,255,255,.022);
 }
 .server-card, .tools-card, .defaults-card { padding: 15px 16px; }
-.queue-card, .logs-card { padding: 12px; }
+.queue-card, .history-card, .logs-card { padding: 12px; }
 .card-title, .section-head h2 {
   margin: 0;
   display: flex;
@@ -418,11 +418,15 @@ button, input, select { font: inherit; }
 .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .head-actions { display: flex; align-items: center; gap: 8px; }
 .queue-table-wrap { overflow: auto; border-top: 1px solid var(--line-soft); }
-.queue-table { width: 100%; border-collapse: collapse; min-width: 640px; }
-.queue-table th { height: 32px; color: #cbd5e5; font-size: 12px; text-align: left; font-weight: 760; }
-.queue-table td { height: 43px; border-top: 1px solid var(--line-soft); color: #e8edf5; vertical-align: middle; }
-.queue-table th:first-child, .queue-table td:first-child { width: 42px; text-align: center; }
-.title-cell strong { display: block; max-width: 245px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.queue-table { width: 100%; border-collapse: collapse; min-width: 760px; table-layout: fixed; }
+.queue-table th { height: 32px; color: #cbd5e5; font-size: 12px; text-align: left; font-weight: 760; padding: 0 10px; }
+.queue-table td { height: 43px; border-top: 1px solid var(--line-soft); color: #e8edf5; vertical-align: middle; padding: 0 10px; }
+.queue-table th:first-child, .queue-table td:first-child { width: 42px; text-align: center; padding-inline: 4px; }
+.queue-table th:nth-child(3), .queue-table td:nth-child(3) { width: 150px; padding-left: 14px; padding-right: 18px; }
+.queue-table th:nth-child(4), .queue-table td:nth-child(4) { width: 150px; padding-left: 14px; padding-right: 18px; }
+.queue-table th:nth-child(5), .queue-table td:nth-child(5) { width: 180px; }
+.queue-table th:nth-child(6), .queue-table td:nth-child(6) { width: 104px; }
+.title-cell strong { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .title-cell small { display: block; margin-top: 2px; color: #9ba9ba; font-size: 11px; }
 .platform { display: inline-flex; align-items: center; gap: 6px; color: #dbe3ef; }
 .youtube-dot { width: 13px; height: 9px; display: inline-grid; place-items: center; border-radius: 2px; background: #ff1d1d; font-size: 7px; color: white; }
@@ -493,15 +497,19 @@ body[data-page="logs"] .layout-grid > .logs-card {
   grid-column: 1 / -1;
 }
 body[data-page="queue"] .queue-card,
-body[data-page="history"] .history-card,
-body[data-page="tools"] .tools-card,
-body[data-page="settings"] .defaults-card,
 body[data-page="logs"] .logs-card {
   min-height: min(620px, calc(100vh - 98px));
 }
+body[data-page="history"] .history-card {
+  min-height: min(420px, calc(100vh - 98px));
+}
+body[data-page="settings"] .defaults-card,
+body[data-page="tools"] .tools-card {
+  min-height: auto;
+}
 body[data-page="tools"] .tools-card,
 body[data-page="settings"] .defaults-card {
-  max-width: 920px;
+  max-width: 980px;
 }
 body[data-page="logs"] .logs-card pre {
   height: calc(100vh - 175px);
@@ -509,7 +517,7 @@ body[data-page="logs"] .logs-card pre {
 }
 .placeholder-panel {
   margin-top: 10px;
-  min-height: 240px;
+  min-height: 260px;
   display: grid;
   align-content: center;
   justify-items: center;
@@ -592,7 +600,9 @@ function renderLogs() {
 
 function text(selector, value) {
   const el = document.querySelector(selector);
-  if (el) el.textContent = value;
+  if (!el) return;
+  if (el.matches('input, textarea, select')) el.value = value;
+  else el.textContent = value;
 }
 
 async function api(path, options = {}) {
@@ -665,8 +675,13 @@ function formatDuration(job) {
 
 function formatName(job) {
   const quality = job.payload?.quality || 'best';
-  if (job.payload?.mode === 'section') return quality === 'best' ? 'section' : `section (${quality})`;
-  return quality === 'best' ? 'full' : `full (${quality})`;
+  const labels = {
+    best: 'best available',
+    '1080': 'mp4 (1080p)',
+    '720': 'mp4 (720p)',
+    audio: 'audio (mp3)',
+  };
+  return labels[quality] || quality;
 }
 
 function platform(job) {
@@ -1554,12 +1569,16 @@ def open_browser_later():
 
 def run_yt_dlp_cli(argv: list[str]) -> int:
     try:
-        from yt_dlp.__main__ import main as yt_dlp_main
+        from yt_dlp import main as yt_dlp_main
     except Exception as exc:
         print(f"yt-dlp is not bundled or installed: {exc}", file=sys.stderr)
         return 1
+
     sys.argv = [sys.argv[0]] + argv
-    result = yt_dlp_main()
+    try:
+        result = yt_dlp_main()
+    except SystemExit as exc:
+        return int(exc.code or 0) if isinstance(exc.code, int) else 1
     return int(result or 0)
 
 

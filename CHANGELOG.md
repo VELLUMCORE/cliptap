@@ -3,6 +3,11 @@
 ## v1.2
 
 **ClipTap Helper**
+- Fixed Download History page spacing so the empty state card no longer looks broken.
+- Fixed the Save folder field so the manager writes the output path into the input value instead of leaving it as Loading.
+- Fixed the bundled yt-dlp launcher by importing yt-dlp from the package entry point instead of `yt_dlp.__main__`.
+- Improved queue table column spacing between Platform, Format, Progress, and Status.
+- Changed the queue Format column to show media format labels such as `mp4 (1080p)` or `audio (mp3)` instead of download mode labels like full/section.
 - Reworked the helper into a single-file Web UI manager source (`helper/ClipTapHelper.py`).
 - Added a one-file Windows helper build script (`helper/build-standalone.ps1`).
 - Added a GitHub Actions workflow for building `ClipTapHelper.exe` on Windows.
@@ -34,6 +39,7 @@
 - Changed sidebar navigation from in-page anchor scrolling to page-style dashboard view switching.
 
 **ClipTap**
+- Updated package script defaults to `v1.2-7`.
 - Updated package script defaults to `v1.2-6`.
 - Updated package script defaults to `v1.2-5`.
 - Restored package output names to use version and specific build IDs.
