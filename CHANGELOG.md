@@ -7,8 +7,8 @@
 
 **ClipTap**
 - Rebuilt the GitHub Pages promotional website to match the provided dark desktop mockup.
-- Replaced CSS-only promo visuals with supplied hero and CTA image assets.
-- Replaced the final CTA illustration with supplied product preview artwork.
+- Added a separate Supported Sites page for native ClipTap service support and planned integrations.
+- Replaced CSS-only promo visuals with supplied product and CTA image assets.
 
 ## v1.2.1
 
