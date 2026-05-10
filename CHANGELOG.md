@@ -6,6 +6,9 @@
 - Added a one-file Windows helper build script (`helper/build-standalone.ps1`).
 - Added a GitHub Actions workflow for building `ClipTapHelper.exe` on Windows.
 - Embedded the manager HTML, CSS, and JavaScript into the helper source so the standalone executable does not need separate web asset files.
+- Redesigned the Web UI manager to closely match the dark sidebar dashboard mockup.
+- Added dashboard-style sections for server status, dependency checks, active queue, download defaults, and recent logs.
+- Restored package output names to use version and specific build IDs.
 
 ## v1.3.0
 

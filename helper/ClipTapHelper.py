@@ -34,9 +34,582 @@ FROZEN = bool(getattr(sys, "frozen", False))
 APP_DIR = Path(sys.executable).resolve().parent if FROZEN else Path(__file__).resolve().parent
 LOCAL_BIN_DIR = APP_DIR / "bin"
 
-INDEX_HTML = '<!doctype html>\n<html lang="en">\n<head>\n  <meta charset="utf-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1">\n  <title>ClipTap Manager</title>\n  <link rel="stylesheet" href="/manager.css">\n</head>\n<body>\n  <main class="shell">\n    <section class="hero">\n      <div>\n        <p class="eyebrow">Local manager</p>\n        <h1>ClipTap Manager</h1>\n        <p class="summary">Keep this page open while downloading. ClipTap uses this local manager to run yt-dlp and FFmpeg on your computer.</p>\n      </div>\n      <div class="hero-actions">\n        <button id="openOutput" class="button secondary" type="button">Open output folder</button>\n        <button id="stopServer" class="button danger" type="button">Stop manager</button>\n      </div>\n    </section>\n\n    <section class="status-grid" aria-label="Dependency status">\n      <article class="status-card" id="ytDlpCard">\n        <div class="status-head">\n          <span class="badge">yt-dlp</span>\n          <span class="state" data-role="yt-state">Checking</span>\n        </div>\n        <p data-role="yt-desc">Checking yt-dlp...</p>\n        <button id="installYtDlp" class="button primary" type="button">Install / update yt-dlp</button>\n      </article>\n\n      <article class="status-card" id="ffmpegCard">\n        <div class="status-head">\n          <span class="badge orange">FFmpeg</span>\n          <span class="state" data-role="ffmpeg-state">Checking</span>\n        </div>\n        <p data-role="ffmpeg-desc">Checking FFmpeg...</p>\n        <button id="installFfmpeg" class="button orange" type="button">Install FFmpeg with winget</button>\n      </article>\n\n      <article class="status-card wide">\n        <div class="status-head">\n          <span class="badge muted">Server</span>\n          <span class="state ok">Online</span>\n        </div>\n        <p><strong>Manager</strong> <span data-role="server-url">http://127.0.0.1:17723</span></p>\n        <p><strong>Output</strong> <span data-role="output-dir">Loading...</span></p>\n      </article>\n    </section>\n\n    <section class="panel" id="installPanel" hidden>\n      <div class="panel-head">\n        <h2>Install activity</h2>\n        <span id="installState" class="soft">Idle</span>\n      </div>\n      <pre id="installLog"></pre>\n    </section>\n\n    <section class="panel">\n      <div class="panel-head">\n        <div>\n          <h2>Download requests</h2>\n          <p>New requests from the browser extension appear here automatically.</p>\n        </div>\n        <button id="refreshJobs" class="button secondary small" type="button">Refresh</button>\n      </div>\n      <div id="emptyJobs" class="empty">No download requests yet. Start one from the YouTube player.</div>\n      <div id="jobs" class="jobs"></div>\n    </section>\n  </main>\n\n  <script src="/manager.js"></script>\n</body>\n</html>\n'
-MANAGER_CSS = ':root {\n  color-scheme: dark;\n  --bg: #08111f;\n  --bg-2: #0c1728;\n  --surface: #101d31;\n  --surface-2: #14233a;\n  --line: #273b59;\n  --text: #eef5ff;\n  --muted: #9fb2ca;\n  --blue: #2f8cff;\n  --blue-2: #1c6ed6;\n  --orange: #ff9d1f;\n  --orange-2: #d97600;\n  --red: #ff6767;\n  --green: #51d491;\n}\n\n* { box-sizing: border-box; }\n\nbody {\n  margin: 0;\n  min-height: 100vh;\n  background: radial-gradient(circle at 20% 0%, rgba(47, 140, 255, .18), transparent 32rem), var(--bg);\n  color: var(--text);\n  font-family: "Segoe UI", Arial, sans-serif;\n}\n\nbutton, input { font: inherit; }\n\n.shell {\n  width: min(1120px, calc(100% - 32px));\n  margin: 0 auto;\n  padding: 28px 0 44px;\n}\n\n.hero {\n  display: flex;\n  align-items: flex-end;\n  justify-content: space-between;\n  gap: 24px;\n  padding: 26px;\n  background: linear-gradient(135deg, rgba(20, 35, 58, .96), rgba(12, 23, 40, .96));\n  border: 1px solid var(--line);\n  border-radius: 12px;\n}\n\n.eyebrow {\n  margin: 0 0 8px;\n  color: var(--blue);\n  font-weight: 700;\n  letter-spacing: .08em;\n  text-transform: uppercase;\n  font-size: 12px;\n}\n\nh1, h2, p { margin-top: 0; }\nh1 { margin-bottom: 10px; font-size: 34px; }\nh2 { margin-bottom: 4px; font-size: 20px; }\n.summary { margin-bottom: 0; max-width: 680px; color: var(--muted); line-height: 1.55; }\n\n.hero-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }\n\n.status-grid {\n  display: grid;\n  grid-template-columns: repeat(3, minmax(0, 1fr));\n  gap: 14px;\n  margin-top: 14px;\n}\n\n.status-card, .panel {\n  background: rgba(16, 29, 49, .94);\n  border: 1px solid var(--line);\n  border-radius: 10px;\n}\n\n.status-card {\n  padding: 18px;\n  min-height: 168px;\n}\n\n.status-card.wide { grid-column: span 1; }\n.status-card p { color: var(--muted); line-height: 1.45; word-break: break-word; }\n.status-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }\n\n.badge {\n  display: inline-flex;\n  align-items: center;\n  height: 26px;\n  padding: 0 10px;\n  border-radius: 999px;\n  background: rgba(47, 140, 255, .18);\n  color: #b9d8ff;\n  font-weight: 700;\n  font-size: 13px;\n}\n.badge.orange { background: rgba(255, 157, 31, .18); color: #ffd49a; }\n.badge.muted { background: rgba(159, 178, 202, .15); color: #c6d4e4; }\n\n.state { color: var(--muted); font-size: 13px; font-weight: 700; }\n.state.ok { color: var(--green); }\n.state.bad { color: var(--red); }\n\n.button {\n  border: 1px solid transparent;\n  border-radius: 8px;\n  min-height: 38px;\n  padding: 0 14px;\n  color: white;\n  cursor: pointer;\n  background: var(--surface-2);\n}\n.button:hover { filter: brightness(1.08); }\n.button:disabled { opacity: .55; cursor: not-allowed; }\n.button.primary { background: var(--blue); }\n.button.orange { background: var(--orange-2); }\n.button.secondary { border-color: var(--line); background: #15243b; color: var(--text); }\n.button.danger { background: transparent; border-color: rgba(255, 103, 103, .55); color: #ffc9c9; }\n.button.small { min-height: 34px; font-size: 14px; }\n\n.panel { margin-top: 14px; padding: 20px; }\n.panel-head { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 16px; }\n.panel-head p { margin: 4px 0 0; color: var(--muted); }\n.soft { color: var(--muted); }\npre {\n  margin: 0;\n  max-height: 260px;\n  overflow: auto;\n  padding: 14px;\n  border-radius: 8px;\n  background: #07101c;\n  border: 1px solid #1b304d;\n  color: #cfe1f7;\n  white-space: pre-wrap;\n}\n\n.empty {\n  border: 1px dashed var(--line);\n  color: var(--muted);\n  border-radius: 10px;\n  padding: 28px;\n  text-align: center;\n}\n.jobs { display: grid; gap: 12px; }\n.job {\n  display: grid;\n  grid-template-columns: 160px minmax(0, 1fr) auto;\n  gap: 16px;\n  padding: 14px;\n  border: 1px solid var(--line);\n  border-radius: 10px;\n  background: var(--bg-2);\n}\n.thumb {\n  width: 160px;\n  aspect-ratio: 16 / 9;\n  border-radius: 8px;\n  object-fit: cover;\n  background: #1a2c47;\n  border: 1px solid #2a4162;\n}\n.job-title { margin: 0 0 8px; font-size: 16px; line-height: 1.35; }\n.job-meta { margin: 0 0 10px; color: var(--muted); font-size: 13px; line-height: 1.45; }\n.progress-track { height: 9px; overflow: hidden; border-radius: 999px; background: #0a1424; border: 1px solid #243a59; }\n.progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--blue), #68b0ff); transition: width .2s ease; }\n.job.live .progress-fill { width: 100%; background: linear-gradient(90deg, var(--orange), #ffd17a, var(--orange)); animation: pulse 1.4s linear infinite; }\n.job.failed .progress-fill { background: var(--red); }\n.job.finished .progress-fill { background: var(--green); }\n\n@keyframes pulse {\n  0% { opacity: .55; }\n  50% { opacity: 1; }\n  100% { opacity: .55; }\n}\n\n@media (max-width: 840px) {\n  .hero { align-items: flex-start; flex-direction: column; }\n  .status-grid { grid-template-columns: 1fr; }\n  .job { grid-template-columns: 1fr; }\n  .thumb { width: 100%; }\n}\n'
-MANAGER_JS = 'const $ = (selector) => document.querySelector(selector);\nconst jobsEl = $(\'#jobs\');\nconst emptyJobs = $(\'#emptyJobs\');\nconst installPanel = $(\'#installPanel\');\nconst installLog = $(\'#installLog\');\nconst installState = $(\'#installState\');\n\nfunction text(selector, value) {\n  const el = document.querySelector(selector);\n  if (el) el.textContent = value;\n}\n\nasync function api(path, options = {}) {\n  const res = await fetch(path, options);\n  const data = await res.json().catch(() => ({}));\n  if (!res.ok) throw new Error(data.error || `Request failed: ${res.status}`);\n  return data;\n}\n\nfunction setDependency(cardId, stateSelector, descSelector, dep) {\n  const card = document.getElementById(cardId);\n  const state = document.querySelector(stateSelector);\n  const desc = document.querySelector(descSelector);\n  card?.classList.toggle(\'missing\', !dep.ok);\n  if (state) {\n    state.textContent = dep.ok ? \'Ready\' : \'Missing\';\n    state.className = dep.ok ? \'state ok\' : \'state bad\';\n  }\n  if (desc) desc.textContent = dep.description || \'Unknown\';\n}\n\nfunction renderInstallTasks(installs = {}) {\n  const tasks = Object.values(installs);\n  const active = tasks.find(task => task.status === \'running\' || task.status === \'queued\');\n  const recent = active || tasks.find(task => task.log);\n  installPanel.hidden = !recent;\n  if (!recent) return;\n  installState.textContent = `${recent.label}: ${recent.status}`;\n  installLog.textContent = recent.log || \'\';\n}\n\nasync function refreshStatus() {\n  try {\n    const data = await api(\'/api/status\');\n    setDependency(\'ytDlpCard\', \'[data-role="yt-state"]\', \'[data-role="yt-desc"]\', data.ytDlp);\n    setDependency(\'ffmpegCard\', \'[data-role="ffmpeg-state"]\', \'[data-role="ffmpeg-desc"]\', data.ffmpeg);\n    text(\'[data-role="server-url"]\', data.server);\n    text(\'[data-role="output-dir"]\', data.outputDir);\n    renderInstallTasks(data.installs);\n  } catch (error) {\n    text(\'[data-role="server-url"]\', \'Offline\');\n    console.error(error);\n  }\n}\n\nfunction formatClock(seconds) {\n  const total = Math.max(0, Number(seconds) || 0);\n  const whole = Math.floor(total);\n  const h = Math.floor(whole / 3600);\n  const m = Math.floor((whole % 3600) / 60);\n  const s = whole % 60;\n  return [h, m, s].map(v => String(v).padStart(2, \'0\')).join(\':\');\n}\n\nfunction jobMode(job) {\n  if (job.payload.mode === \'full\') {\n    return job.isLive ? \'Live recording · continues until the stream ends or you cancel\' : \'Full video\';\n  }\n  return `Selected section · ${formatClock(job.payload.start)} → ${formatClock(job.payload.end)}`;\n}\n\nfunction jobClasses(job) {\n  const classes = [\'job\'];\n  if (job.isLive && job.payload.mode === \'full\' && ![\'finished\', \'failed\', \'cancelled\'].includes(job.phase)) classes.push(\'live\');\n  if (job.phase === \'finished\') classes.push(\'finished\');\n  if (job.phase === \'failed\') classes.push(\'failed\');\n  return classes.join(\' \');\n}\n\nfunction renderJobs(jobs) {\n  emptyJobs.hidden = jobs.length > 0;\n  jobsEl.innerHTML = jobs.map(job => {\n    const progress = Math.max(0, Math.min(100, Number(job.progress) || 0));\n    const thumbnail = job.thumbnailUrl || \'\';\n    const statusBits = [job.status];\n    if (job.speed) statusBits.push(job.speed);\n    if (job.eta && !job.isLive) statusBits.push(`ETA ${job.eta}`);\n    if (job.error) statusBits.push(job.error);\n    const disabled = [\'finished\', \'failed\', \'cancelled\'].includes(job.phase) ? \'disabled\' : \'\';\n    return `\n      <article class="${jobClasses(job)}">\n        ${thumbnail ? `<img class="thumb" src="${thumbnail}" alt="">` : `<div class="thumb"></div>`}\n        <div>\n          <h3 class="job-title">${escapeHtml(job.title || \'Untitled video\')}</h3>\n          <p class="job-meta">${escapeHtml(jobMode(job))}<br>${escapeHtml(statusBits.join(\' · \'))}</p>\n          <div class="progress-track" aria-label="Download progress">\n            <div class="progress-fill" style="width:${job.isLive && job.payload.mode === \'full\' ? 100 : progress}%"></div>\n          </div>\n        </div>\n        <div>\n          <button class="button danger small" data-cancel="${job.id}" ${disabled}>Cancel</button>\n        </div>\n      </article>\n    `;\n  }).join(\'\');\n}\n\nfunction escapeHtml(value) {\n  return String(value || \'\').replace(/[&<>\'"]/g, char => ({\n    \'&\': \'&amp;\', \'<\': \'&lt;\', \'>\': \'&gt;\', "\'": \'&#39;\', \'"\': \'&quot;\'\n  }[char]));\n}\n\nasync function refreshJobs() {\n  const data = await api(\'/api/jobs\');\n  renderJobs(data.jobs || []);\n}\n\nasync function startInstall(name) {\n  await api(`/api/install/${name}`, { method: \'POST\' });\n  await refreshStatus();\n}\n\n$(\'#installYtDlp\')?.addEventListener(\'click\', () => startInstall(\'yt-dlp\').catch(alert));\n$(\'#installFfmpeg\')?.addEventListener(\'click\', () => startInstall(\'ffmpeg\').catch(alert));\n$(\'#refreshJobs\')?.addEventListener(\'click\', () => refreshJobs().catch(console.error));\n$(\'#openOutput\')?.addEventListener(\'click\', () => api(\'/api/open-output\', { method: \'POST\' }).catch(error => alert(error.message)));\n$(\'#stopServer\')?.addEventListener(\'click\', async () => {\n  if (!confirm(\'Stop ClipTap Manager? Downloads in progress may fail.\')) return;\n  await api(\'/api/shutdown\', { method: \'POST\' });\n  document.body.innerHTML = \'<main class="shell"><section class="hero"><h1>ClipTap Manager stopped</h1><p class="summary">You can close this tab now.</p></section></main>\';\n});\n\njobsEl?.addEventListener(\'click\', async (event) => {\n  const button = event.target.closest(\'[data-cancel]\');\n  if (!button) return;\n  await api(`/api/jobs/${button.dataset.cancel}/cancel`, { method: \'POST\' });\n  await refreshJobs();\n});\n\nasync function tick() {\n  await Promise.allSettled([refreshStatus(), refreshJobs()]);\n}\n\ntick();\nsetInterval(tick, 1500);\n'
+INDEX_HTML = r"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ClipTap Helper</title>
+  <link rel="stylesheet" href="/manager.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="ClipTap navigation">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none"><path d="M12 4v10" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/><path d="m7.5 10 4.5 4.5L16.5 10" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 18h14" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/></svg>
+        </div>
+        <div>
+          <h1>ClipTap Helper</h1>
+          <p>Local helper for ClipTap downloads</p>
+        </div>
+      </div>
+
+      <nav class="nav-list">
+        <a href="#dashboard" class="nav-item active"><span class="nav-icon">⌂</span>Dashboard</a>
+        <a href="#queue" class="nav-item"><span class="nav-icon">◷</span>Queue</a>
+        <a href="#history" class="nav-item"><span class="nav-icon">☷</span>History</a>
+        <a href="#tools" class="nav-item"><span class="nav-icon">⌘</span>Tools</a>
+        <a href="#defaults" class="nav-item"><span class="nav-icon">⚙</span>Settings</a>
+        <a href="#logs" class="nav-item"><span class="nav-icon">▧</span>Logs</a>
+      </nav>
+
+      <div class="side-note">
+        <span class="note-icon">ⓘ</span>
+        <p>The browser extension sends requests here automatically.</p>
+      </div>
+
+      <div class="sidebar-footer">
+        <p>Version <span data-role="app-version">—</span></p>
+        <button id="checkUpdatesLink" type="button" class="link-button">Check for updates</button>
+      </div>
+    </aside>
+
+    <main class="main" id="dashboard">
+      <header class="topbar">
+        <div class="top-spacer"></div>
+        <div class="run-pill"><span></span>Running</div>
+      </header>
+
+      <section class="layout-grid">
+        <article class="card server-card">
+          <div class="card-title"><span class="title-icon">&lt;/&gt;</span>SERVER STATUS</div>
+          <div class="status-rows">
+            <div class="status-row"><span>Local address:</span><strong data-role="server-url">http://127.0.0.1:17723</strong><button id="copyAddress" class="icon-button" type="button" title="Copy address">⧉</button></div>
+            <div class="status-row"><span>Extension connection:</span><strong class="ok">Connected</strong></div>
+            <div class="status-row"><span>Requests today:</span><strong data-role="requests-today">0</strong></div>
+          </div>
+          <div class="button-row">
+            <button id="openOutput" class="button" type="button">▣ Open Download Folder</button>
+            <button id="copyAddressBottom" class="button" type="button">⧉ Copy Address</button>
+            <button id="restartHint" class="button" type="button">↻ Restart Helper</button>
+            <button id="moreMenu" class="button square" type="button">⋯</button>
+          </div>
+        </article>
+
+        <article class="card tools-card" id="tools">
+          <div class="card-title"><span class="title-icon">⌘</span>TOOLS / DEPENDENCY CHECK</div>
+          <div class="tool-table">
+            <div class="tool-row"><span>yt-dlp</span><strong data-role="yt-state" class="pending">Checking</strong><em data-role="yt-desc">—</em><button id="installYtDlp" class="mini-button" type="button">Check Again</button></div>
+            <div class="tool-row"><span>ffmpeg</span><strong data-role="ffmpeg-state" class="pending">Checking</strong><em data-role="ffmpeg-desc">—</em><button id="installFfmpeg" class="mini-button" type="button">Check Again</button></div>
+            <div class="tool-row"><span>Python runtime</span><strong class="ok">Ready</strong><em data-role="python-version">Python</em><button id="refreshDeps" class="mini-button" type="button">Check Again</button></div>
+            <div class="tool-row"><span>Update check</span><strong class="warn">Manual</strong><em data-role="update-version">Local build</em><button id="openReleases" class="mini-button" type="button">Update</button></div>
+          </div>
+        </article>
+
+        <article class="card queue-card" id="queue">
+          <div class="section-head">
+            <h2>ACTIVE DOWNLOAD QUEUE (<span data-role="active-count">0</span>)</h2>
+            <div class="head-actions">
+              <button id="pauseQueue" class="button compact" type="button">Ⅱ Pause Queue</button>
+              <button id="cancelAll" class="button compact" type="button">⊘ Cancel All</button>
+            </div>
+          </div>
+          <div class="queue-table-wrap">
+            <table class="queue-table">
+              <thead><tr><th>#</th><th>Title</th><th>Platform</th><th>Format</th><th>Progress</th><th>Status</th></tr></thead>
+              <tbody id="queueRows"></tbody>
+            </table>
+          </div>
+          <div class="table-footer"><span data-role="queue-summary">Showing 0 downloads</span><button id="clearCompleted" class="button compact" type="button">Clear Completed</button></div>
+        </article>
+
+        <article class="card defaults-card" id="defaults">
+          <div class="card-title"><span class="title-icon">⚙</span>DOWNLOAD DEFAULTS</div>
+          <label class="field"><span>Save folder</span><div class="field-line"><input data-role="output-dir" readonly value="Loading..."><button id="browseOutput" class="mini-button" type="button">Browse</button></div></label>
+          <label class="field"><span>Filename rule</span><input id="filenameRule" value="%(uploader)s - %(title)s.%(ext)s"></label>
+          <label class="field"><span>Preferred video format</span><select id="videoFormat"><option>mp4 (h264/aac)</option><option>webm (vp9/opus)</option><option>best available</option></select></label>
+          <label class="field"><span>Preferred audio format</span><select id="audioFormat"><option>m4a (aac)</option><option>opus</option><option>best audio</option></select></label>
+          <label class="field"><span>Cookies from browser</span><select id="cookieBrowser"><option>None</option><option>Chrome</option><option>Edge</option><option>Firefox</option></select></label>
+          <label class="check-line"><input id="autoMerge" type="checkbox" checked> <span>Auto-merge with ffmpeg</span></label>
+          <button id="saveDefaults" class="button save" type="button">Save Settings</button>
+        </article>
+
+        <article class="card logs-card" id="logs">
+          <div class="section-head">
+            <h2>▧ RECENT LOGS</h2>
+            <div class="head-actions"><label class="auto-scroll"><input id="autoScroll" type="checkbox" checked> Auto-scroll</label><button id="clearLogs" class="button compact" type="button">Clear</button><button id="openLogs" class="button compact" type="button">▣ Open Logs Folder</button></div>
+          </div>
+          <pre id="logOutput" aria-label="Recent logs"></pre>
+        </article>
+      </section>
+
+      <section class="install-drawer" id="installPanel" hidden>
+        <div class="install-head"><strong>Install activity</strong><span id="installState">Idle</span></div>
+        <pre id="installLog"></pre>
+      </section>
+    </main>
+  </div>
+  <script src="/manager.js"></script>
+</body>
+</html>
+"""
+
+MANAGER_CSS = r""":root {
+  color-scheme: dark;
+  --bg: #070c15;
+  --sidebar: #080d18;
+  --panel: #0d1422;
+  --panel-2: #111a2b;
+  --panel-3: #151f33;
+  --line: #263247;
+  --line-soft: #1b2536;
+  --text: #f4f7fb;
+  --muted: #9aa8ba;
+  --muted-2: #6f7e93;
+  --blue: #7468ff;
+  --blue-2: #4f8dff;
+  --blue-soft: rgba(116, 104, 255, .22);
+  --orange: #ff9c1a;
+  --green: #41db78;
+  --red: #ff6470;
+  --yellow: #ffb23f;
+}
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at 78% -10%, rgba(65, 130, 255, .13), transparent 36rem),
+    radial-gradient(circle at 8% 16%, rgba(116, 104, 255, .14), transparent 26rem),
+    var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 14px;
+}
+button, input, select { font: inherit; }
+button { color: inherit; }
+.app-shell { display: grid; grid-template-columns: 255px 1fr; min-height: 100vh; }
+.sidebar {
+  position: sticky; top: 0; height: 100vh;
+  padding: 22px 16px 18px;
+  background: linear-gradient(180deg, rgba(11, 17, 31, .98), rgba(5, 10, 18, .98));
+  border-right: 1px solid var(--line-soft);
+  display: flex; flex-direction: column; gap: 20px;
+}
+.brand { display: flex; align-items: center; gap: 14px; min-height: 50px; }
+.brand-icon {
+  width: 42px; height: 42px; border-radius: 7px;
+  display: grid; place-items: center;
+  color: white;
+  background: linear-gradient(135deg, #3c64ff, #765cff);
+  border: 1px solid rgba(255,255,255,.14);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.18);
+}
+.brand h1 { margin: 0; font-size: 24px; letter-spacing: -.02em; }
+.brand p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+.nav-list { display: grid; gap: 8px; margin-top: 2px; }
+.nav-item {
+  height: 48px; display: flex; align-items: center; gap: 14px;
+  color: #e8edf6; text-decoration: none; padding: 0 15px; border-radius: 4px;
+  border: 1px solid transparent;
+}
+.nav-item:hover { background: rgba(255,255,255,.045); }
+.nav-item.active {
+  color: #bec7ff;
+  background: linear-gradient(90deg, rgba(116, 104, 255, .34), rgba(116, 104, 255, .12));
+  border-left: 3px solid var(--blue);
+  padding-left: 12px;
+}
+.nav-icon { width: 25px; color: #dce4ff; font-size: 22px; line-height: 1; }
+.side-note {
+  margin-top: auto; padding: 16px 14px;
+  display: grid; grid-template-columns: 22px 1fr; gap: 10px;
+  border-radius: 5px; border: 1px solid rgba(116,104,255,.36);
+  background: rgba(116,104,255,.1); color: #b9c3ff;
+}
+.side-note p { margin: 0; line-height: 1.45; }
+.note-icon { color: #aeb8ff; }
+.sidebar-footer { color: #ccd5e5; }
+.sidebar-footer p { margin: 0 0 8px; }
+.link-button { background: transparent; border: 0; padding: 0; color: #9da8ff; text-decoration: underline; cursor: pointer; }
+.main { padding: 18px 24px 28px; min-width: 0; }
+.topbar { height: 46px; display: flex; align-items: center; justify-content: flex-end; }
+.run-pill {
+  min-width: 108px; height: 40px; padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  border: 1px solid rgba(65, 219, 120, .32); border-radius: 5px;
+  background: rgba(65, 219, 120, .12); color: white; font-size: 16px;
+}
+.run-pill span { width: 10px; height: 10px; border-radius: 99px; background: var(--green); box-shadow: 0 0 14px rgba(65,219,120,.7); }
+.layout-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 12px; }
+.card {
+  background: linear-gradient(180deg, rgba(16, 24, 39, .9), rgba(9, 15, 26, .94));
+  border: 1px solid var(--line); border-radius: 5px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+  min-width: 0;
+}
+.server-card, .tools-card, .defaults-card { padding: 16px; }
+.queue-card, .logs-card { padding: 12px; }
+.card-title, .section-head h2 {
+  margin: 0; display: flex; align-items: center; gap: 10px;
+  color: #dce5f6; font-weight: 700; font-size: 14px; letter-spacing: .02em;
+}
+.title-icon { color: #eaf0ff; opacity: .95; }
+.status-rows { margin-top: 17px; display: grid; }
+.status-row {
+  display: grid; grid-template-columns: 190px minmax(0, 1fr) 34px; align-items: center;
+  min-height: 40px; border-bottom: 1px solid var(--line-soft); gap: 10px;
+}
+.status-row span { color: #f3f6fb; }
+.status-row strong { color: #aeb8ff; font-weight: 500; word-break: break-all; }
+.status-row strong.ok, .ok { color: var(--green) !important; }
+.warn { color: var(--orange) !important; }
+.bad { color: var(--red) !important; }
+.pending { color: var(--muted) !important; }
+.icon-button { width: 30px; height: 30px; border: 0; border-radius: 4px; background: transparent; color: #c7d1e4; cursor: pointer; }
+.icon-button:hover { background: rgba(255,255,255,.07); }
+.button-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
+.button, .mini-button {
+  height: 36px; border-radius: 5px; border: 1px solid #2c384c; background: #111a2a;
+  color: #f0f4fb; padding: 0 14px; cursor: pointer; font-weight: 650; font-size: 13px;
+}
+.button:hover, .mini-button:hover { background: #172237; border-color: #3a4860; }
+.button.square { width: 38px; padding: 0; }
+.button.compact { height: 32px; font-size: 12px; }
+.button.save { display: block; margin: 18px auto 0; min-width: 108px; }
+.mini-button { height: 30px; padding: 0 12px; justify-self: end; }
+.tool-table { margin-top: 13px; border-top: 1px solid var(--line-soft); }
+.tool-row {
+  min-height: 42px; display: grid; grid-template-columns: 125px 100px minmax(90px, 1fr) 90px; align-items: center; gap: 10px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.tool-row span { font-weight: 650; color: #f0f3f9; }
+.tool-row strong { position: relative; padding-left: 22px; font-weight: 500; }
+.tool-row strong::before { content: ""; position: absolute; left: 0; top: 50%; width: 12px; height: 12px; margin-top: -6px; border-radius: 50%; background: currentColor; opacity: .95; box-shadow: 0 0 12px currentColor; }
+.tool-row em { color: #91a0b4; font-style: normal; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.queue-card { grid-column: span 1; }
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.head-actions { display: flex; align-items: center; gap: 8px; }
+.queue-table-wrap { overflow: auto; border-top: 1px solid var(--line-soft); }
+.queue-table { width: 100%; border-collapse: collapse; min-width: 640px; }
+.queue-table th { height: 34px; color: #cbd5e5; font-size: 12px; text-align: left; font-weight: 700; }
+.queue-table td { height: 48px; border-top: 1px solid var(--line-soft); color: #e8edf5; vertical-align: middle; }
+.queue-table th:first-child, .queue-table td:first-child { width: 42px; text-align: center; }
+.title-cell strong { display: block; max-width: 245px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.title-cell small { display: block; margin-top: 3px; color: #9ba9ba; font-size: 12px; }
+.platform { display: inline-flex; align-items: center; gap: 6px; color: #dbe3ef; }
+.youtube-dot { width: 13px; height: 9px; display: inline-grid; place-items: center; border-radius: 2px; background: #ff1d1d; font-size: 7px; color: white; }
+.progress-cell { min-width: 120px; }
+.progress-meta { display: flex; align-items: center; gap: 8px; }
+.progress-text { min-width: 48px; text-align: right; color: #d9e1ef; font-size: 12px; }
+.progress-bar { flex: 1; min-width: 80px; height: 7px; border-radius: 99px; background: #202a3a; overflow: hidden; }
+.progress-fill { height: 100%; width: 0%; border-radius: inherit; background: linear-gradient(90deg, #6f65ff, #8c7dff); }
+.progress-fill.live { width: 100%; background: linear-gradient(90deg, var(--orange), #ffd07a, var(--orange)); animation: pulse 1.35s linear infinite; }
+.status-badge { color: var(--blue-2); }
+.status-badge.done { color: var(--green); }
+.status-badge.failed { color: var(--red); }
+.status-badge.queued { color: #e7edf8; }
+.table-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; color: #c1ccdb; }
+.empty-row td { color: var(--muted); text-align: center !important; padding: 24px 0; }
+.defaults-card { grid-column: span 1; }
+.field { display: grid; gap: 8px; margin-top: 14px; color: #e9eef7; }
+.field span { color: #e9eef7; }
+.field input, .field select {
+  width: 100%; height: 34px; border-radius: 4px; border: 1px solid #29374d;
+  background: #0b1220; color: #dfe6f2; padding: 0 12px; outline: none;
+}
+.field input:focus, .field select:focus { border-color: #5966ff; }
+.field-line { display: grid; grid-template-columns: 1fr 82px; gap: 8px; }
+.check-line { display: flex; align-items: center; gap: 9px; margin-top: 16px; color: #cfd8e8; }
+.check-line input, .auto-scroll input { accent-color: var(--blue); }
+.logs-card { grid-column: 1 / -1; }
+.logs-card pre, #installLog {
+  margin: 0; height: 160px; overflow: auto; padding: 10px 16px;
+  background: transparent; border-top: 1px solid var(--line-soft); color: #d1dbec;
+  font: 12px/1.55 Consolas, "Cascadia Mono", monospace; white-space: pre-wrap;
+}
+.auto-scroll { color: #d4dcec; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+.install-drawer { position: fixed; right: 24px; bottom: 24px; width: min(560px, calc(100vw - 48px)); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 18px 50px rgba(0,0,0,.36); }
+.install-head { display: flex; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--line-soft); }
+#installLog { height: 220px; border-top: 0; }
+@keyframes pulse { 0% { opacity: .65; } 50% { opacity: 1; } 100% { opacity: .65; } }
+@media (max-width: 1180px) {
+  .app-shell { grid-template-columns: 1fr; }
+  .sidebar { position: relative; height: auto; flex-direction: row; align-items: center; flex-wrap: wrap; }
+  .nav-list { display: flex; flex-wrap: wrap; }
+  .side-note, .sidebar-footer { display: none; }
+  .layout-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .main { padding: 12px; }
+  .status-row, .tool-row { grid-template-columns: 1fr; gap: 5px; padding: 9px 0; }
+  .section-head, .button-row, .head-actions { align-items: stretch; flex-direction: column; }
+  .field-line { grid-template-columns: 1fr; }
+}
+"""
+
+MANAGER_JS = r"""const $ = (selector) => document.querySelector(selector);
+const queueRows = $('#queueRows');
+const installPanel = $('#installPanel');
+const installLog = $('#installLog');
+const installState = $('#installState');
+const logOutput = $('#logOutput');
+const seenJobStates = new Map();
+let logLines = [];
+let lastJobs = [];
+let queuePaused = false;
+let hiddenCompleted = false;
+
+function nowStamp() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function addLog(level, message) {
+  const tag = `[${String(level || 'info').toUpperCase()}]`.padEnd(7, ' ');
+  logLines.push(`${nowStamp()} ${tag} ${message}`);
+  if (logLines.length > 120) logLines = logLines.slice(-120);
+  renderLogs();
+}
+
+function renderLogs() {
+  if (!logOutput) return;
+  logOutput.textContent = logLines.join('\n');
+  if ($('#autoScroll')?.checked) logOutput.scrollTop = logOutput.scrollHeight;
+}
+
+function text(selector, value) {
+  const el = document.querySelector(selector);
+  if (el) el.textContent = value;
+}
+
+async function api(path, options = {}) {
+  const res = await fetch(path, options);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Request failed: ${res.status}`);
+  return data;
+}
+
+function shortVersion(description) {
+  const value = String(description || '—');
+  const match = value.match(/(\d+\.\d+(?:\.\d+)?(?:[\w.-]+)?)/);
+  return match ? match[1] : value.replace(/^.*?:\s*/, '').slice(0, 22) || '—';
+}
+
+function setDependency(stateSelector, descSelector, dep, installButton, installLabel) {
+  const state = document.querySelector(stateSelector);
+  const desc = document.querySelector(descSelector);
+  const button = $(installButton);
+  const ok = Boolean(dep?.ok);
+  if (state) {
+    state.textContent = ok ? 'Installed' : 'Missing';
+    state.className = ok ? 'ok' : 'bad';
+  }
+  if (desc) desc.textContent = ok ? shortVersion(dep.description) : 'Not found';
+  if (button) button.textContent = ok ? 'Check Again' : installLabel;
+}
+
+function renderInstallTasks(installs = {}) {
+  const tasks = Object.values(installs);
+  const active = tasks.find(task => task.status === 'running' || task.status === 'queued');
+  const recent = active || tasks.find(task => task.log);
+  installPanel.hidden = !recent;
+  if (!recent) return;
+  installState.textContent = `${recent.label}: ${recent.status}`;
+  installLog.textContent = recent.log || '';
+}
+
+async function refreshStatus() {
+  try {
+    const data = await api('/api/status');
+    setDependency('[data-role="yt-state"]', '[data-role="yt-desc"]', data.ytDlp, '#installYtDlp', 'Install');
+    setDependency('[data-role="ffmpeg-state"]', '[data-role="ffmpeg-desc"]', data.ffmpeg, '#installFfmpeg', 'Install');
+    text('[data-role="server-url"]', data.server || 'http://127.0.0.1:17723');
+    text('[data-role="output-dir"]', data.outputDir || 'Downloads');
+    text('[data-role="app-version"]', data.appVersion || '—');
+    text('[data-role="python-version"]', navigator.userAgentData?.platform || 'Ready');
+    text('[data-role="update-version"]', data.appVersion || 'Local build');
+    renderInstallTasks(data.installs);
+  } catch (error) {
+    text('[data-role="server-url"]', 'Offline');
+    addLog('error', error.message);
+  }
+}
+
+function formatClock(seconds) {
+  const total = Math.max(0, Number(seconds) || 0);
+  const whole = Math.floor(total);
+  const h = Math.floor(whole / 3600);
+  const m = Math.floor((whole % 3600) / 60);
+  const s = whole % 60;
+  return [h, m, s].map(v => String(v).padStart(2, '0')).join(':');
+}
+
+function formatDuration(job) {
+  if (job.isLive && job.payload.mode === 'full') return 'LIVE';
+  if (job.payload.mode === 'section') return `${formatClock(job.payload.start)} → ${formatClock(job.payload.end)}`;
+  return 'Full video';
+}
+
+function formatName(job) {
+  const quality = job.payload?.quality || 'best';
+  if (job.payload?.mode === 'section') return quality === 'best' ? 'section' : `section (${quality})`;
+  return quality === 'best' ? 'full' : `full (${quality})`;
+}
+
+function platform(job) {
+  if ((job.extractor || '').toLowerCase().includes('vimeo')) return '<span class="platform">▣ Vimeo</span>';
+  return '<span class="platform"><span class="youtube-dot">▶</span>YouTube</span>';
+}
+
+function phaseClass(job) {
+  if (job.phase === 'finished') return 'done';
+  if (job.phase === 'failed' || job.phase === 'cancelled') return 'failed';
+  if (job.phase === 'queued') return 'queued';
+  return '';
+}
+
+function isActive(job) {
+  return !['finished', 'failed', 'cancelled'].includes(job.phase);
+}
+
+function renderJobs(jobs) {
+  lastJobs = jobs;
+  const displayJobs = hiddenCompleted ? jobs.filter(isActive) : jobs;
+  const activeCount = jobs.filter(isActive).length;
+  text('[data-role="requests-today"]', jobs.length);
+  text('[data-role="active-count"]', activeCount);
+  text('[data-role="queue-summary"]', `Showing ${displayJobs.length} of ${jobs.length} downloads`);
+
+  for (const job of jobs) {
+    const stateKey = `${job.phase}:${job.status}:${Math.round(Number(job.progress) || 0)}`;
+    if (seenJobStates.get(job.id) !== stateKey) {
+      seenJobStates.set(job.id, stateKey);
+      const level = job.phase === 'failed' ? 'error' : job.phase === 'finished' ? 'done' : 'info';
+      addLog(level, `${job.title || 'Untitled video'} · ${job.status || job.phase}`);
+    }
+  }
+
+  if (!displayJobs.length) {
+    queueRows.innerHTML = '<tr class="empty-row"><td colspan="6">No download requests yet. Start one from the YouTube player.</td></tr>';
+    return;
+  }
+
+  queueRows.innerHTML = displayJobs.map((job, index) => {
+    const progress = Math.max(0, Math.min(100, Number(job.progress) || 0));
+    const live = job.isLive && job.payload.mode === 'full' && isActive(job);
+    const barWidth = live ? 100 : progress;
+    const progressText = live ? 'LIVE' : `${progress.toFixed(progress >= 10 || progress === 0 ? 0 : 1)}%`;
+    const detail = [formatDuration(job), job.speed, job.eta && !live ? `ETA ${job.eta}` : '', job.error].filter(Boolean).join(' · ');
+    return `
+      <tr>
+        <td>${index + 1}</td>
+        <td class="title-cell"><strong title="${escapeHtml(job.title || 'Untitled video')}">${escapeHtml(job.title || 'Untitled video')}</strong><small>${escapeHtml(detail || 'Queued')}</small></td>
+        <td>${platform(job)}</td>
+        <td>${escapeHtml(formatName(job))}</td>
+        <td class="progress-cell"><div class="progress-meta"><span class="progress-text">${progressText}</span><div class="progress-bar"><div class="progress-fill ${live ? 'live' : ''}" style="width:${barWidth}%"></div></div></div></td>
+        <td><span class="status-badge ${phaseClass(job)}">${escapeHtml(job.status || job.phase)}</span></td>
+      </tr>`;
+  }).join('');
+}
+
+function escapeHtml(value) {
+  const map = {'&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'};
+  return String(value || '').replace(/[&<>'"]/g, char => map[char]);
+}
+
+async function refreshJobs() {
+  const data = await api('/api/jobs');
+  renderJobs(data.jobs || []);
+}
+
+async function startInstall(name) {
+  const status = await api('/api/status');
+  const dep = name === 'yt-dlp' ? status.ytDlp : status.ffmpeg;
+  if (dep?.ok) {
+    await refreshStatus();
+    addLog('info', `${name} check completed.`);
+    return;
+  }
+  await api(`/api/install/${name}`, { method: 'POST' });
+  addLog('info', `${name} install queued.`);
+  await refreshStatus();
+}
+
+async function cancelJob(id) {
+  await api(`/api/jobs/${id}/cancel`, { method: 'POST' });
+  addLog('info', `Cancel requested for ${id}.`);
+  await refreshJobs();
+}
+
+async function cancelAll() {
+  await Promise.all(lastJobs.filter(isActive).map(job => cancelJob(job.id).catch(error => addLog('error', error.message))));
+}
+
+function saveDefaults() {
+  const values = {
+    filenameRule: $('#filenameRule')?.value || '',
+    videoFormat: $('#videoFormat')?.value || '',
+    audioFormat: $('#audioFormat')?.value || '',
+    cookieBrowser: $('#cookieBrowser')?.value || '',
+    autoMerge: Boolean($('#autoMerge')?.checked),
+  };
+  localStorage.setItem('cliptap-manager-defaults', JSON.stringify(values));
+  addLog('info', 'Download defaults saved locally.');
+}
+
+function loadDefaults() {
+  try {
+    const values = JSON.parse(localStorage.getItem('cliptap-manager-defaults') || '{}');
+    for (const [key, value] of Object.entries(values)) {
+      const el = document.getElementById(key);
+      if (!el) continue;
+      if (el.type === 'checkbox') el.checked = Boolean(value);
+      else el.value = value;
+    }
+  } catch {}
+}
+
+function copyAddress() {
+  const value = document.querySelector('[data-role="server-url"]')?.textContent || 'http://127.0.0.1:17723';
+  navigator.clipboard?.writeText(value).then(() => addLog('info', 'Local address copied.')).catch(() => addLog('error', 'Clipboard copy failed.'));
+}
+
+$('#installYtDlp')?.addEventListener('click', () => startInstall('yt-dlp').catch(error => alert(error.message)));
+$('#installFfmpeg')?.addEventListener('click', () => startInstall('ffmpeg').catch(error => alert(error.message)));
+$('#refreshDeps')?.addEventListener('click', () => refreshStatus().then(() => addLog('info', 'Dependency check refreshed.')));
+$('#openOutput')?.addEventListener('click', () => api('/api/open-output', { method: 'POST' }).catch(error => alert(error.message)));
+$('#browseOutput')?.addEventListener('click', () => api('/api/open-output', { method: 'POST' }).catch(error => alert(error.message)));
+$('#openLogs')?.addEventListener('click', () => api('/api/open-output', { method: 'POST' }).catch(error => alert(error.message)));
+$('#copyAddress')?.addEventListener('click', copyAddress);
+$('#copyAddressBottom')?.addEventListener('click', copyAddress);
+$('#restartHint')?.addEventListener('click', () => alert('Close and run ClipTapHelper.exe again to restart the helper.'));
+$('#moreMenu')?.addEventListener('click', () => alert('More actions will be added in a future build.'));
+$('#openReleases')?.addEventListener('click', () => addLog('info', 'Update check is manual in this local build.'));
+$('#pauseQueue')?.addEventListener('click', (event) => {
+  queuePaused = !queuePaused;
+  event.currentTarget.textContent = queuePaused ? '▶ Resume Queue' : 'Ⅱ Pause Queue';
+  addLog('info', queuePaused ? 'Queue pause requested.' : 'Queue resumed.');
+});
+$('#cancelAll')?.addEventListener('click', () => cancelAll().catch(error => alert(error.message)));
+$('#clearCompleted')?.addEventListener('click', (event) => {
+  hiddenCompleted = !hiddenCompleted;
+  event.currentTarget.textContent = hiddenCompleted ? 'Show Completed' : 'Clear Completed';
+  renderJobs(lastJobs);
+});
+$('#clearLogs')?.addEventListener('click', () => { logLines = []; renderLogs(); });
+$('#saveDefaults')?.addEventListener('click', saveDefaults);
+$('#checkUpdatesLink')?.addEventListener('click', () => addLog('info', 'Update check is manual in this local build.'));
+
+loadDefaults();
+addLog('info', 'Server started on http://127.0.0.1:17723');
+addLog('info', 'Extension requests will appear in the queue automatically.');
+refreshStatus();
+refreshJobs().catch(console.error);
+setInterval(refreshStatus, 2500);
+setInterval(() => refreshJobs().catch(console.error), 1000);
+"""
 
 FORMAT_MAP = {
     "best": "bv*+ba/b",

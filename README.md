@@ -14,7 +14,7 @@ It adds controls directly inside the YouTube player and uses a local Web UI mana
 - Loop the selected range while checking the clip
 - Download only the selected range
 - Download the full video
-- Manage downloads from a local Web UI
+- Manage downloads from a dark local Web UI dashboard
 - Check and install FFmpeg from the manager
 - Use bundled `yt-dlp` when the helper is built as a standalone executable
 - View incoming download requests with title, thumbnail, status, progress, and cancel controls
