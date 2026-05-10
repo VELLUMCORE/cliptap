@@ -12,6 +12,7 @@ import argparse
 import importlib.util
 import json
 import os
+import queue
 import re
 import shutil
 import subprocess
@@ -28,7 +29,7 @@ from urllib.parse import urlparse
 HOST = "127.0.0.1"
 PORT = 17723
 APP_NAME = "ClipTap Manager"
-APP_VERSION = "1.2"
+APP_VERSION = "1.2.1"
 OUTPUT_DIR = Path.home() / "Downloads" / "ClipTap"
 FROZEN = bool(getattr(sys, "frozen", False))
 APP_DIR = Path(sys.executable).resolve().parent if FROZEN else Path(__file__).resolve().parent
@@ -1051,13 +1052,13 @@ def find_yt_dlp() -> tuple[list[str] | None, str]:
     if executable:
         return [executable], f"PATH: {executable}"
 
-    if has_embedded_yt_dlp():
-        source = "bundled module" if FROZEN else "Python module"
-        return self_ytdlp_command(), f"{source}: yt-dlp"
-
     launcher = find_python_launcher()
     if launcher and run_probe(launcher + ["-m", "yt_dlp", "--version"]):
         return launcher + ["-m", "yt_dlp"], "Python module: " + " ".join(launcher + ["-m", "yt_dlp"])
+
+    if has_embedded_yt_dlp():
+        source = "bundled module" if FROZEN else "Python module"
+        return self_ytdlp_command(), f"{source}: yt-dlp"
 
     return None, "Not installed"
 
@@ -1211,7 +1212,7 @@ def build_download_command(job: DownloadJob) -> list[str]:
     quality = payload["quality"]
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    command = list(yt_dlp_cmd) + ["--newline", "--no-playlist"]
+    command = list(yt_dlp_cmd) + ["--newline", "--no-playlist", "--force-overwrites"]
 
     if quality == "audio":
         command += ["-f", FORMAT_MAP[quality], "-x", "--audio-format", "mp3"]
@@ -1244,6 +1245,75 @@ def update_job(job: DownloadJob, **changes):
             setattr(job, key, value)
         job.touch()
 
+
+
+def clock_to_seconds(value: str) -> float:
+    value = value.strip()
+    parts = value.split(":")
+    try:
+        if len(parts) == 3:
+            return int(parts[0]) * 3600 + int(parts[1]) * 60 + float(parts[2])
+        if len(parts) == 2:
+            return int(parts[0]) * 60 + float(parts[1])
+        return float(parts[0])
+    except (TypeError, ValueError, IndexError):
+        return 0.0
+
+
+def iter_process_records(process: subprocess.Popen, cancel_event: threading.Event):
+    """Yield process output records split by either newlines or carriage returns.
+
+    ffmpeg often updates progress using carriage returns instead of full lines.
+    A blocking readline() can make section downloads look stuck at 0%, so the
+    pipe is read character-by-character on a small background reader thread.
+    """
+    output_queue: queue.Queue[str | None] = queue.Queue()
+
+    def reader():
+        try:
+            if not process.stdout:
+                return
+            while True:
+                chunk = process.stdout.read(1)
+                if chunk == "":
+                    break
+                output_queue.put(chunk)
+        finally:
+            output_queue.put(None)
+
+    threading.Thread(target=reader, daemon=True).start()
+    buffer = ""
+    reader_done = False
+
+    while True:
+        if cancel_event.is_set():
+            break
+        try:
+            chunk = output_queue.get(timeout=0.15)
+        except queue.Empty:
+            if reader_done and process.poll() is not None:
+                break
+            continue
+
+        if chunk is None:
+            reader_done = True
+            if buffer.strip():
+                yield buffer.strip()
+                buffer = ""
+            if process.poll() is not None:
+                break
+            continue
+
+        if chunk in {"\n", "\r"}:
+            if buffer.strip():
+                yield buffer.strip()
+                buffer = ""
+            continue
+
+        buffer += chunk
+        if len(buffer) >= 4000:
+            yield buffer.strip()
+            buffer = ""
 
 def prepare_metadata(job: DownloadJob):
     update_job(job, status="Reading video information...", phase="metadata")
@@ -1295,23 +1365,26 @@ def run_download(job: DownloadJob):
         eta_re = re.compile(r"\bETA\s+([^\s]+)")
         size_re = re.compile(r"of\s+~?([^\s]+)")
 
-        while True:
+        ffmpeg_time_re = re.compile(r"\btime=(\d+:\d+:\d+(?:\.\d+)?)")
+        section_duration = None
+        if job.payload["mode"] == "section":
+            section_duration = max(0.1, float(job.payload["end"]) - float(job.payload["start"]))
+
+        for line in iter_process_records(job.process, job.cancel_event):
             if job.cancel_event.is_set():
                 raise CancelledError()
 
-            line = job.process.stdout.readline() if job.process.stdout else ""
-            if not line and job.process.poll() is not None:
-                break
-            if not line:
-                time.sleep(0.05)
-                continue
-
-            line = line.strip()
             changes = {}
 
             match = percent_re.search(line)
             if match and not (job.is_live and job.payload["mode"] == "full"):
                 changes["progress"] = max(0.0, min(100.0, float(match.group(1))))
+
+            ffmpeg_time_match = ffmpeg_time_re.search(line)
+            if section_duration and ffmpeg_time_match and not changes.get("progress"):
+                elapsed = clock_to_seconds(ffmpeg_time_match.group(1))
+                changes["progress"] = max(1.0, min(99.0, (elapsed / section_duration) * 100.0))
+                changes["status"] = "Downloading selected section..."
 
             speed_match = speed_re.search(line)
             eta_match = eta_re.search(line)
@@ -1325,6 +1398,8 @@ def run_download(job: DownloadJob):
 
             if "[download] Destination:" in line:
                 changes["status"] = "Downloading media..."
+                if section_duration and job.progress <= 0:
+                    changes["progress"] = 1.0
             elif "Merger" in line or "Merging formats" in line:
                 changes["status"] = "Merging video and audio..."
                 changes["phase"] = "processing"
@@ -1334,6 +1409,9 @@ def run_download(job: DownloadJob):
 
             if changes:
                 update_job(job, **changes)
+
+        if job.cancel_event.is_set():
+            raise CancelledError()
 
         code = job.process.wait()
         if job.cancel_event.is_set():
@@ -1569,17 +1647,38 @@ def open_browser_later():
 
 def run_yt_dlp_cli(argv: list[str]) -> int:
     try:
-        from yt_dlp import main as yt_dlp_main
+        import yt_dlp
     except Exception as exc:
         print(f"yt-dlp is not bundled or installed: {exc}", file=sys.stderr)
         return 1
 
-    sys.argv = [sys.argv[0]] + argv
+    old_argv = sys.argv[:]
+    sys.argv = ["yt-dlp"] + argv
     try:
-        result = yt_dlp_main()
+        yt_dlp_main = getattr(yt_dlp, "main", None)
+        if callable(yt_dlp_main):
+            try:
+                result = yt_dlp_main(argv)
+            except TypeError:
+                result = yt_dlp_main()
+            return int(result or 0)
+
+        real_main = getattr(yt_dlp, "_real_main", None)
+        if callable(real_main):
+            result = real_main(argv)
+            if isinstance(result, tuple):
+                return int(result[0] or 0)
+            return int(result or 0)
+
+        print("yt-dlp is installed, but no supported CLI entry point was found.", file=sys.stderr)
+        return 1
     except SystemExit as exc:
         return int(exc.code or 0) if isinstance(exc.code, int) else 1
-    return int(result or 0)
+    except Exception as exc:
+        print(f"yt-dlp failed to start: {exc}", file=sys.stderr)
+        return 1
+    finally:
+        sys.argv = old_argv
 
 
 def main():

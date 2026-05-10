@@ -1,4 +1,17 @@
+# Build outputs
+build/
 dist/
+*.spec
+
+# Python cache
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
+
+# Local binaries
+helper/bin/*
+!helper/bin/.gitkeep
+
+# OS files
 .DS_Store
+Thumbs.db

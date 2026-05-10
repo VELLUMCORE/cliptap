@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "ClipTap",
   "version": "1.2.1",
-  "description": "Download selected sections or full YouTube videos with yt-dlp inside the player.",
+  "description": "Download selected sections or full YouTube videos with ClipTap Manager and yt-dlp.",
   "permissions": [
     "activeTab",
     "tabs",

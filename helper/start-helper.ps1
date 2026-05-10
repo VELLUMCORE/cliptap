@@ -1,2 +1,3 @@
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-Start-Process -FilePath "pyw" -ArgumentList "`"$ScriptDir\ClipTapHelper.pyw`""
+Set-Location $ScriptDir
+py .\ClipTapHelper.py --open

@@ -2,11 +2,9 @@
 
 ClipTap is a browser extension for downloading either a selected section or the full version of a YouTube video using `yt-dlp`.
 
-It adds a small control directly inside the YouTube player, so the start point, end point, loop toggle, and download actions stay close to the video.
+It adds controls directly inside the YouTube player and uses a local Web UI manager for dependency checks, download progress, cancellation, and live-stream recording status.
 
 ![ClipTap button integrated into the YouTube player controls](docs/images/cliptap-player-button.png)
-
-[SCREENSHOT: ClipTap button placed next to the YouTube player control buttons, near Settings, Fullscreen, and SponsorBlock if installed.]
 
 ## Features
 
@@ -16,80 +14,85 @@ It adds a small control directly inside the YouTube player, so the start point, 
 - Loop the selected range while checking the clip
 - Download only the selected range
 - Download the full video
-- Use a standalone Windows helper app instead of a terminal window
-- Check and install `yt-dlp` / FFmpeg from the helper app
+- Manage downloads from a dark local Web UI dashboard
+- Check and install FFmpeg from the manager
+- Use bundled `yt-dlp` when the helper is built as a standalone executable
 - View incoming download requests with title, thumbnail, status, progress, and cancel controls
 - Show live-stream downloads as an active recording instead of a fixed percentage
 
 ![ClipTap panel inside the YouTube player](docs/images/cliptap-panel.png)
 
-[SCREENSHOT: ClipTap panel opened above the YouTube player utility area, showing start time, end time, loop toggle, section download, and full download buttons.]
+## Recommended setup
 
-## How it works
+For normal use, use these two pieces together:
 
-ClipTap has two parts:
+1. `ClipTapHelper.exe`  
+   Starts the local manager and opens the Web UI automatically.
 
-1. **Browser extension**  
-   Adds ClipTap controls to YouTube and sends download requests.
+2. Browser extension  
+   Installs ClipTap into Firefox, Chrome, or Edge.
 
-2. **ClipTap Helper**  
-   A local Windows app that receives requests from the extension and runs `yt-dlp` / FFmpeg.
-
-The browser extension cannot directly run local programs, so the helper app must be open while downloading.
+The helper executable is intentionally separate from the browser extension. Browser extensions cannot directly run local programs such as `yt-dlp` or FFmpeg, so ClipTap needs a local helper running on your computer.
 
 ```text
 YouTube player
 → ClipTap extension
-→ ClipTap Helper at http://127.0.0.1:17723
+→ ClipTap Manager at http://127.0.0.1:17723
 → yt-dlp / FFmpeg
 → downloaded file
 ```
 
-## Requirements
+## ClipTap Manager
 
-- Windows
-- Firefox, Chrome, Edge, or another Chromium-based browser
-- Python, only if you are running from source or building the helper app yourself
-- `yt-dlp`
-- FFmpeg
-
-The helper app can check whether `yt-dlp` and FFmpeg are available. If they are missing, it shows install buttons.
-
-![ClipTap Helper dependency status](docs/images/cliptap-helper-dependencies.png)
-
-[SCREENSHOT: ClipTap Helper window showing yt-dlp and FFmpeg status cards, with install buttons for missing dependencies.]
-
-## Install ClipTap Helper
-
-Download and run:
+Run:
 
 ```text
 ClipTapHelper.exe
 ```
 
-Keep the helper app open while using ClipTap. The browser extension sends download requests to the helper at:
+The manager opens in your default browser:
 
 ```text
 http://127.0.0.1:17723
 ```
 
-If `yt-dlp` is missing, click:
+Keep the manager running while using ClipTap. Use **Stop manager** in the Web UI when you want to shut it down.
 
-```text
-Install / Update yt-dlp
+![ClipTap Manager dependency status](docs/images/cliptap-manager-status.png)
+
+## Dependencies
+
+### yt-dlp
+
+When `ClipTapHelper.exe` is built with the included build script, `yt-dlp` is bundled into the helper. Users do not need to install `yt-dlp` separately for the normal standalone build.
+
+If you run ClipTap from source, install `yt-dlp` manually:
+
+```powershell
+py -m pip install -U yt-dlp
 ```
 
-If FFmpeg is missing, click:
+### FFmpeg
+
+FFmpeg is still required for merging video/audio and cutting sections.
+
+If FFmpeg is missing, open ClipTap Manager and click:
 
 ```text
 Install FFmpeg with winget
 ```
 
-After installing FFmpeg, restart ClipTap Helper if it still appears as missing.
+You can also install it manually:
 
-![ClipTap Helper download request](docs/images/cliptap-helper-download.png)
+```powershell
+winget install -e --id Gyan.FFmpeg
+```
 
-[SCREENSHOT: ClipTap Helper showing an incoming video download request with thumbnail, title, progress bar, speed, ETA, and Cancel button.]
+If FFmpeg is not available globally, place `ffmpeg.exe` next to `ClipTapHelper.exe` or in a `bin` folder beside it:
+
+```text
+bin/ffmpeg.exe
+```
 
 ## Install the browser extension
 
@@ -110,8 +113,6 @@ Load Temporary Add-on
 Then select the `.xpi` file.
 
 ![Firefox temporary add-on installation page](docs/images/firefox-temporary-addon.png)
-
-[SCREENSHOT: Firefox about:debugging page with ClipTap loaded as a temporary add-on.]
 
 ### Chrome / Edge
 
@@ -135,8 +136,6 @@ Then:
 
 ![Chrome load unpacked extension screen](docs/images/chrome-load-unpacked.png)
 
-[SCREENSHOT: Chrome extensions page with Developer mode enabled and ClipTap loaded unpacked.]
-
 ## Using ClipTap
 
 ### Open ClipTap
@@ -151,6 +150,8 @@ Move the YouTube playback position to the place where the clip should begin, the
 Set Start
 ```
 
+The blue start handle appears on the YouTube progress bar.
+
 ### Set the end point
 
 Move the playback position to the place where the clip should end, then click:
@@ -159,13 +160,13 @@ Move the playback position to the place where the clip should end, then click:
 Set End
 ```
 
-![Start and end handles on the YouTube timeline](docs/images/cliptap-timeline-handles.png)
+The orange end handle appears on the YouTube progress bar.
 
-[SCREENSHOT: YouTube progress bar with a blue circular start handle and an orange circular end handle.]
+![Start and end handles on the YouTube timeline](docs/images/cliptap-timeline-handles.png)
 
 ### Fine-tune the range
 
-Drag the start and end handles directly on the YouTube progress bar.
+The start and end handles can be dragged directly on the YouTube progress bar.
 
 When a handle is moved, the video playback position also moves to that timestamp, so the selected point can be checked immediately.
 
@@ -185,9 +186,9 @@ Supported timestamp examples:
 
 Turn on the loop button to repeatedly play the selected start-to-end range.
 
-![Loop enabled in ClipTap](docs/images/cliptap-loop-enabled.png)
+This is useful when checking whether the clip starts and ends at the right moment.
 
-[SCREENSHOT: ClipTap panel with the loop button enabled while a selected range is shown on the YouTube progress bar.]
+![Loop enabled in ClipTap](docs/images/cliptap-loop-enabled.png)
 
 ### Download the selected range
 
@@ -197,38 +198,100 @@ Click:
 Download Section
 ```
 
-The helper app will show the request, video title, thumbnail, and progress.
+ClipTap sends the selected start and end timestamps to the manager. The request appears in the Web UI with progress and a cancel button.
+
+![ClipTap Manager showing a download request](docs/images/cliptap-manager-job.png)
 
 ### Download the full video
 
 Click:
 
 ```text
-Download Full
+Download Full Video
 ```
 
-For normal videos, the helper shows a percentage progress bar.
+This downloads the full video without applying the selected start and end range.
 
-For live streams, the helper shows an active recording state because there is no fixed final size while the stream is still running.
+For live streams, full download mode records until the stream ends or until the request is cancelled. The manager shows this as an active recording instead of a normal percentage progress bar.
 
-![ClipTap live recording state](docs/images/cliptap-helper-live-recording.png)
+## Build the standalone helper
 
-[SCREENSHOT: ClipTap Helper showing a live-stream full download request with an active recording indicator instead of percentage progress.]
-
-## Build ClipTapHelper.exe from source
-
-From PowerShell:
-
-```powershell
-cd cliptap\helper
-.\build-helper-exe.ps1
-```
-
-The build script creates:
+The helper source is a single file:
 
 ```text
-cliptap/dist/ClipTapHelper.exe
+helper/ClipTapHelper.py
 ```
+
+To build the one-file Windows helper executable:
+
+```powershell
+cd helper
+.\build-standalone.ps1
+```
+
+The output is:
+
+```text
+dist/ClipTapHelper.exe
+```
+
+The repository also includes a GitHub Actions workflow:
+
+```text
+.github/workflows/build-helper.yml
+```
+
+Run the workflow from GitHub to build `ClipTapHelper.exe` on `windows-latest` and download it as an artifact.
+
+## Run from source
+
+For development, run:
+
+```text
+helper/start-helper.bat
+```
+
+This starts the same manager using Python and opens:
+
+```text
+http://127.0.0.1:17723
+```
+
+## Troubleshooting
+
+### “Helper is off or an error occurred”
+
+Open the manager:
+
+```text
+http://127.0.0.1:17723
+```
+
+If the page does not open, run `ClipTapHelper.exe` again.
+
+### The manager says FFmpeg is missing
+
+Use the manager install button, or run:
+
+```powershell
+winget install -e --id Gyan.FFmpeg
+```
+
+If FFmpeg is not available globally, place `ffmpeg.exe` here beside the helper executable:
+
+```text
+bin/ffmpeg.exe
+```
+
+### Download requests appear but fail
+
+Check the failed request in ClipTap Manager. Common causes are:
+
+1. FFmpeg is missing
+2. `yt-dlp` is outdated
+3. The video requires browser cookies
+4. The video URL is unavailable
+5. YouTube changed its response format and `yt-dlp` needs an update
 
 ## Project structure
 
@@ -244,11 +307,19 @@ cliptap/
       cliptap.png
 
   helper/
-    ClipTapHelper.pyw
-    build-helper-exe.ps1
-    requirements.txt
+    ClipTapHelper.py
+    build-standalone.ps1
+    start-helper.bat
+    start-helper.ps1
+    assets/
+      ClipTapHelper.png
+      ClipTapHelper.ico
     bin/
-      ffmpeg.exe
+      .gitkeep
+
+  .github/
+    workflows/
+      build-helper.yml
 
   scripts/
     package.sh
@@ -257,52 +328,6 @@ cliptap/
   CHANGELOG.md
   LICENSE
 ```
-
-## Troubleshooting
-
-### The extension says the helper is off or an error occurred
-
-Open ClipTap Helper and check that the server status says:
-
-```text
-Server: running at http://127.0.0.1:17723
-```
-
-You can also open this URL in your browser:
-
-```text
-http://127.0.0.1:17723/health
-```
-
-### yt-dlp is missing
-
-Click **Install / Update yt-dlp** in ClipTap Helper.
-
-Or install it manually:
-
-```powershell
-py -m pip install -U yt-dlp
-```
-
-### FFmpeg is missing
-
-Click **Install FFmpeg** in ClipTap Helper.
-
-Or install it manually:
-
-```powershell
-winget install -e --id Gyan.FFmpeg
-```
-
-If FFmpeg still is not detected, place `ffmpeg.exe` here:
-
-```text
-cliptap/helper/bin/ffmpeg.exe
-```
-
-### A download is wrong or no progress appears
-
-Some streams do not report progress in a normal percentage format. Live streams are shown as active recordings and can be cancelled from the helper window.
 
 ## Notes
 
