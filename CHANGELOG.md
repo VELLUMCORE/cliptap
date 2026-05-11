@@ -3,6 +3,7 @@
 ## v1.3
 
 **ClipTap Helper**
+- Added per-job Stop and Cancel controls, working persistent History, real Clear Completed behavior, and updated the helper sidebar version to 1.3.
 - Fixed section downloads getting stuck at the metadata step by forcing YouTube metadata reads to target the current video instead of playlist context.
 
 **ClipTap**
