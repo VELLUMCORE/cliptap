@@ -531,11 +531,25 @@ button { font: inherit; }
   width: auto;
   min-width: 0;
   min-height: 92px;
+  display: block;
+  padding: 0;
+  overflow: hidden;
+}
+.native-service-summary {
+  min-height: 92px;
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr);
   column-gap: 16px;
   align-items: center;
   padding: 16px 18px;
+  list-style: none;
+  cursor: pointer;
+}
+.native-service-summary::-webkit-details-marker {
+  display: none;
+}
+.native-service-card[open] .native-service-summary {
+  min-height: 86px;
 }
 .soon-service-card {
   min-width: 0;
@@ -660,6 +674,42 @@ button { font: inherit; }
   height: 6px;
   border-radius: 50%;
   background: #35e889;
+}
+.service-capability-list {
+  margin: 0 18px 16px 78px;
+  padding-top: 12px;
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid rgba(130, 145, 190, 0.14);
+}
+.capability-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.capability-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 74px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+}
+.capability-status.supported {
+  color: #35e889;
+  background: rgba(35, 230, 139, 0.12);
+  border: 1px solid rgba(35, 230, 139, 0.18);
+}
+.capability-status.planned {
+  color: #bfaeff;
+  background: rgba(115, 87, 255, 0.14);
+  border: 1px solid rgba(115, 87, 255, 0.23);
 }
 .service-status.soon {
   height: 22px;
@@ -819,6 +869,8 @@ button { font: inherit; }
     width: 100%;
     height: auto;
     min-height: 92px;
+  }
+  .native-service-summary {
     padding: 16px;
   }
   .native-service-card .service-card-head {
@@ -826,6 +878,9 @@ button { font: inherit; }
   }
   .native-service-description {
     max-width: none;
+  }
+  .service-capability-list {
+    margin: 0 16px 16px 76px;
   }
   .soon-panel {
     grid-template-columns: 1fr;

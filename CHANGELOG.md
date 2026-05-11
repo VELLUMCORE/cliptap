@@ -6,6 +6,7 @@
 - No helper changes in this release.
 
 **ClipTap**
+- Clarified current and planned service support messaging and added expandable YouTube capability details.
 - Aligned the Supported Sites top header markup and background treatment with the main homepage header.
 - Fixed README image references so the documentation only uses available project image assets.
 - Matched the Supported Sites top header styling to the main homepage header for consistent navigation across the site.

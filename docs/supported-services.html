@@ -77,18 +77,26 @@
         </div>
       </div>
       <div class="supported-panel current-panel">
-        <article class="native-service-card">
-          <div class="service-logo-frame youtube-logo-frame" data-logo-path="assets/services/youtube.svg">
-            <img src="assets/services/youtube.svg" alt="YouTube logo" onerror="this.remove(); this.parentElement.classList.add('missing-logo');" />
-          </div>
-          <div class="native-service-meta">
-            <div class="service-card-head">
-              <h3>YouTube</h3>
-              <span class="service-status native"><i></i>Native Support</span>
+        <details class="native-service-card native-service-details">
+          <summary class="native-service-summary" aria-label="Show YouTube support details">
+            <div class="service-logo-frame youtube-logo-frame" data-logo-path="assets/services/youtube.svg">
+              <img src="assets/services/youtube.svg" alt="YouTube logo" onerror="this.remove(); this.parentElement.classList.add('missing-logo');" />
             </div>
-            <p class="native-service-description">Videos, playlists, channels<br />and live streams.</p>
+            <div class="native-service-meta">
+              <div class="service-card-head">
+                <h3>YouTube</h3>
+                <span class="service-status native"><i></i>Native Support</span>
+              </div>
+              <p class="native-service-description">Videos, playlists, channels<br />and live streams.</p>
+            </div>
+          </summary>
+          <div class="service-capability-list" aria-label="YouTube support details">
+            <div class="capability-row"><span>Video</span><strong class="capability-status supported">Supported</strong></div>
+            <div class="capability-row"><span>Playlist</span><strong class="capability-status planned">Planned</strong></div>
+            <div class="capability-row"><span>Channel</span><strong class="capability-status planned">Planned</strong></div>
+            <div class="capability-row"><span>Live</span><strong class="capability-status supported">Supported</strong></div>
           </div>
-        </article>
+        </details>
       </div>
     </section>
 
