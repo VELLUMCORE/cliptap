@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="assets/site.css" />
 </head>
 <body class="supported-sites-body">
-  <header class="site-header supported-header" data-header>
+  <header class="site-header" data-header>
     <a class="brand" href="index.html#top" aria-label="ClipTap home">
       <span class="brand-icon" aria-hidden="true">
         <svg viewBox="0 0 32 32" role="img"><path d="M16 6.5v13.2m0 0 5.7-5.6M16 19.7l-5.7-5.6M9 25h14" /></svg>
@@ -26,7 +26,7 @@
       <a href="index.html#features">Features</a>
       <a href="index.html#how">How it Works</a>
       <a href="index.html#screenshots">Screenshots</a>
-      <a class="active" href="supported-services.html">Supported Sites</a>
+      <a href="supported-services.html">Supported Sites</a>
       <a href="index.html#download">Download</a>
     </nav>
 
@@ -81,11 +81,13 @@
           <div class="service-logo-frame youtube-logo-frame" data-logo-path="assets/services/youtube.svg">
             <img src="assets/services/youtube.svg" alt="YouTube logo" onerror="this.remove(); this.parentElement.classList.add('missing-logo');" />
           </div>
-          <div class="service-card-copy">
-            <h3>YouTube</h3>
-            <p>Videos, playlists, channels and live streams.</p>
+          <div class="native-service-meta">
+            <div class="service-card-head">
+              <h3>YouTube</h3>
+              <span class="service-status native"><i></i>Native Support</span>
+            </div>
+            <p class="native-service-description">Videos, playlists, channels<br />and live streams.</p>
           </div>
-          <span class="service-status native"><i></i>Native Support</span>
         </article>
       </div>
     </section>

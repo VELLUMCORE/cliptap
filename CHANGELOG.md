@@ -6,8 +6,14 @@
 - No helper changes in this release.
 
 **ClipTap**
-- Fixed the Supported Sites native support badge layout so it no longer overlaps or crushes service descriptions.
-- Refined the Supported Sites service card layout to prevent the native support badge from overlapping service descriptions.
+- Aligned the Supported Sites top header markup and background treatment with the main homepage header.
+- Fixed README image references so the documentation only uses available project image assets.
+- Matched the Supported Sites top header styling to the main homepage header for consistent navigation across the site.
+- Kept the hero trust labels on a single line on desktop layouts.
+- Updated the main View on GitHub buttons to use the supplied GitHub image asset and a wider button width.
+- Updated the main Download for Windows buttons to load their icons from image assets.
+- Restyled the main Download for Windows buttons with wider padding, a deeper left-to-right gradient, and hover motion to better match the landing page mockup.
+- Refined the Supported Sites native service card layout so descriptions use the full row beneath the title and status badge in dense three-column listings.
 - Rebuilt the GitHub Pages promotional website to match the provided dark desktop mockup.
 - Added a separate Supported Sites page for native ClipTap service support and planned integrations.
 - Matched the Supported Sites navigation to the main site.

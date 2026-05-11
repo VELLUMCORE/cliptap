@@ -20,7 +20,7 @@ It adds controls directly inside the YouTube player and uses a local Web UI mana
 - View incoming download requests with title, thumbnail, status, progress, and cancel controls
 - Show live-stream downloads as an active recording instead of a fixed percentage
 
-![ClipTap panel inside the YouTube player](docs/images/cliptap-panel.png)
+![ClipTap panel inside the YouTube player](docs/images/cliptap-player-panel.png)
 
 ## Recommended setup
 
@@ -58,7 +58,7 @@ http://127.0.0.1:17723
 
 Keep the manager running while using ClipTap. Use **Stop manager** in the Web UI when you want to shut it down.
 
-![ClipTap Manager dependency status](docs/images/cliptap-manager-status.png)
+![ClipTap Manager dependency status](docs/images/cliptap-helper-dashboard.png)
 
 ## Dependencies
 
@@ -112,7 +112,6 @@ Load Temporary Add-on
 
 Then select the `.xpi` file.
 
-![Firefox temporary add-on installation page](docs/images/firefox-temporary-addon.png)
 
 ### Chrome / Edge
 
@@ -134,7 +133,6 @@ Then:
 2. Click **Load unpacked**
 3. Select the `cliptap` extension folder
 
-![Chrome load unpacked extension screen](docs/images/chrome-load-unpacked.png)
 
 ## Using ClipTap
 
@@ -188,7 +186,7 @@ Turn on the loop button to repeatedly play the selected start-to-end range.
 
 This is useful when checking whether the clip starts and ends at the right moment.
 
-![Loop enabled in ClipTap](docs/images/cliptap-loop-enabled.png)
+![Loop enabled in ClipTap](docs/images/cliptap-player-panel.png)
 
 ### Download the selected range
 
@@ -200,7 +198,7 @@ Download Section
 
 ClipTap sends the selected start and end timestamps to the manager. The request appears in the Web UI with progress and a cancel button.
 
-![ClipTap Manager showing a download request](docs/images/cliptap-manager-job.png)
+![ClipTap Manager showing a download request](docs/images/cliptap-helper-queue.png)
 
 ### Download the full video
 
