@@ -1194,7 +1194,12 @@ def build_metadata_command(payload: dict) -> list[str]:
     if not cmd_base:
         raise ClipTapError("yt-dlp is not installed.")
 
-    command = list(cmd_base) + ["-J", "--no-warnings", "--skip-download"]
+    command = list(cmd_base) + [
+        "-J",
+        "--no-warnings",
+        "--skip-download",
+        "--no-playlist",
+    ]
     if payload.get("cookieBrowser"):
         command += ["--cookies-from-browser", payload["cookieBrowser"]]
     command.append(payload["url"])
@@ -1502,6 +1507,7 @@ def prepare_metadata(job: DownloadJob):
         build_metadata_command(job.payload),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        stdin=subprocess.DEVNULL,
         text=True,
         encoding="utf-8",
         errors="replace",
