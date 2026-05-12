@@ -400,49 +400,58 @@
         --cliptap-handle-color: #ff9d2e;
       }
       .cliptap-playlist-download-button {
-        --cliptap-icon-color: #fff;
         color: #fff !important;
         fill: #fff !important;
         stroke: none !important;
-        cursor: pointer;
+        cursor: pointer !important;
+        user-select: none !important;
+        -webkit-tap-highlight-color: transparent !important;
       }
-      button.cliptap-playlist-download-button,
-      .cliptap-playlist-download-button.cliptap-fallback-native-button {
-        position: relative;
-        box-sizing: border-box;
+      .cliptap-playlist-download-button[hidden] {
+        display: none !important;
+      }
+      .cliptap-playlist-native-button,
+      button.cliptap-playlist-native-button,
+      div.cliptap-playlist-native-button {
+        appearance: none !important;
+        -webkit-appearance: none !important;
+        position: relative !important;
+        box-sizing: border-box !important;
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
-        flex: 0 0 auto;
-        width: 40px;
-        height: 40px;
-        min-width: 40px;
-        min-height: 40px;
-        padding: 8px;
-        margin: 0 2px;
-        border: 0;
-        border-radius: 50%;
-        background: transparent;
-        line-height: 0;
-        vertical-align: middle;
+        flex: 0 0 auto !important;
+        width: 40px !important;
+        height: 40px !important;
+        min-width: 40px !important;
+        min-height: 40px !important;
+        max-width: 40px !important;
+        max-height: 40px !important;
+        padding: 8px !important;
+        margin: 0 2px !important;
+        border: 0 !important;
+        border-radius: 50% !important;
+        background: transparent !important;
+        line-height: 0 !important;
+        vertical-align: middle !important;
+        overflow: visible !important;
+        z-index: 3 !important;
       }
-      .cliptap-playlist-download-button:hover,
-      .cliptap-playlist-download-button:focus-visible {
-        outline: none;
+      .cliptap-page-playlist-button.ytFlexibleActionsViewModelActionIconOnlyButton,
+      .cliptap-page-playlist-button.ytFlexibleActionsViewModelActionRowAction {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
       }
-      button.cliptap-playlist-download-button:hover,
-      button.cliptap-playlist-download-button:focus-visible,
-      .cliptap-playlist-download-button.cliptap-fallback-native-button:hover,
-      .cliptap-playlist-download-button.cliptap-fallback-native-button:focus-visible {
-        background-color: rgba(255, 255, 255, .10);
+      .cliptap-playlist-native-button:hover,
+      .cliptap-playlist-native-button:focus-visible {
+        background-color: rgba(255, 255, 255, .10) !important;
+        outline: none !important;
       }
-      .cliptap-playlist-download-button:active {
-        transform: scale(.96);
+      .cliptap-playlist-native-button:active {
+        transform: scale(.96) !important;
       }
-      .cliptap-playlist-download-button .cliptap-native-icon-host,
-      .cliptap-playlist-download-button yt-icon.cliptap-native-icon-host,
-      .cliptap-playlist-download-button .yt-icon-shape,
-      .cliptap-playlist-download-button .yt-icon-shape div {
+      .cliptap-playlist-icon-wrap {
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
@@ -452,25 +461,26 @@
         min-height: 24px !important;
         line-height: 0 !important;
         color: #fff !important;
+        pointer-events: none !important;
       }
-      .cliptap-playlist-download-button svg.cliptap-native-playlist-svg {
+      .cliptap-playlist-icon-wrap svg.cliptap-native-playlist-svg {
+        display: block !important;
         width: 24px !important;
         height: 24px !important;
-        display: block !important;
-        flex: 0 0 24px !important;
+        min-width: 24px !important;
+        min-height: 24px !important;
         margin: 0 !important;
         fill: #fff !important;
         stroke: none !important;
-        overflow: hidden !important;
-        pointer-events: none !important;
+        overflow: visible !important;
       }
-      .cliptap-playlist-download-button svg.cliptap-native-playlist-svg path {
+      .cliptap-playlist-icon-wrap svg.cliptap-native-playlist-svg * {
         fill: #fff !important;
         stroke: none !important;
       }
       .cliptap-playlist-download-button.cliptap-sending {
-        opacity: .55;
-        pointer-events: none;
+        opacity: .55 !important;
+        pointer-events: none !important;
       }
     `;
     document.documentElement.appendChild(style);
@@ -929,94 +939,110 @@
 
 
   function getPlaylistDownloadIcon() {
-    // YouTube action icons are 24x24 filled Material-style glyphs inside a
-    // 40x40 icon-button hit area. Keep this SVG single-color, centered, and
-    // path-filled so it blends with native white toolbar icons.
+    // Native YouTube toolbar icons are a 24x24 white, filled Material-like glyph
+    // centered inside a 40x40 circular hit area. Keep this fully self-contained
+    // so it remains visible even when YouTube changes custom element internals.
     return `
-      <yt-icon class="cliptap-native-icon-host" aria-hidden="true">
+      <span class="cliptap-playlist-icon-wrap" aria-hidden="true">
         <svg class="cliptap-native-playlist-svg" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-          <path d="M3 6h11V4H3v2Zm0 4h11V8H3v2Zm0 4h8v-2H3v2Zm13-1.17V4h2v8.83l2.59-2.58L22 11.66l-5 5-5-5 1.41-1.41L16 12.83ZM13 20h8v-2h-8v2Z"></path>
+          <circle cx="4.75" cy="5.75" r="1.65"></circle>
+          <rect x="8" y="4.35" width="8.6" height="2.8" rx="1.4"></rect>
+          <circle cx="4.75" cy="11.75" r="1.65"></circle>
+          <rect x="8" y="10.35" width="6.8" height="2.8" rx="1.4"></rect>
+          <circle cx="4.75" cy="17.75" r="1.65"></circle>
+          <rect x="8" y="16.35" width="5.2" height="2.8" rx="1.4"></rect>
+          <path d="M17.15 4.25a1.05 1.05 0 0 1 1.05 1.05v8.03l2.11-2.11a1.05 1.05 0 0 1 1.48 1.48l-3.9 3.9a1.05 1.05 0 0 1-1.48 0l-3.9-3.9a1.05 1.05 0 0 1 1.48-1.48l2.11 2.11V5.3a1.05 1.05 0 0 1 1.05-1.05Z"></path>
+          <rect x="13.55" y="18" width="7.2" height="2.6" rx="1.3"></rect>
         </svg>
-      </yt-icon>`;
+      </span>`;
   }
 
-  function stripClonedIds(root) {
-    if (!root?.querySelectorAll) return;
-    root.removeAttribute?.('id');
-    root.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
-  }
+  function makePlaylistButtonElement(kind, template = null) {
+    const templateTag = template?.tagName?.toLowerCase?.() || '';
+    const shouldUseDiv = templateTag === 'div' || templateTag.startsWith('yt') || templateTag.startsWith('ytd');
+    const button = document.createElement(shouldUseDiv ? 'div' : 'button');
 
-  function removeNativeTooltipText(root) {
-    if (!root?.querySelectorAll) return;
-    root.querySelectorAll('tp-yt-paper-tooltip, ytd-tooltip-renderer, .yt-spec-touch-feedback-shape__fill').forEach(el => {
-      if (el.matches?.('.yt-spec-touch-feedback-shape__fill')) return;
-      el.remove();
-    });
-  }
-
-  function replaceNativeIcon(root) {
-    if (!root) return;
-    const iconHTML = getPlaylistDownloadIcon();
-    const iconHost = root.querySelector?.('yt-icon, .yt-icon-shape, svg');
-    if (iconHost) {
-      if (iconHost.tagName?.toLowerCase() === 'svg') {
-        iconHost.outerHTML = iconHTML;
-      } else {
-        iconHost.innerHTML = iconHTML;
-      }
-      return;
+    if (template?.className && typeof template.className === 'string') {
+      button.className = template.className;
     }
-    root.insertAdjacentHTML?.('afterbegin', iconHTML);
-  }
 
-  function createPlaylistDownloadButton(kind, template = null) {
-    let button = null;
-
-    if (template) {
-      button = template.cloneNode(true);
-      stripClonedIds(button);
-      removeNativeTooltipText(button);
-      replaceNativeIcon(button);
-    } else {
-      button = document.createElement('button');
+    if (button.tagName.toLowerCase() === 'button') {
       button.type = 'button';
-      button.classList.add('cliptap-fallback-native-button');
-      button.innerHTML = getPlaylistDownloadIcon();
+    } else {
+      button.setAttribute('role', 'button');
+      button.setAttribute('tabindex', '0');
     }
 
-    const tag = button.tagName?.toLowerCase();
-    if (tag === 'button') button.type = 'button';
-    button.classList.add('cliptap-playlist-download-button', `cliptap-${kind}-playlist-button`);
+    button.classList.add(
+      'cliptap-playlist-download-button',
+      'cliptap-playlist-native-button',
+      `cliptap-${kind}-playlist-button`
+    );
+    button.innerHTML = getPlaylistDownloadIcon();
     button.title = 'Download playlist with ClipTap';
     button.setAttribute('aria-label', 'Download playlist with ClipTap');
     button.setAttribute('data-tooltip-text', 'Download playlist with ClipTap');
-    button.setAttribute('role', tag === 'button' ? 'button' : 'button');
-    if (!button.hasAttribute('tabindex')) button.setAttribute('tabindex', '0');
     button.addEventListener('click', event => {
       event.preventDefault();
       event.stopPropagation();
       requestPlaylistDownload(button);
-    });
+    }, true);
     button.addEventListener('keydown', event => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
       event.preventDefault();
       event.stopPropagation();
       requestPlaylistDownload(button);
-    });
+    }, true);
     return button;
+  }
+
+  function findByTextOrLabel(root, words) {
+    if (!root) return null;
+    const elements = [...root.querySelectorAll('button, a, div[role="button"], yt-button-shape, ytd-button-renderer, ytd-toggle-button-renderer, tp-yt-paper-button')];
+    return elements.find(el => {
+      const haystack = [
+        el.getAttribute('aria-label'),
+        el.getAttribute('title'),
+        el.getAttribute('data-tooltip-text'),
+        el.textContent
+      ].filter(Boolean).join(' ').toLowerCase();
+      return words.some(word => haystack.includes(word));
+    }) || null;
   }
 
   function findPlaylistShareAction() {
     const exact = document.querySelector('div.ytFlexibleActionsViewModelActionIconOnlyButton.ytFlexibleActionsViewModelActionRowAction.ytFlexibleActionsViewModelAction:nth-of-type(3)');
     if (exact) return exact;
 
+    const header = document.querySelector('ytd-playlist-header-renderer') || document;
+    const byText = findByTextOrLabel(header, ['share', '공유']);
+    if (byText) return byText;
+
     const candidates = [
-      'ytd-playlist-header-renderer button[aria-label*="Share"]',
-      'ytd-playlist-header-renderer button[title*="Share"]',
-      'ytd-playlist-header-renderer yt-button-shape:nth-of-type(3)',
-      'ytd-playlist-header-renderer #button-shape:nth-of-type(3)'
+      'ytd-playlist-header-renderer yt-flexible-actions-view-model div.ytFlexibleActionsViewModelActionRowAction:nth-of-type(3)',
+      'ytd-playlist-header-renderer .ytFlexibleActionsViewModelActionRowAction:nth-of-type(3)',
+      'ytd-playlist-header-renderer #actions yt-button-shape:nth-of-type(3)',
+      'ytd-playlist-header-renderer #buttons yt-button-shape:nth-of-type(3)',
+      'ytd-playlist-header-renderer #top-level-buttons-computed > *:nth-child(3)'
     ];
     for (const selector of candidates) {
+      const element = document.querySelector(selector);
+      if (element) return element;
+    }
+    return null;
+  }
+
+  function findPlaylistActionContainer() {
+    const selectors = [
+      'ytd-playlist-header-renderer yt-flexible-actions-view-model',
+      'ytd-playlist-header-renderer div.ytFlexibleActionsViewModelActionRow',
+      'ytd-playlist-header-renderer #actions',
+      'ytd-playlist-header-renderer #buttons',
+      'ytd-playlist-header-renderer #top-level-buttons-computed',
+      'ytd-playlist-header-renderer ytd-menu-renderer #top-level-buttons-computed',
+      'ytd-playlist-header-renderer ytd-menu-renderer'
+    ];
+    for (const selector of selectors) {
       const element = document.querySelector(selector);
       if (element) return element;
     }
@@ -1033,16 +1059,37 @@
       });
       return;
     }
+    if (mounted && document.documentElement.contains(mounted)) return;
 
     const target = findPlaylistShareAction();
-    if (!target || !target.parentElement) return;
-    if (target.parentElement.querySelector('.cliptap-page-playlist-button')) return;
+    const container = target?.parentElement || findPlaylistActionContainer();
+    if (!container) return;
 
-    const button = createPlaylistDownloadButton('page', target);
-    button.classList.add('cliptap-page-playlist-button');
-    target.parentElement.insertBefore(button, target);
-    target.dataset.cliptapHiddenShare = 'true';
-    target.style.display = 'none';
+    const button = makePlaylistButtonElement('page', target);
+    if (target?.parentElement) {
+      target.parentElement.insertBefore(button, target);
+      target.dataset.cliptapHiddenShare = 'true';
+      target.style.display = 'none';
+    } else {
+      container.appendChild(button);
+    }
+  }
+
+  function findWatchPlaylistToolbar() {
+    const selectors = [
+      '#playlist-action-menu > .ytd-playlist-panel-renderer.style-scope',
+      'ytd-playlist-panel-renderer #playlist-action-menu',
+      '#playlist-action-menu',
+      'ytd-playlist-panel-renderer #top-level-buttons-computed',
+      'ytd-playlist-panel-renderer ytd-menu-renderer #top-level-buttons-computed',
+      'ytd-playlist-panel-renderer ytd-menu-renderer',
+      'ytd-playlist-panel-renderer #menu'
+    ];
+    for (const selector of selectors) {
+      const element = document.querySelector(selector);
+      if (element) return element;
+    }
+    return null;
   }
 
   function mountWatchPlaylistButton() {
@@ -1051,13 +1098,13 @@
       mounted?.remove();
       return;
     }
+    if (mounted && document.documentElement.contains(mounted)) return;
 
-    const toolbar = document.querySelector('#playlist-action-menu > .ytd-playlist-panel-renderer.style-scope') ||
-      document.querySelector('#playlist-action-menu');
+    const toolbar = findWatchPlaylistToolbar();
     if (!toolbar || toolbar.querySelector('.cliptap-watch-playlist-button')) return;
 
-    const template = toolbar.querySelector('yt-button-shape, ytd-toggle-button-renderer, ytd-button-renderer, button');
-    const button = createPlaylistDownloadButton('watch', template);
+    const template = toolbar.querySelector('button, div[role="button"], yt-button-shape, ytd-toggle-button-renderer, ytd-button-renderer, tp-yt-paper-button');
+    const button = makePlaylistButtonElement('watch', template);
     toolbar.appendChild(button);
   }
 

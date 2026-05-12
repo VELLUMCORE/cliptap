@@ -9,6 +9,7 @@
 - Fixed section downloads getting stuck at the metadata step by forcing YouTube metadata reads to target the current video instead of playlist context.
 
 **ClipTap**
+- Fixed YouTube playlist download button mounting so the native-style white icon is inserted even when YouTube action button DOM changes.
 - Rebuilt YouTube playlist download buttons by cloning nearby native controls and using a centered white filled 24px Material-style icon.
 - Rebuilt the YouTube playlist download buttons as white, centered, filled native-style controls that visually match adjacent YouTube icons.
 - Replaced playlist download image assets with inline YouTube-style SVG buttons so the controls blend with adjacent native icons.
