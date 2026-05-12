@@ -3,11 +3,13 @@
 ## v1.3
 
 **ClipTap Helper**
+- Added YouTube playlist download mode in the helper queue using yt-dlp playlist handling.
 - Added per-job Cancel controls, working persistent History, real Clear Completed behavior, and updated the helper sidebar version to 1.3.
 - Removed misleading Stop controls because safe pause/resume support is not available for the current yt-dlp/FFmpeg subprocess workflow.
 - Fixed section downloads getting stuck at the metadata step by forcing YouTube metadata reads to target the current video instead of playlist context.
 
 **ClipTap**
+- Added playlist download buttons on YouTube playlist pages and watch pages with playlist panels.
 - Clarified current and planned service support messaging and added expandable YouTube capability details.
 - Aligned the Supported Sites top header markup and background treatment with the main homepage header.
 - Fixed README image references so the documentation only uses available project image assets.

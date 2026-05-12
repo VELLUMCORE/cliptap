@@ -684,6 +684,7 @@ function formatClock(seconds) {
 }
 
 function formatDuration(job) {
+  if (job.payload.mode === 'playlist') return 'Playlist';
   if (job.isLive && job.payload.mode === 'full') return 'LIVE';
   if (job.payload.mode === 'section') return `${formatClock(job.payload.start)} → ${formatClock(job.payload.end)}`;
   return 'Full video';
@@ -1179,7 +1180,7 @@ def clean_payload(payload: dict) -> dict:
         raise ValueError("Unsupported YouTube URL.")
 
     mode = str(payload.get("mode", "section")).strip().lower()
-    if mode not in {"section", "full"}:
+    if mode not in {"section", "full", "playlist"}:
         raise ValueError("Unsupported download mode.")
 
     quality = str(payload.get("quality", "best"))
@@ -1233,7 +1234,11 @@ def build_metadata_command(payload: dict) -> list[str]:
     if not cmd_base:
         raise ClipTapError("yt-dlp is not installed.")
 
-    command = list(cmd_base) + ["-J", "--no-warnings", "--skip-download", "--no-playlist"]
+    command = list(cmd_base) + ["-J", "--no-warnings", "--skip-download"]
+    if payload.get("mode") == "playlist":
+        command += ["--flat-playlist", "--playlist-items", "1"]
+    else:
+        command.append("--no-playlist")
     if payload.get("cookieBrowser"):
         command += ["--cookies-from-browser", payload["cookieBrowser"]]
     command.append(payload["url"])
@@ -1256,10 +1261,13 @@ def build_download_command(job: DownloadJob) -> list[str]:
     TEMP_ROOT.mkdir(parents=True, exist_ok=True)
     command = list(yt_dlp_cmd) + [
         "--newline",
-        "--no-playlist",
         "--force-overwrites",
         "--paths", f"temp:{TEMP_ROOT}",
     ]
+    if mode == "playlist":
+        command += ["--yes-playlist", "--ignore-errors"]
+    else:
+        command.append("--no-playlist")
 
     if quality == "audio":
         command += ["-f", FORMAT_MAP[quality], "-x", "--audio-format", "mp3"]
@@ -1279,6 +1287,8 @@ def build_download_command(job: DownloadJob) -> list[str]:
         output_template = str(OUTPUT_DIR / "%(title).160s [%(id)s] %(section_start)s-%(section_end)s.%(ext)s")
         if payload.get("forceKeyframes"):
             command.append("--force-keyframes-at-cuts")
+    elif mode == "playlist":
+        output_template = str(OUTPUT_DIR / "%(playlist_title).160s" / "%(playlist_index)03d - %(title).160s [%(id)s].%(ext)s")
     else:
         output_template = str(OUTPUT_DIR / "%(title).160s [%(id)s].%(ext)s")
         if job.is_live:
@@ -1729,6 +1739,9 @@ def run_download(job: DownloadJob):
         speed_re = re.compile(r"\bat\s+([^\s]+/s)")
         eta_re = re.compile(r"\bETA\s+([^\s]+)")
         size_re = re.compile(r"of\s+~?([^\s]+)")
+        playlist_item_re = re.compile(r"Downloading item\s+(\d+)\s+of\s+(\d+)", re.IGNORECASE)
+        playlist_item_index = 1
+        playlist_item_total = 1
 
         ffmpeg_time_re = re.compile(r"\btime=(\d+:\d+:\d+(?:\.\d+)?)")
         ffmpeg_out_time_re = re.compile(r"\bout_time=(\d+:\d+:\d+(?:\.\d+)?)")
@@ -1754,9 +1767,20 @@ def run_download(job: DownloadJob):
 
             changes = {}
 
+            playlist_item_match = playlist_item_re.search(line)
+            if playlist_item_match and job.payload["mode"] == "playlist":
+                playlist_item_index = int(playlist_item_match.group(1))
+                playlist_item_total = max(1, int(playlist_item_match.group(2)))
+                changes["status"] = f"Downloading playlist {playlist_item_index}/{playlist_item_total}"
+                changes["progress"] = max(0.0, min(99.0, ((playlist_item_index - 1) / playlist_item_total) * 100.0))
+
             match = percent_re.search(line)
             if match and not (job.is_live and job.payload["mode"] == "full"):
-                changes["progress"] = max(0.0, min(100.0, float(match.group(1))))
+                percent = max(0.0, min(100.0, float(match.group(1))))
+                if job.payload["mode"] == "playlist":
+                    changes["progress"] = max(0.0, min(99.0, ((playlist_item_index - 1) + percent / 100.0) / playlist_item_total * 100.0))
+                else:
+                    changes["progress"] = percent
 
             if section_duration and not changes.get("progress"):
                 elapsed = None

@@ -54,6 +54,46 @@
     return (titleEl?.textContent || document.title || '').replace(/ - YouTube$/, '').trim();
   }
 
+
+  function getPlaylistId() {
+    try {
+      return new URL(location.href).searchParams.get('list') || '';
+    } catch {
+      return '';
+    }
+  }
+
+  function isPlaylistPageUrl() {
+    return location.pathname === '/playlist' && Boolean(getPlaylistId());
+  }
+
+  function isWatchPlaylistUrl() {
+    return location.pathname === '/watch' && Boolean(getPlaylistId());
+  }
+
+  function getPlaylistUrl() {
+    const listId = getPlaylistId();
+    if (!listId) return location.href;
+    return `https://www.youtube.com/playlist?list=${encodeURIComponent(listId)}`;
+  }
+
+  function getPlaylistTitle() {
+    const candidates = [
+      'ytd-playlist-header-renderer h1 yt-formatted-string',
+      'ytd-playlist-header-renderer h1',
+      '#playlist-title',
+      '#header-description h3',
+      '#container h3.ytd-playlist-panel-renderer',
+      'h1 yt-formatted-string',
+      'h1'
+    ];
+    for (const selector of candidates) {
+      const value = document.querySelector(selector)?.textContent?.trim();
+      if (value) return value;
+    }
+    return getTitle() || 'YouTube playlist';
+  }
+
   function secondsToClock(value, fractionDigits = 2) {
     const total = Math.max(0, Number(value) || 0);
     const scale = 10 ** fractionDigits;
@@ -358,6 +398,49 @@
       }
       #cliptap-progress-overlay .cliptap-handle[data-kind="end"] {
         --cliptap-handle-color: #ff9d2e;
+      }
+      .cliptap-playlist-download-button {
+        position: relative;
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+        min-height: 40px;
+        padding: 0;
+        margin: 0 2px;
+        border: 0;
+        border-radius: 50%;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        vertical-align: middle;
+      }
+      .cliptap-playlist-download-button:hover {
+        background: rgba(255, 255, 255, .10);
+      }
+      .cliptap-playlist-download-button img {
+        width: 28px;
+        height: 28px;
+        object-fit: contain;
+        pointer-events: none;
+        display: block;
+      }
+      .cliptap-playlist-download-button.cliptap-watch-playlist-button {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+        min-height: 36px;
+        margin: 0 4px;
+      }
+      .cliptap-playlist-download-button.cliptap-watch-playlist-button img {
+        width: 26px;
+        height: 26px;
+      }
+      .cliptap-playlist-download-button.cliptap-sending {
+        opacity: .55;
+        pointer-events: none;
       }
     `;
     document.documentElement.appendChild(style);
@@ -731,6 +814,39 @@
     setMarker(kind, next, true);
   }
 
+
+  async function requestPlaylistDownload(button) {
+    const playlistId = getPlaylistId();
+    if (!playlistId) return;
+
+    const payload = {
+      mode: 'playlist',
+      url: getPlaylistUrl(),
+      title: getPlaylistTitle(),
+      quality: state.quality,
+      cookieBrowser: state.cookieBrowser,
+      forceKeyframes: false
+    };
+
+    try {
+      button?.classList.add('cliptap-sending');
+      setPanelMessage('Sending playlist download request...');
+      const res = await fetch('http://127.0.0.1:17723/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Helper error');
+      setPanelMessage('Playlist download started.');
+    } catch (error) {
+      setPanelMessage('The helper is off or the playlist request failed.');
+      console.error('[ClipTap]', error);
+    } finally {
+      button?.classList.remove('cliptap-sending');
+    }
+  }
+
   async function requestDownload(mode = 'section') {
     const payload = {
       mode,
@@ -779,6 +895,83 @@
     state.panelOpen = false;
     state.loopEnabled = false;
     stopLoopWatcher();
+  }
+
+
+  function createPlaylistDownloadButton(kind) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `cliptap-playlist-download-button cliptap-${kind}-playlist-button`;
+    button.title = 'Download playlist with ClipTap';
+    button.setAttribute('aria-label', 'Download playlist with ClipTap');
+    const filename = kind === 'watch' ? 'ytpldown-watch.png' : 'ytpldown-playlist.png';
+    const iconUrl = chrome.runtime.getURL(`icons/${filename}`);
+    button.innerHTML = `<img src="${iconUrl}" alt="" aria-hidden="true">`;
+    button.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      requestPlaylistDownload(button);
+    });
+    return button;
+  }
+
+  function findPlaylistShareAction() {
+    const exact = document.querySelector('div.ytFlexibleActionsViewModelActionIconOnlyButton.ytFlexibleActionsViewModelActionRowAction.ytFlexibleActionsViewModelAction:nth-of-type(3)');
+    if (exact) return exact;
+
+    const candidates = [
+      'ytd-playlist-header-renderer button[aria-label*="Share"]',
+      'ytd-playlist-header-renderer button[title*="Share"]',
+      'ytd-playlist-header-renderer yt-button-shape:nth-of-type(3)',
+      'ytd-playlist-header-renderer #button-shape:nth-of-type(3)'
+    ];
+    for (const selector of candidates) {
+      const element = document.querySelector(selector);
+      if (element) return element;
+    }
+    return null;
+  }
+
+  function mountPlaylistPageButton() {
+    const mounted = document.querySelector('.cliptap-page-playlist-button');
+    if (!isPlaylistPageUrl()) {
+      mounted?.remove();
+      document.querySelectorAll('[data-cliptap-hidden-share="true"]').forEach(el => {
+        el.style.display = '';
+        delete el.dataset.cliptapHiddenShare;
+      });
+      return;
+    }
+
+    const target = findPlaylistShareAction();
+    if (!target || !target.parentElement) return;
+    if (target.parentElement.querySelector('.cliptap-page-playlist-button')) return;
+
+    const button = createPlaylistDownloadButton('page');
+    button.classList.add('cliptap-page-playlist-button');
+    target.parentElement.insertBefore(button, target);
+    target.dataset.cliptapHiddenShare = 'true';
+    target.style.display = 'none';
+  }
+
+  function mountWatchPlaylistButton() {
+    const mounted = document.querySelector('.cliptap-watch-playlist-button');
+    if (!isWatchPlaylistUrl()) {
+      mounted?.remove();
+      return;
+    }
+
+    const toolbar = document.querySelector('#playlist-action-menu > .ytd-playlist-panel-renderer.style-scope') ||
+      document.querySelector('#playlist-action-menu');
+    if (!toolbar || toolbar.querySelector('.cliptap-watch-playlist-button')) return;
+
+    const button = createPlaylistDownloadButton('watch');
+    toolbar.appendChild(button);
+  }
+
+  function mountPlaylistDownloadButtons() {
+    mountPlaylistPageButton();
+    mountWatchPlaylistButton();
   }
 
   function renderProgressOverlay() {
@@ -850,6 +1043,7 @@
     ensureControlButton();
     ensurePanel();
     ensureProgressOverlay();
+    mountPlaylistDownloadButtons();
     renderButton();
     renderPanel();
     renderProgressOverlay();
