@@ -401,8 +401,6 @@
       }
       .cliptap-playlist-download-button {
         color: #fff !important;
-        fill: #fff !important;
-        stroke: none !important;
         cursor: pointer !important;
         user-select: none !important;
         -webkit-tap-highlight-color: transparent !important;
@@ -461,6 +459,8 @@
         min-height: 24px !important;
         line-height: 0 !important;
         color: #fff !important;
+        opacity: 1 !important;
+        visibility: visible !important;
         pointer-events: none !important;
       }
       .cliptap-playlist-icon-wrap svg.cliptap-native-playlist-svg {
@@ -470,13 +470,19 @@
         min-width: 24px !important;
         min-height: 24px !important;
         margin: 0 !important;
+        opacity: 1 !important;
+        visibility: visible !important;
         fill: none !important;
         stroke: #fff !important;
         overflow: visible !important;
       }
-      .cliptap-playlist-icon-wrap svg.cliptap-native-playlist-svg * {
+      .cliptap-playlist-icon-wrap svg.cliptap-native-playlist-svg path {
+        display: block !important;
+        opacity: 1 !important;
+        visibility: visible !important;
         fill: none !important;
         stroke: #fff !important;
+        stroke-width: 2 !important;
         stroke-linecap: round !important;
         stroke-linejoin: round !important;
       }
@@ -943,8 +949,8 @@
   function getPlaylistDownloadIcon() {
     return `
       <span class="cliptap-playlist-icon-wrap" aria-hidden="true">
-        <svg class="cliptap-native-playlist-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" focusable="false" aria-hidden="true">
-          <path d="M5 7h9M5 12h9M5 17h6M17 6v8m0 0-3-3m3 3 3-3M14 19h6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <svg class="cliptap-native-playlist-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" focusable="false" aria-hidden="true" style="display:block;width:24px;height:24px;fill:none;stroke:#fff;overflow:visible;opacity:1;visibility:visible">
+          <path d="M5 7h9M5 12h9M5 17h6M17 6v8m0 0-3-3m3 3 3-3M14 19h6" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;opacity:1;visibility:visible"/>
         </svg>
       </span>`;
   }

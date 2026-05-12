@@ -9,6 +9,7 @@
 - Fixed section downloads getting stuck at the metadata step by forcing YouTube metadata reads to target the current video instead of playlist context.
 
 **ClipTap**
+- Fixed logo/icon visibility by using the approved SVG path with explicit white stroke styling and restoring the website brand mark image.
 - Refined the YouTube playlist download icon to use a cleaner white native-style SVG glyph with balanced stroke geometry.
 - Fixed YouTube playlist download button mounting so the native-style white icon is inserted even when YouTube action button DOM changes.
 - Rebuilt YouTube playlist download buttons by cloning nearby native controls and using a centered white filled 24px Material-style icon.
