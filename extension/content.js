@@ -400,6 +400,14 @@
         --cliptap-handle-color: #ff9d2e;
       }
       .cliptap-playlist-download-button {
+        --cliptap-icon-color: #fff;
+        color: #fff !important;
+        fill: #fff !important;
+        stroke: none !important;
+        cursor: pointer;
+      }
+      button.cliptap-playlist-download-button,
+      .cliptap-playlist-download-button.cliptap-fallback-native-button {
         position: relative;
         box-sizing: border-box;
         display: inline-flex !important;
@@ -415,44 +423,50 @@
         border: 0;
         border-radius: 50%;
         background: transparent;
-        color: #fff !important;
         line-height: 0;
-        cursor: pointer;
         vertical-align: middle;
-        opacity: .96;
-        transition: background-color .12s ease, opacity .12s ease, transform .08s ease;
       }
       .cliptap-playlist-download-button:hover,
       .cliptap-playlist-download-button:focus-visible {
-        background: rgba(255, 255, 255, .14);
-        opacity: 1;
         outline: none;
       }
+      button.cliptap-playlist-download-button:hover,
+      button.cliptap-playlist-download-button:focus-visible,
+      .cliptap-playlist-download-button.cliptap-fallback-native-button:hover,
+      .cliptap-playlist-download-button.cliptap-fallback-native-button:focus-visible {
+        background-color: rgba(255, 255, 255, .10);
+      }
       .cliptap-playlist-download-button:active {
-        transform: scale(.94);
+        transform: scale(.96);
       }
-      .cliptap-playlist-download-button svg {
-        width: 24px;
-        height: 24px;
-        display: block;
-        flex: 0 0 24px;
-        fill: currentColor;
-        stroke: none;
-        overflow: visible;
-        pointer-events: none;
+      .cliptap-playlist-download-button .cliptap-native-icon-host,
+      .cliptap-playlist-download-button yt-icon.cliptap-native-icon-host,
+      .cliptap-playlist-download-button .yt-icon-shape,
+      .cliptap-playlist-download-button .yt-icon-shape div {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 24px !important;
+        height: 24px !important;
+        min-width: 24px !important;
+        min-height: 24px !important;
+        line-height: 0 !important;
+        color: #fff !important;
       }
-      .cliptap-playlist-download-button.cliptap-page-playlist-button svg,
-      .cliptap-playlist-download-button.cliptap-watch-playlist-button svg {
-        width: 24px;
-        height: 24px;
+      .cliptap-playlist-download-button svg.cliptap-native-playlist-svg {
+        width: 24px !important;
+        height: 24px !important;
+        display: block !important;
+        flex: 0 0 24px !important;
+        margin: 0 !important;
+        fill: #fff !important;
+        stroke: none !important;
+        overflow: hidden !important;
+        pointer-events: none !important;
       }
-      .cliptap-playlist-download-button.cliptap-watch-playlist-button {
-        width: 40px;
-        height: 40px;
-        min-width: 40px;
-        min-height: 40px;
-        padding: 8px;
-        margin: 0 2px;
+      .cliptap-playlist-download-button svg.cliptap-native-playlist-svg path {
+        fill: #fff !important;
+        stroke: none !important;
       }
       .cliptap-playlist-download-button.cliptap-sending {
         opacity: .55;
@@ -914,40 +928,77 @@
   }
 
 
-  function getPlaylistDownloadIcon(kind) {
-    if (kind === 'watch') {
-      return `
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path d="M4.35 5.15a1.55 1.55 0 1 1 0 3.1 1.55 1.55 0 0 1 0-3.1Z"></path>
-          <path d="M7.35 5.35h7.8a1.35 1.35 0 0 1 0 2.7h-7.8a1.35 1.35 0 0 1 0-2.7Z"></path>
-          <path d="M4.35 10.85a1.55 1.55 0 1 1 0 3.1 1.55 1.55 0 0 1 0-3.1Z"></path>
-          <path d="M7.35 11.05h5.55a1.35 1.35 0 0 1 0 2.7H7.35a1.35 1.35 0 0 1 0-2.7Z"></path>
-          <path d="M17.05 8.55c.74 0 1.34.6 1.34 1.34v4.86h1.28c.48 0 .72.58.38.92l-2.76 2.76a.54.54 0 0 1-.76 0l-2.76-2.76a.54.54 0 0 1 .38-.92h1.56V9.89c0-.74.6-1.34 1.34-1.34Z"></path>
-          <path d="M13.65 19.35h6.8a1.2 1.2 0 0 1 0 2.4h-6.8a1.2 1.2 0 0 1 0-2.4Z"></path>
-        </svg>`;
-    }
-
+  function getPlaylistDownloadIcon() {
+    // YouTube action icons are 24x24 filled Material-style glyphs inside a
+    // 40x40 icon-button hit area. Keep this SVG single-color, centered, and
+    // path-filled so it blends with native white toolbar icons.
     return `
-      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M4.25 4.55a1.55 1.55 0 1 1 0 3.1 1.55 1.55 0 0 1 0-3.1Z"></path>
-        <path d="M7.35 4.75h9.05a1.35 1.35 0 0 1 0 2.7H7.35a1.35 1.35 0 0 1 0-2.7Z"></path>
-        <path d="M4.25 10.25a1.55 1.55 0 1 1 0 3.1 1.55 1.55 0 0 1 0-3.1Z"></path>
-        <path d="M7.35 10.45h7.05a1.35 1.35 0 0 1 0 2.7H7.35a1.35 1.35 0 0 1 0-2.7Z"></path>
-        <path d="M4.25 15.95a1.55 1.55 0 1 1 0 3.1 1.55 1.55 0 0 1 0-3.1Z"></path>
-        <path d="M7.35 16.15h4.85a1.35 1.35 0 0 1 0 2.7H7.35a1.35 1.35 0 0 1 0-2.7Z"></path>
-        <path d="M18.15 8.35c.74 0 1.34.6 1.34 1.34v5.38h1.31c.48 0 .72.58.38.92l-2.82 2.82a.54.54 0 0 1-.76 0l-2.82-2.82a.54.54 0 0 1 .38-.92h1.65V9.69c0-.74.6-1.34 1.34-1.34Z"></path>
-        <path d="M14.7 19.7h7.05a1.2 1.2 0 0 1 0 2.4H14.7a1.2 1.2 0 0 1 0-2.4Z"></path>
-      </svg>`;
+      <yt-icon class="cliptap-native-icon-host" aria-hidden="true">
+        <svg class="cliptap-native-playlist-svg" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+          <path d="M3 6h11V4H3v2Zm0 4h11V8H3v2Zm0 4h8v-2H3v2Zm13-1.17V4h2v8.83l2.59-2.58L22 11.66l-5 5-5-5 1.41-1.41L16 12.83ZM13 20h8v-2h-8v2Z"></path>
+        </svg>
+      </yt-icon>`;
   }
 
-  function createPlaylistDownloadButton(kind) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = `cliptap-playlist-download-button cliptap-${kind}-playlist-button`;
+  function stripClonedIds(root) {
+    if (!root?.querySelectorAll) return;
+    root.removeAttribute?.('id');
+    root.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+  }
+
+  function removeNativeTooltipText(root) {
+    if (!root?.querySelectorAll) return;
+    root.querySelectorAll('tp-yt-paper-tooltip, ytd-tooltip-renderer, .yt-spec-touch-feedback-shape__fill').forEach(el => {
+      if (el.matches?.('.yt-spec-touch-feedback-shape__fill')) return;
+      el.remove();
+    });
+  }
+
+  function replaceNativeIcon(root) {
+    if (!root) return;
+    const iconHTML = getPlaylistDownloadIcon();
+    const iconHost = root.querySelector?.('yt-icon, .yt-icon-shape, svg');
+    if (iconHost) {
+      if (iconHost.tagName?.toLowerCase() === 'svg') {
+        iconHost.outerHTML = iconHTML;
+      } else {
+        iconHost.innerHTML = iconHTML;
+      }
+      return;
+    }
+    root.insertAdjacentHTML?.('afterbegin', iconHTML);
+  }
+
+  function createPlaylistDownloadButton(kind, template = null) {
+    let button = null;
+
+    if (template) {
+      button = template.cloneNode(true);
+      stripClonedIds(button);
+      removeNativeTooltipText(button);
+      replaceNativeIcon(button);
+    } else {
+      button = document.createElement('button');
+      button.type = 'button';
+      button.classList.add('cliptap-fallback-native-button');
+      button.innerHTML = getPlaylistDownloadIcon();
+    }
+
+    const tag = button.tagName?.toLowerCase();
+    if (tag === 'button') button.type = 'button';
+    button.classList.add('cliptap-playlist-download-button', `cliptap-${kind}-playlist-button`);
     button.title = 'Download playlist with ClipTap';
     button.setAttribute('aria-label', 'Download playlist with ClipTap');
-    button.innerHTML = getPlaylistDownloadIcon(kind);
+    button.setAttribute('data-tooltip-text', 'Download playlist with ClipTap');
+    button.setAttribute('role', tag === 'button' ? 'button' : 'button');
+    if (!button.hasAttribute('tabindex')) button.setAttribute('tabindex', '0');
     button.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      requestPlaylistDownload(button);
+    });
+    button.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
       event.preventDefault();
       event.stopPropagation();
       requestPlaylistDownload(button);
@@ -987,7 +1038,7 @@
     if (!target || !target.parentElement) return;
     if (target.parentElement.querySelector('.cliptap-page-playlist-button')) return;
 
-    const button = createPlaylistDownloadButton('page');
+    const button = createPlaylistDownloadButton('page', target);
     button.classList.add('cliptap-page-playlist-button');
     target.parentElement.insertBefore(button, target);
     target.dataset.cliptapHiddenShare = 'true';
@@ -1005,7 +1056,8 @@
       document.querySelector('#playlist-action-menu');
     if (!toolbar || toolbar.querySelector('.cliptap-watch-playlist-button')) return;
 
-    const button = createPlaylistDownloadButton('watch');
+    const template = toolbar.querySelector('yt-button-shape, ytd-toggle-button-renderer, ytd-button-renderer, button');
+    const button = createPlaylistDownloadButton('watch', template);
     toolbar.appendChild(button);
   }
 
