@@ -30,12 +30,15 @@ from urllib.parse import urlparse
 HOST = "127.0.0.1"
 PORT = 17723
 APP_NAME = "ClipTap Manager"
-APP_VERSION = "1.2.1"
+APP_VERSION = "1.3"
 OUTPUT_DIR = Path.home() / "Downloads" / "ClipTap"
 TEMP_ROOT = Path(tempfile.gettempdir()) / "ClipTap"
 FROZEN = bool(getattr(sys, "frozen", False))
 APP_DIR = Path(sys.executable).resolve().parent if FROZEN else Path(__file__).resolve().parent
 LOCAL_BIN_DIR = APP_DIR / "bin"
+DATA_DIR = (Path(os.environ.get("APPDATA", str(Path.home()))) / "ClipTap") if os.name == "nt" else (Path.home() / ".cliptap" / "ClipTap")
+HISTORY_FILE = DATA_DIR / "download-history.json"
+TERMINAL_PHASES = {"finished", "failed", "cancelled", "stopped"}
 
 INDEX_HTML = r"""<!doctype html>
 <html lang="en">
@@ -109,13 +112,13 @@ INDEX_HTML = r"""<!doctype html>
           <div class="section-head">
             <h2>ACTIVE DOWNLOAD QUEUE (<span data-role="active-count">0</span>)</h2>
             <div class="head-actions">
-              <button id="pauseQueue" class="button compact" type="button"><span class="button-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14"/><path d="M16 5v14"/></svg></span>Pause Queue</button>
+              <button id="stopAll" class="button compact" type="button"><span class="button-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1.5"/></svg></span>Stop All</button>
               <button id="cancelAll" class="button compact" type="button"><span class="button-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m7 17 10-10"/></svg></span>Cancel All</button>
             </div>
           </div>
           <div class="queue-table-wrap">
             <table class="queue-table">
-              <thead><tr><th>#</th><th>Title</th><th>Platform</th><th>Format</th><th>Progress</th><th>Status</th></tr></thead>
+              <thead><tr><th>#</th><th>Title</th><th>Platform</th><th>Format</th><th>Progress</th><th>Status</th><th>Actions</th></tr></thead>
               <tbody id="queueRows"></tbody>
             </table>
           </div>
@@ -137,9 +140,11 @@ INDEX_HTML = r"""<!doctype html>
           <div class="section-head">
             <h2><span class="title-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 6h12"/><path d="M8 12h12"/><path d="M8 18h12"/><circle cx="4.5" cy="6" r="1.2"/><circle cx="4.5" cy="12" r="1.2"/><circle cx="4.5" cy="18" r="1.2"/></svg></span>DOWNLOAD HISTORY</h2>
           </div>
-          <div class="placeholder-panel">
-            <strong>No saved history yet.</strong>
-            <p>Completed downloads remain visible in the queue during this helper session.</p>
+          <div class="history-list" id="historyRows">
+            <div class="placeholder-panel">
+              <strong>No saved history yet.</strong>
+              <p>Completed, failed, stopped, and cancelled downloads will appear here.</p>
+            </div>
           </div>
         </article>
 
@@ -429,6 +434,18 @@ button, input, select { font: inherit; }
 .queue-table th:nth-child(4), .queue-table td:nth-child(4) { width: 150px; padding-left: 14px; padding-right: 18px; }
 .queue-table th:nth-child(5), .queue-table td:nth-child(5) { width: 160px; }
 .queue-table th:nth-child(6), .queue-table td:nth-child(6) { width: 136px; }
+.queue-table th:nth-child(7), .queue-table td:nth-child(7) { width: 132px; text-align: right; }
+.job-actions { display: inline-flex; justify-content: flex-end; gap: 6px; }
+.job-actions button { height: 26px; padding: 0 8px; border-radius: 4px; font-size: 11px; }
+.job-actions .stop-job { color: #ffe2af; border-color: rgba(255, 174, 42, .42); }
+.job-actions .cancel-job { color: #ffd7dc; border-color: rgba(255, 107, 120, .38); }
+.history-list { display: grid; gap: 8px; }
+.history-row { display: grid; grid-template-columns: minmax(0, 1fr) 100px 100px 150px; gap: 10px; align-items: center; min-height: 44px; padding: 9px 10px; border: 1px solid var(--line-soft); border-radius: 5px; background: rgba(255,255,255,.025); }
+.history-row strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-row small { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-row .done { color: var(--green); }
+.history-row .failed, .history-row .cancelled { color: var(--red); }
+.history-row .stopped { color: var(--orange); }
 .title-cell strong { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .title-cell small { display: block; margin-top: 2px; color: #9ba9ba; font-size: 11px; }
 .platform { display: inline-flex; align-items: center; gap: 6px; color: #dbe3ef; }
@@ -580,7 +597,6 @@ const seenJobStates = new Map();
 let logLines = [];
 let lastJobs = [];
 let queuePaused = false;
-let hiddenCompleted = false;
 
 function nowStamp() {
   const d = new Date();
@@ -695,21 +711,22 @@ function platform(job) {
 function phaseClass(job) {
   if (job.phase === 'finished') return 'done';
   if (job.phase === 'failed' || job.phase === 'cancelled') return 'failed';
+  if (job.phase === 'stopped') return 'stopped';
   if (job.phase === 'queued') return 'queued';
   return '';
 }
 
 function isActive(job) {
-  return !['finished', 'failed', 'cancelled'].includes(job.phase);
+  return !['finished', 'failed', 'cancelled', 'stopped'].includes(job.phase);
 }
 
 function renderJobs(jobs) {
   lastJobs = jobs;
-  const displayJobs = hiddenCompleted ? jobs.filter(isActive) : jobs;
+  const displayJobs = jobs;
   const activeCount = jobs.filter(isActive).length;
   text('[data-role="requests-today"]', jobs.length);
   text('[data-role="active-count"]', activeCount);
-  text('[data-role="queue-summary"]', `Showing ${displayJobs.length} of ${jobs.length} downloads`);
+  text('[data-role="queue-summary"]', `Showing ${displayJobs.length} downloads`);
 
   for (const job of jobs) {
     const stateKey = `${job.phase}:${job.status}:${Math.round(Number(job.progress) || 0)}`;
@@ -721,7 +738,7 @@ function renderJobs(jobs) {
   }
 
   if (!displayJobs.length) {
-    queueRows.innerHTML = '<tr class="empty-row"><td colspan="6">No download requests yet. Start one from the YouTube player.</td></tr>';
+    queueRows.innerHTML = '<tr class="empty-row"><td colspan="7">No download requests yet. Start one from the YouTube player.</td></tr>';
     return;
   }
 
@@ -739,6 +756,7 @@ function renderJobs(jobs) {
         <td>${escapeHtml(formatName(job))}</td>
         <td class="progress-cell"><div class="progress-meta"><span class="progress-text">${progressText}</span><div class="progress-bar"><div class="progress-fill ${live ? 'live' : ''}" style="width:${barWidth}%"></div></div></div></td>
         <td><span class="status-badge ${phaseClass(job)}">${escapeHtml(job.status || job.phase)}</span></td>
+        <td>${isActive(job) ? `<span class="job-actions"><button class="stop-job" data-stop-job="${job.id}">Stop</button><button class="cancel-job" data-cancel-job="${job.id}">Cancel</button></span>` : ''}</td>
       </tr>`;
   }).join('');
 }
@@ -774,6 +792,40 @@ async function cancelJob(id) {
 
 async function cancelAll() {
   await Promise.all(lastJobs.filter(isActive).map(job => cancelJob(job.id).catch(error => addLog('error', error.message))));
+}
+
+async function stopJob(id) {
+  await api(`/api/jobs/${id}/stop`, { method: 'POST' });
+  addLog('info', `Stop requested for ${id}.`);
+  await refreshJobs();
+}
+
+async function stopAll() {
+  await api('/api/jobs/stop-all', { method: 'POST' });
+  addLog('info', 'Stop requested for all active downloads.');
+  await refreshJobs();
+}
+
+async function clearCompletedJobs() {
+  const data = await api('/api/jobs/clear-completed', { method: 'POST' });
+  addLog('info', `Cleared ${data.cleared || 0} completed queue rows.`);
+  await refreshJobs();
+  await refreshHistory();
+}
+
+function renderHistory(items = []) {
+  const root = document.getElementById('historyRows');
+  if (!root) return;
+  if (!items.length) {
+    root.innerHTML = '<div class="placeholder-panel"><strong>No saved history yet.</strong><p>Completed, failed, stopped, and cancelled downloads will appear here.</p></div>';
+    return;
+  }
+  root.innerHTML = items.map(item => `<div class="history-row"><strong title="${escapeHtml(item.title || 'Untitled video')}">${escapeHtml(item.title || 'Untitled video')}</strong><small>${escapeHtml(formatName(item))}</small><span class="${escapeHtml(phaseClass(item))}">${escapeHtml(item.status || item.phase || '')}</span><small>${escapeHtml(item.finishedAt || '')}</small></div>`).join('');
+}
+
+async function refreshHistory() {
+  const data = await api('/api/history');
+  renderHistory(data.history || []);
 }
 
 function saveDefaults() {
@@ -816,17 +868,20 @@ $('#copyAddressBottom')?.addEventListener('click', copyAddress);
 $('#restartHint')?.addEventListener('click', () => alert('Close and run ClipTapHelper.exe again to restart the helper.'));
 $('#moreMenu')?.addEventListener('click', () => alert('More actions will be added in a future build.'));
 $('#openReleases')?.addEventListener('click', () => addLog('info', 'Update check is manual in this local build.'));
-$('#pauseQueue')?.addEventListener('click', (event) => {
-  queuePaused = !queuePaused;
-  event.currentTarget.textContent = queuePaused ? '▶ Resume Queue' : 'Ⅱ Pause Queue';
-  addLog('info', queuePaused ? 'Queue pause requested.' : 'Queue resumed.');
-});
+$('#stopAll')?.addEventListener('click', () => stopAll().catch(error => alert(error.message)));
 $('#cancelAll')?.addEventListener('click', () => cancelAll().catch(error => alert(error.message)));
-$('#clearCompleted')?.addEventListener('click', (event) => {
-  hiddenCompleted = !hiddenCompleted;
-  event.currentTarget.textContent = hiddenCompleted ? 'Show Completed' : 'Clear Completed';
-  renderJobs(lastJobs);
+document.addEventListener('click', (event) => {
+  const stopButton = event.target.closest('[data-stop-job]');
+  if (stopButton) {
+    stopJob(stopButton.dataset.stopJob).catch(error => alert(error.message));
+    return;
+  }
+  const cancelButton = event.target.closest('[data-cancel-job]');
+  if (cancelButton) {
+    cancelJob(cancelButton.dataset.cancelJob).catch(error => alert(error.message));
+  }
 });
+$('#clearCompleted')?.addEventListener('click', () => clearCompletedJobs().catch(error => alert(error.message)));
 $('#clearLogs')?.addEventListener('click', () => { logLines = []; renderLogs(); });
 $('#saveDefaults')?.addEventListener('click', saveDefaults);
 $('#checkUpdatesLink')?.addEventListener('click', () => addLog('info', 'Update check is manual in this local build.'));
@@ -869,8 +924,10 @@ addLog('info', 'Server started on http://127.0.0.1:17723');
 addLog('info', 'Extension requests will appear in the queue automatically.');
 refreshStatus();
 refreshJobs().catch(console.error);
+refreshHistory().catch(console.error);
 setInterval(refreshStatus, 2500);
 setInterval(() => refreshJobs().catch(console.error), 1000);
+setInterval(() => refreshHistory().catch(console.error), 2500);
 """
 
 FORMAT_MAP = {
@@ -938,6 +995,8 @@ class DownloadJob:
     updated_at: float = field(default_factory=time.time)
     process: subprocess.Popen | None = field(default=None, repr=False, compare=False)
     cancel_event: threading.Event = field(default_factory=threading.Event, repr=False, compare=False)
+    stop_requested: bool = False
+    history_recorded: bool = False
 
     def public(self) -> dict:
         return {
@@ -957,6 +1016,7 @@ class DownloadJob:
             "error": self.error,
             "createdAt": self.created_at,
             "updatedAt": self.updated_at,
+            "finishedAt": format_history_time(self.updated_at) if self.phase in TERMINAL_PHASES else "",
         }
 
     def touch(self):
@@ -973,6 +1033,18 @@ class DownloadJob:
             except Exception:
                 pass
 
+    def stop(self):
+        self.stop_requested = True
+        self.cancel_event.set()
+        self.status = "Stopping..."
+        self.phase = "stopping"
+        self.touch()
+        if self.process and self.process.poll() is None:
+            try:
+                self.process.terminate()
+            except Exception:
+                pass
+
 
 JOBS: dict[str, DownloadJob] = {}
 INSTALLS: dict[str, InstallTask] = {
@@ -981,6 +1053,7 @@ INSTALLS: dict[str, InstallTask] = {
 }
 LOCK = threading.RLock()
 SERVER: ThreadingHTTPServer | None = None
+HISTORY: list[dict] = []
 
 
 def first_existing(paths):
@@ -1194,12 +1267,7 @@ def build_metadata_command(payload: dict) -> list[str]:
     if not cmd_base:
         raise ClipTapError("yt-dlp is not installed.")
 
-    command = list(cmd_base) + [
-        "-J",
-        "--no-warnings",
-        "--skip-download",
-        "--no-playlist",
-    ]
+    command = list(cmd_base) + ["-J", "--no-warnings", "--skip-download", "--no-playlist"]
     if payload.get("cookieBrowser"):
         command += ["--cookies-from-browser", payload["cookieBrowser"]]
     command.append(payload["url"])
@@ -1425,11 +1493,48 @@ def cleanup_output_temporary_files(current_job_id: str | None = None):
         pass
 
 
+def format_history_time(value: float | None) -> str:
+    if not value:
+        return ""
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(value))
+
+
+def load_history():
+    global HISTORY
+    try:
+        if HISTORY_FILE.exists():
+            data = json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
+            HISTORY = data[-500:] if isinstance(data, list) else []
+    except Exception:
+        HISTORY = []
+
+
+def save_history():
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        HISTORY_FILE.write_text(json.dumps(HISTORY[-500:], ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def record_history(job: DownloadJob):
+    if job.history_recorded or job.phase not in TERMINAL_PHASES:
+        return
+    item = job.public()
+    if not item.get("finishedAt"):
+        item["finishedAt"] = format_history_time(time.time())
+    HISTORY.insert(0, item)
+    del HISTORY[500:]
+    job.history_recorded = True
+    save_history()
+
+
 def update_job(job: DownloadJob, **changes):
     with LOCK:
         for key, value in changes.items():
             setattr(job, key, value)
         job.touch()
+        record_history(job)
 
 
 
@@ -1507,7 +1612,6 @@ def prepare_metadata(job: DownloadJob):
         build_metadata_command(job.payload),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        stdin=subprocess.DEVNULL,
         text=True,
         encoding="utf-8",
         errors="replace",
@@ -1743,7 +1847,10 @@ def run_download(job: DownloadJob):
             raise ClipTapError(f"yt-dlp exited with code {code}.")
         update_job(job, status="Finished", phase="finished", progress=100.0)
     except CancelledError:
-        update_job(job, status="Cancelled", phase="cancelled")
+        if job.stop_requested:
+            update_job(job, status="Stopped", phase="stopped")
+        else:
+            update_job(job, status="Cancelled", phase="cancelled")
     except Exception as exc:
         update_job(job, status="Failed", phase="failed", error=str(exc))
     finally:
@@ -1753,6 +1860,27 @@ def run_download(job: DownloadJob):
             except Exception:
                 pass
         cleanup_output_temporary_files(job.id)
+
+
+def clear_completed_jobs() -> int:
+    with LOCK:
+        completed_ids = [job_id for job_id, job in JOBS.items() if job.phase in TERMINAL_PHASES]
+        for job_id in completed_ids:
+            job = JOBS.get(job_id)
+            if job:
+                record_history(job)
+            JOBS.pop(job_id, None)
+    return len(completed_ids)
+
+
+def stop_all_jobs() -> int:
+    count = 0
+    with LOCK:
+        active_jobs = [job for job in JOBS.values() if job.phase not in TERMINAL_PHASES]
+    for job in active_jobs:
+        job.stop()
+        count += 1
+    return count
 
 
 def create_job(payload: dict) -> str:
@@ -1888,6 +2016,12 @@ class ClipTapHandler(BaseHTTPRequestHandler):
             json_response(self, {"ok": True, "jobs": jobs})
             return
 
+        if path == "/api/history":
+            with LOCK:
+                entries = list(HISTORY)
+            json_response(self, {"ok": True, "history": entries})
+            return
+
         if path in {"/", "/manager"}:
             html_response(self, INDEX_HTML, "text/html; charset=utf-8")
             return
@@ -1923,6 +2057,14 @@ class ClipTapHandler(BaseHTTPRequestHandler):
                 json_response(self, {"ok": True})
                 return
 
+            if path == "/api/jobs/clear-completed":
+                json_response(self, {"ok": True, "cleared": clear_completed_jobs()})
+                return
+
+            if path == "/api/jobs/stop-all":
+                json_response(self, {"ok": True, "stopped": stop_all_jobs()})
+                return
+
             if path.startswith("/api/jobs/") and path.endswith("/cancel"):
                 job_id = path.split("/")[3]
                 with LOCK:
@@ -1931,6 +2073,17 @@ class ClipTapHandler(BaseHTTPRequestHandler):
                     json_response(self, {"error": "job not found"}, 404)
                     return
                 job.cancel()
+                json_response(self, {"ok": True})
+                return
+
+            if path.startswith("/api/jobs/") and path.endswith("/stop"):
+                job_id = path.split("/")[3]
+                with LOCK:
+                    job = JOBS.get(job_id)
+                if not job:
+                    json_response(self, {"error": "job not found"}, 404)
+                    return
+                job.stop()
                 json_response(self, {"ok": True})
                 return
 
@@ -2007,6 +2160,7 @@ def run_yt_dlp_cli(argv: list[str]) -> int:
 
 def main():
     global SERVER
+    load_history()
 
     if "--run-yt-dlp" in sys.argv:
         idx = sys.argv.index("--run-yt-dlp")
