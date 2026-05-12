@@ -112,7 +112,6 @@ INDEX_HTML = r"""<!doctype html>
           <div class="section-head">
             <h2>ACTIVE DOWNLOAD QUEUE (<span data-role="active-count">0</span>)</h2>
             <div class="head-actions">
-              <button id="stopAll" class="button compact" type="button"><span class="button-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1.5"/></svg></span>Stop All</button>
               <button id="cancelAll" class="button compact" type="button"><span class="button-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m7 17 10-10"/></svg></span>Cancel All</button>
             </div>
           </div>
@@ -143,7 +142,7 @@ INDEX_HTML = r"""<!doctype html>
           <div class="history-list" id="historyRows">
             <div class="placeholder-panel">
               <strong>No saved history yet.</strong>
-              <p>Completed, failed, stopped, and cancelled downloads will appear here.</p>
+              <p>Completed, failed, and cancelled downloads will appear here.</p>
             </div>
           </div>
         </article>
@@ -437,7 +436,6 @@ button, input, select { font: inherit; }
 .queue-table th:nth-child(7), .queue-table td:nth-child(7) { width: 132px; text-align: right; }
 .job-actions { display: inline-flex; justify-content: flex-end; gap: 6px; }
 .job-actions button { height: 26px; padding: 0 8px; border-radius: 4px; font-size: 11px; }
-.job-actions .stop-job { color: #ffe2af; border-color: rgba(255, 174, 42, .42); }
 .job-actions .cancel-job { color: #ffd7dc; border-color: rgba(255, 107, 120, .38); }
 .history-list { display: grid; gap: 8px; }
 .history-row { display: grid; grid-template-columns: minmax(0, 1fr) 100px 100px 150px; gap: 10px; align-items: center; min-height: 44px; padding: 9px 10px; border: 1px solid var(--line-soft); border-radius: 5px; background: rgba(255,255,255,.025); }
@@ -596,7 +594,6 @@ const logOutput = $('#logOutput');
 const seenJobStates = new Map();
 let logLines = [];
 let lastJobs = [];
-let queuePaused = false;
 
 function nowStamp() {
   const d = new Date();
@@ -756,7 +753,7 @@ function renderJobs(jobs) {
         <td>${escapeHtml(formatName(job))}</td>
         <td class="progress-cell"><div class="progress-meta"><span class="progress-text">${progressText}</span><div class="progress-bar"><div class="progress-fill ${live ? 'live' : ''}" style="width:${barWidth}%"></div></div></div></td>
         <td><span class="status-badge ${phaseClass(job)}">${escapeHtml(job.status || job.phase)}</span></td>
-        <td>${isActive(job) ? `<span class="job-actions"><button class="stop-job" data-stop-job="${job.id}">Stop</button><button class="cancel-job" data-cancel-job="${job.id}">Cancel</button></span>` : ''}</td>
+        <td>${isActive(job) ? `<span class="job-actions"><button class="cancel-job" data-cancel-job="${job.id}">Cancel</button></span>` : ''}</td>
       </tr>`;
   }).join('');
 }
@@ -794,18 +791,6 @@ async function cancelAll() {
   await Promise.all(lastJobs.filter(isActive).map(job => cancelJob(job.id).catch(error => addLog('error', error.message))));
 }
 
-async function stopJob(id) {
-  await api(`/api/jobs/${id}/stop`, { method: 'POST' });
-  addLog('info', `Stop requested for ${id}.`);
-  await refreshJobs();
-}
-
-async function stopAll() {
-  await api('/api/jobs/stop-all', { method: 'POST' });
-  addLog('info', 'Stop requested for all active downloads.');
-  await refreshJobs();
-}
-
 async function clearCompletedJobs() {
   const data = await api('/api/jobs/clear-completed', { method: 'POST' });
   addLog('info', `Cleared ${data.cleared || 0} completed queue rows.`);
@@ -817,7 +802,7 @@ function renderHistory(items = []) {
   const root = document.getElementById('historyRows');
   if (!root) return;
   if (!items.length) {
-    root.innerHTML = '<div class="placeholder-panel"><strong>No saved history yet.</strong><p>Completed, failed, stopped, and cancelled downloads will appear here.</p></div>';
+    root.innerHTML = '<div class="placeholder-panel"><strong>No saved history yet.</strong><p>Completed, failed, and cancelled downloads will appear here.</p></div>';
     return;
   }
   root.innerHTML = items.map(item => `<div class="history-row"><strong title="${escapeHtml(item.title || 'Untitled video')}">${escapeHtml(item.title || 'Untitled video')}</strong><small>${escapeHtml(formatName(item))}</small><span class="${escapeHtml(phaseClass(item))}">${escapeHtml(item.status || item.phase || '')}</span><small>${escapeHtml(item.finishedAt || '')}</small></div>`).join('');
@@ -868,14 +853,8 @@ $('#copyAddressBottom')?.addEventListener('click', copyAddress);
 $('#restartHint')?.addEventListener('click', () => alert('Close and run ClipTapHelper.exe again to restart the helper.'));
 $('#moreMenu')?.addEventListener('click', () => alert('More actions will be added in a future build.'));
 $('#openReleases')?.addEventListener('click', () => addLog('info', 'Update check is manual in this local build.'));
-$('#stopAll')?.addEventListener('click', () => stopAll().catch(error => alert(error.message)));
 $('#cancelAll')?.addEventListener('click', () => cancelAll().catch(error => alert(error.message)));
 document.addEventListener('click', (event) => {
-  const stopButton = event.target.closest('[data-stop-job]');
-  if (stopButton) {
-    stopJob(stopButton.dataset.stopJob).catch(error => alert(error.message));
-    return;
-  }
   const cancelButton = event.target.closest('[data-cancel-job]');
   if (cancelButton) {
     cancelJob(cancelButton.dataset.cancelJob).catch(error => alert(error.message));
@@ -995,7 +974,6 @@ class DownloadJob:
     updated_at: float = field(default_factory=time.time)
     process: subprocess.Popen | None = field(default=None, repr=False, compare=False)
     cancel_event: threading.Event = field(default_factory=threading.Event, repr=False, compare=False)
-    stop_requested: bool = False
     history_recorded: bool = False
 
     def public(self) -> dict:
@@ -1026,18 +1004,6 @@ class DownloadJob:
         self.cancel_event.set()
         self.status = "Cancelling..."
         self.phase = "cancelling"
-        self.touch()
-        if self.process and self.process.poll() is None:
-            try:
-                self.process.terminate()
-            except Exception:
-                pass
-
-    def stop(self):
-        self.stop_requested = True
-        self.cancel_event.set()
-        self.status = "Stopping..."
-        self.phase = "stopping"
         self.touch()
         if self.process and self.process.poll() is None:
             try:
@@ -1847,10 +1813,7 @@ def run_download(job: DownloadJob):
             raise ClipTapError(f"yt-dlp exited with code {code}.")
         update_job(job, status="Finished", phase="finished", progress=100.0)
     except CancelledError:
-        if job.stop_requested:
-            update_job(job, status="Stopped", phase="stopped")
-        else:
-            update_job(job, status="Cancelled", phase="cancelled")
+        update_job(job, status="Cancelled", phase="cancelled")
     except Exception as exc:
         update_job(job, status="Failed", phase="failed", error=str(exc))
     finally:
@@ -1872,15 +1835,6 @@ def clear_completed_jobs() -> int:
             JOBS.pop(job_id, None)
     return len(completed_ids)
 
-
-def stop_all_jobs() -> int:
-    count = 0
-    with LOCK:
-        active_jobs = [job for job in JOBS.values() if job.phase not in TERMINAL_PHASES]
-    for job in active_jobs:
-        job.stop()
-        count += 1
-    return count
 
 
 def create_job(payload: dict) -> str:
@@ -2061,9 +2015,6 @@ class ClipTapHandler(BaseHTTPRequestHandler):
                 json_response(self, {"ok": True, "cleared": clear_completed_jobs()})
                 return
 
-            if path == "/api/jobs/stop-all":
-                json_response(self, {"ok": True, "stopped": stop_all_jobs()})
-                return
 
             if path.startswith("/api/jobs/") and path.endswith("/cancel"):
                 job_id = path.split("/")[3]
@@ -2076,16 +2027,6 @@ class ClipTapHandler(BaseHTTPRequestHandler):
                 json_response(self, {"ok": True})
                 return
 
-            if path.startswith("/api/jobs/") and path.endswith("/stop"):
-                job_id = path.split("/")[3]
-                with LOCK:
-                    job = JOBS.get(job_id)
-                if not job:
-                    json_response(self, {"error": "job not found"}, 404)
-                    return
-                job.stop()
-                json_response(self, {"ok": True})
-                return
 
             if path == "/api/open-output":
                 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

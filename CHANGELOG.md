@@ -3,7 +3,9 @@
 ## v1.3
 
 **ClipTap Helper**
-- No helper changes in this release.
+- Added per-job Cancel controls, working persistent History, real Clear Completed behavior, and updated the helper sidebar version to 1.3.
+- Removed misleading Stop controls because safe pause/resume support is not available for the current yt-dlp/FFmpeg subprocess workflow.
+- Fixed section downloads getting stuck at the metadata step by forcing YouTube metadata reads to target the current video instead of playlist context.
 
 **ClipTap**
 - Clarified current and planned service support messaging and added expandable YouTube capability details.
