@@ -470,13 +470,15 @@
         min-width: 24px !important;
         min-height: 24px !important;
         margin: 0 !important;
-        fill: #fff !important;
-        stroke: none !important;
+        fill: none !important;
+        stroke: #fff !important;
         overflow: visible !important;
       }
       .cliptap-playlist-icon-wrap svg.cliptap-native-playlist-svg * {
-        fill: #fff !important;
-        stroke: none !important;
+        fill: none !important;
+        stroke: #fff !important;
+        stroke-linecap: round !important;
+        stroke-linejoin: round !important;
       }
       .cliptap-playlist-download-button.cliptap-sending {
         opacity: .55 !important;
@@ -939,20 +941,10 @@
 
 
   function getPlaylistDownloadIcon() {
-    // Native YouTube toolbar icons are a 24x24 white, filled Material-like glyph
-    // centered inside a 40x40 circular hit area. Keep this fully self-contained
-    // so it remains visible even when YouTube changes custom element internals.
     return `
       <span class="cliptap-playlist-icon-wrap" aria-hidden="true">
-        <svg class="cliptap-native-playlist-svg" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-          <circle cx="4.75" cy="5.75" r="1.65"></circle>
-          <rect x="8" y="4.35" width="8.6" height="2.8" rx="1.4"></rect>
-          <circle cx="4.75" cy="11.75" r="1.65"></circle>
-          <rect x="8" y="10.35" width="6.8" height="2.8" rx="1.4"></rect>
-          <circle cx="4.75" cy="17.75" r="1.65"></circle>
-          <rect x="8" y="16.35" width="5.2" height="2.8" rx="1.4"></rect>
-          <path d="M17.15 4.25a1.05 1.05 0 0 1 1.05 1.05v8.03l2.11-2.11a1.05 1.05 0 0 1 1.48 1.48l-3.9 3.9a1.05 1.05 0 0 1-1.48 0l-3.9-3.9a1.05 1.05 0 0 1 1.48-1.48l2.11 2.11V5.3a1.05 1.05 0 0 1 1.05-1.05Z"></path>
-          <rect x="13.55" y="18" width="7.2" height="2.6" rx="1.3"></rect>
+        <svg class="cliptap-native-playlist-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" focusable="false" aria-hidden="true">
+          <path d="M5 7h9M5 12h9M5 17h6M17 6v8m0 0-3-3m3 3 3-3M14 19h6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </span>`;
   }
