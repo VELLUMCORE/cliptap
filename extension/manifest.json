@@ -42,9 +42,7 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "icons/cliptap.png",
-        "icons/ytpldown-playlist.png",
-        "icons/ytpldown-watch.png"
+        "icons/cliptap.png"
       ],
       "matches": [
         "*://*.youtube.com/*",

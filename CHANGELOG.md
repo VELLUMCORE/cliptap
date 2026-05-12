@@ -9,6 +9,8 @@
 - Fixed section downloads getting stuck at the metadata step by forcing YouTube metadata reads to target the current video instead of playlist context.
 
 **ClipTap**
+- Rebuilt the YouTube playlist download buttons as white, centered, filled native-style controls that visually match adjacent YouTube icons.
+- Replaced playlist download image assets with inline YouTube-style SVG buttons so the controls blend with adjacent native icons.
 - Added playlist download buttons on YouTube playlist pages and watch pages with playlist panels.
 - Clarified current and planned service support messaging and added expandable YouTube capability details.
 - Aligned the Supported Sites top header markup and background treatment with the main homepage header.

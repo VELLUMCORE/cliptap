@@ -401,42 +401,58 @@
       }
       .cliptap-playlist-download-button {
         position: relative;
+        box-sizing: border-box;
         display: inline-flex !important;
-        align-items: center;
-        justify-content: center;
+        align-items: center !important;
+        justify-content: center !important;
+        flex: 0 0 auto;
         width: 40px;
         height: 40px;
         min-width: 40px;
         min-height: 40px;
-        padding: 0;
+        padding: 8px;
         margin: 0 2px;
         border: 0;
         border-radius: 50%;
         background: transparent;
-        color: inherit;
+        color: #fff !important;
+        line-height: 0;
         cursor: pointer;
         vertical-align: middle;
+        opacity: .96;
+        transition: background-color .12s ease, opacity .12s ease, transform .08s ease;
       }
-      .cliptap-playlist-download-button:hover {
-        background: rgba(255, 255, 255, .10);
+      .cliptap-playlist-download-button:hover,
+      .cliptap-playlist-download-button:focus-visible {
+        background: rgba(255, 255, 255, .14);
+        opacity: 1;
+        outline: none;
       }
-      .cliptap-playlist-download-button img {
-        width: 28px;
-        height: 28px;
-        object-fit: contain;
-        pointer-events: none;
+      .cliptap-playlist-download-button:active {
+        transform: scale(.94);
+      }
+      .cliptap-playlist-download-button svg {
+        width: 24px;
+        height: 24px;
         display: block;
+        flex: 0 0 24px;
+        fill: currentColor;
+        stroke: none;
+        overflow: visible;
+        pointer-events: none;
+      }
+      .cliptap-playlist-download-button.cliptap-page-playlist-button svg,
+      .cliptap-playlist-download-button.cliptap-watch-playlist-button svg {
+        width: 24px;
+        height: 24px;
       }
       .cliptap-playlist-download-button.cliptap-watch-playlist-button {
-        width: 36px;
-        height: 36px;
-        min-width: 36px;
-        min-height: 36px;
-        margin: 0 4px;
-      }
-      .cliptap-playlist-download-button.cliptap-watch-playlist-button img {
-        width: 26px;
-        height: 26px;
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+        min-height: 40px;
+        padding: 8px;
+        margin: 0 2px;
       }
       .cliptap-playlist-download-button.cliptap-sending {
         opacity: .55;
@@ -898,15 +914,39 @@
   }
 
 
+  function getPlaylistDownloadIcon(kind) {
+    if (kind === 'watch') {
+      return `
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M4.35 5.15a1.55 1.55 0 1 1 0 3.1 1.55 1.55 0 0 1 0-3.1Z"></path>
+          <path d="M7.35 5.35h7.8a1.35 1.35 0 0 1 0 2.7h-7.8a1.35 1.35 0 0 1 0-2.7Z"></path>
+          <path d="M4.35 10.85a1.55 1.55 0 1 1 0 3.1 1.55 1.55 0 0 1 0-3.1Z"></path>
+          <path d="M7.35 11.05h5.55a1.35 1.35 0 0 1 0 2.7H7.35a1.35 1.35 0 0 1 0-2.7Z"></path>
+          <path d="M17.05 8.55c.74 0 1.34.6 1.34 1.34v4.86h1.28c.48 0 .72.58.38.92l-2.76 2.76a.54.54 0 0 1-.76 0l-2.76-2.76a.54.54 0 0 1 .38-.92h1.56V9.89c0-.74.6-1.34 1.34-1.34Z"></path>
+          <path d="M13.65 19.35h6.8a1.2 1.2 0 0 1 0 2.4h-6.8a1.2 1.2 0 0 1 0-2.4Z"></path>
+        </svg>`;
+    }
+
+    return `
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M4.25 4.55a1.55 1.55 0 1 1 0 3.1 1.55 1.55 0 0 1 0-3.1Z"></path>
+        <path d="M7.35 4.75h9.05a1.35 1.35 0 0 1 0 2.7H7.35a1.35 1.35 0 0 1 0-2.7Z"></path>
+        <path d="M4.25 10.25a1.55 1.55 0 1 1 0 3.1 1.55 1.55 0 0 1 0-3.1Z"></path>
+        <path d="M7.35 10.45h7.05a1.35 1.35 0 0 1 0 2.7H7.35a1.35 1.35 0 0 1 0-2.7Z"></path>
+        <path d="M4.25 15.95a1.55 1.55 0 1 1 0 3.1 1.55 1.55 0 0 1 0-3.1Z"></path>
+        <path d="M7.35 16.15h4.85a1.35 1.35 0 0 1 0 2.7H7.35a1.35 1.35 0 0 1 0-2.7Z"></path>
+        <path d="M18.15 8.35c.74 0 1.34.6 1.34 1.34v5.38h1.31c.48 0 .72.58.38.92l-2.82 2.82a.54.54 0 0 1-.76 0l-2.82-2.82a.54.54 0 0 1 .38-.92h1.65V9.69c0-.74.6-1.34 1.34-1.34Z"></path>
+        <path d="M14.7 19.7h7.05a1.2 1.2 0 0 1 0 2.4H14.7a1.2 1.2 0 0 1 0-2.4Z"></path>
+      </svg>`;
+  }
+
   function createPlaylistDownloadButton(kind) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = `cliptap-playlist-download-button cliptap-${kind}-playlist-button`;
     button.title = 'Download playlist with ClipTap';
     button.setAttribute('aria-label', 'Download playlist with ClipTap');
-    const filename = kind === 'watch' ? 'ytpldown-watch.png' : 'ytpldown-playlist.png';
-    const iconUrl = chrome.runtime.getURL(`icons/${filename}`);
-    button.innerHTML = `<img src="${iconUrl}" alt="" aria-hidden="true">`;
+    button.innerHTML = getPlaylistDownloadIcon(kind);
     button.addEventListener('click', event => {
       event.preventDefault();
       event.stopPropagation();
