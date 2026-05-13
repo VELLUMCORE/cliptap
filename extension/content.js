@@ -141,22 +141,41 @@
     style.textContent = `
       .cliptap-control-button.ytp-button {
         position: relative;
-        display: inline-flex !important;
+        display: inline-flex;
         align-items: center;
         justify-content: center;
         color: #fff;
-        opacity: .95;
+        opacity: .9;
+        padding: 0;
       }
       .cliptap-control-button.ytp-button:hover,
       .cliptap-control-button.cliptap-active {
         opacity: 1;
       }
-      .cliptap-control-button img {
-        width: 24px;
-        height: 24px;
-        object-fit: contain;
+      .cliptap-control-button .cliptap-player-icon-wrap {
+        width: 26px;
+        height: 26px;
+        min-width: 26px;
+        min-height: 26px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 0;
+        transform: translateY(-0.25px);
+        pointer-events: none;
+      }
+      .cliptap-control-button svg {
         pointer-events: none;
         display: block;
+        width: 26px;
+        height: 26px;
+        min-width: 26px;
+        min-height: 26px;
+        padding: 0 !important;
+        overflow: visible;
+      }
+      .cliptap-control-button svg path {
+        fill: #fff;
       }
       .cliptap-control-button.cliptap-active::after {
         content: '';
@@ -459,32 +478,21 @@
         min-height: 24px !important;
         line-height: 0 !important;
         color: #fff !important;
-        opacity: 1 !important;
-        visibility: visible !important;
         pointer-events: none !important;
       }
       .cliptap-playlist-icon-wrap svg.cliptap-native-playlist-svg {
-        display: block !important;
-        width: 24px !important;
-        height: 24px !important;
+        display: inherit !important;
+        width: 100% !important;
+        height: 100% !important;
         min-width: 24px !important;
         min-height: 24px !important;
         margin: 0 !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-        fill: none !important;
-        stroke: #fff !important;
+        pointer-events: none !important;
         overflow: visible !important;
       }
       .cliptap-playlist-icon-wrap svg.cliptap-native-playlist-svg path {
-        display: block !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-        fill: none !important;
-        stroke: #fff !important;
-        stroke-width: 2 !important;
-        stroke-linecap: round !important;
-        stroke-linejoin: round !important;
+        fill: #fff !important;
+        stroke: none !important;
       }
       .cliptap-playlist-download-button.cliptap-sending {
         opacity: .55 !important;
@@ -492,6 +500,12 @@
       }
     `;
     document.documentElement.appendChild(style);
+  }
+
+  const PLAYER_TOOLBAR_ICON_VERSION = '43';
+
+  function getPlayerToolbarDownloadIcon() {
+    return `<span class="cliptap-player-icon-wrap" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" height="26" viewBox="0 0 24 24" width="26" focusable="false" aria-hidden="true" style="pointer-events:none;display:block;width:26px;height:26px;"><path class="ytp-svg-fill" d="M6.25 3A3.25 3.25 0 0 0 3 6.25v3.15a1 1 0 1 0 2 0V6.25C5 5.56 5.56 5 6.25 5H9.4a1 1 0 1 0 0-2H6.25Zm8.35 0a1 1 0 1 0 0 2h3.15c.69 0 1.25.56 1.25 1.25V9.4a1 1 0 1 0 2 0V6.25A3.25 3.25 0 0 0 17.75 3H14.6ZM12 6.5a1 1 0 0 0-1 1v6.09l-1.65-1.64a1 1 0 1 0-1.41 1.41L12 18.41l4.06-4.05a1 1 0 0 0-1.41-1.42L13 14.59V7.5a1 1 0 0 0-1-1ZM4 13.6a1 1 0 0 0-1 1v3.15A3.25 3.25 0 0 0 6.25 21H9.4a1 1 0 1 0 0-2H6.25C5.56 19 5 18.44 5 17.75V14.6a1 1 0 0 0-1-1Zm16 0a1 1 0 0 0-1 1v3.15c0 .69-.56 1.25-1.25 1.25H14.6a1 1 0 1 0 0 2h3.15A3.25 3.25 0 0 0 21 17.75V14.6a1 1 0 0 0-1-1Z"></path></svg></span>`;
   }
 
   function ensureControlButton() {
@@ -504,16 +518,25 @@
       button.id = 'cliptap-control-button';
       button.className = 'ytp-button cliptap-control-button';
       button.type = 'button';
-      button.title = 'ClipTap section downloader';
-      button.setAttribute('aria-label', 'ClipTap section downloader');
-      const iconUrl = chrome.runtime.getURL('icons/cliptap.png');
-      button.innerHTML = `<img src="${iconUrl}" alt="" aria-hidden="true">`;
+    }
+
+    button.title = 'ClipTap section downloader';
+    button.setAttribute('aria-label', 'ClipTap section downloader');
+    button.classList.add('ytp-button', 'cliptap-control-button');
+
+    if (button.dataset.cliptapIconVersion !== PLAYER_TOOLBAR_ICON_VERSION) {
+      button.innerHTML = getPlayerToolbarDownloadIcon();
+      button.dataset.cliptapIconVersion = PLAYER_TOOLBAR_ICON_VERSION;
+    }
+
+    if (button.dataset.cliptapClickBound !== 'true') {
       button.addEventListener('click', event => {
         event.preventDefault();
         event.stopPropagation();
         state.panelOpen = !state.panelOpen;
         render();
       });
+      button.dataset.cliptapClickBound = 'true';
     }
 
     if (button.parentElement !== controls) {
@@ -949,8 +972,8 @@
   function getPlaylistDownloadIcon() {
     return `
       <span class="cliptap-playlist-icon-wrap" aria-hidden="true">
-        <svg class="cliptap-native-playlist-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" focusable="false" aria-hidden="true" style="display:block;width:24px;height:24px;fill:none;stroke:#fff;overflow:visible;opacity:1;visibility:visible">
-          <path d="M5 7h9M5 12h9M5 17h6M17 6v8m0 0-3-3m3 3 3-3M14 19h6" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;opacity:1;visibility:visible"/>
+        <svg class="cliptap-native-playlist-svg" xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" aria-hidden="true" style="pointer-events:none;display:inherit;width:100%;height:100%;">
+          <path d="M4 5h10a1 1 0 110 2H4a1 1 0 010-2Zm0 6h8.25a1 1 0 110 2H4a1 1 0 110-2Zm0 6h6a1 1 0 110 2H4a1 1 0 110-2Zm13-9a1 1 0 011 1v5.586l1.293-1.293a1 1 0 111.414 1.414L17 18.414l-3.707-3.707a1 1 0 111.414-1.414L16 14.586V9a1 1 0 011-1Zm3 12h-6a1 1 0 100 2h6a1 1 0 100-2Z"></path>
         </svg>
       </span>`;
   }

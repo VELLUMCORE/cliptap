@@ -9,6 +9,11 @@
 - Fixed section downloads getting stuck at the metadata step by forcing YouTube metadata reads to target the current video instead of playlist context.
 
 **ClipTap**
+- Enlarged the player toolbar ClipTap glyph to better match adjacent YouTube controls and forced existing SPA-mounted buttons to refresh to the latest icon markup.
+- Reduced and re-centered the player toolbar ClipTap icon, and refined its corner-frame silhouette so it fits the native YouTube toolbar more naturally.
+- Reworked the player toolbar ClipTap icon into a native-style filled glyph that reflects the ClipTap corner-frame logo instead of a plain download arrow.
+- Rebuilt the YouTube playlist download and player toolbar icons as native-style filled SVG glyphs based on YouTube icon source patterns.
+- Refined the YouTube playlist download icon so it matches native YouTube playlist toolbar glyph proportions more closely.
 - Fixed logo/icon visibility by using the approved SVG path with explicit white stroke styling and restoring the website brand mark image.
 - Refined the YouTube playlist download icon to use a cleaner white native-style SVG glyph with balanced stroke geometry.
 - Fixed YouTube playlist download button mounting so the native-style white icon is inserted even when YouTube action button DOM changes.
