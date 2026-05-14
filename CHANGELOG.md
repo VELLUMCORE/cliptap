@@ -9,6 +9,8 @@
 - Fixed section downloads getting stuck at the metadata step by forcing YouTube metadata reads to target the current video instead of playlist context.
 
 **ClipTap**
+- Fixed the player toolbar ClipTap tooltip so it no longer leaves YouTube native toolbar tooltip text or animation state stuck after hover.
+- Fixed the player toolbar tooltip so ClipTap restores YouTube native tooltip state instead of breaking other toolbar tooltips.
 - Restored native YouTube player tooltip reuse for the ClipTap toolbar button and fixed its player-relative positioning.
 - Fixed the player toolbar ClipTap tooltip position by replacing the reused YouTube tooltip layer with a dedicated native-styled player tooltip.
 - Fixed ClipTap tooltips so player toolbar actions use the existing YouTube player tooltip layer and playlist tooltips render text correctly.
