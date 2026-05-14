@@ -218,49 +218,6 @@
         transform: translateX(-50%);
         background: #fff;
       }
-      #cliptap-player-tooltip {
-        position: fixed !important;
-        left: 0;
-        top: 0;
-        z-index: 2147483647 !important;
-        display: none;
-        visibility: hidden;
-        opacity: 0;
-        pointer-events: none !important;
-        max-width: 300px;
-        transform: none !important;
-        transition: opacity .08s ease;
-      }
-      #cliptap-player-tooltip.cliptap-visible {
-        display: block !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-      }
-      #cliptap-player-tooltip .ytp-tooltip-text-wrapper {
-        display: block !important;
-        position: static !important;
-        width: auto !important;
-        height: auto !important;
-        pointer-events: none !important;
-      }
-      #cliptap-player-tooltip .ytp-tooltip-bottom-text {
-        display: block !important;
-        position: static !important;
-        padding: 5px 9px !important;
-        border-radius: 2px !important;
-        background: rgba(28, 28, 28, .96) !important;
-        color: #fff !important;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, .35) !important;
-        white-space: nowrap !important;
-        text-align: center !important;
-        font: 12px/15px Arial, Helvetica, sans-serif !important;
-      }
-      #cliptap-player-tooltip .ytp-tooltip-text {
-        display: inline !important;
-        color: inherit !important;
-        font: inherit !important;
-        white-space: nowrap !important;
-      }
       #cliptap-player-panel {
         position: absolute;
         right: 12px;
@@ -653,7 +610,7 @@
     document.documentElement.appendChild(style);
   }
 
-  const PLAYER_TOOLBAR_ICON_VERSION = '58';
+  const PLAYER_TOOLBAR_ICON_VERSION = '59';
   const PLAYLIST_BUTTON_VERSION = '57';
   const CHANNEL_BUTTON_VERSION = '57';
   let cliptapToastTimer = 0;
@@ -709,67 +666,84 @@
     host.appendChild(node);
   }
 
-  function getClipTapPlayerTooltip() {
-    let tooltip = document.getElementById('cliptap-player-tooltip');
-    if (!tooltip) {
-      tooltip = document.createElement('div');
-      tooltip.id = 'cliptap-player-tooltip';
-      tooltip.className = 'ytp-tooltip ytp-bottom cliptap-player-tooltip';
-      tooltip.setAttribute('data-layer', '4');
-      tooltip.setAttribute('aria-live', 'polite');
-      tooltip.innerHTML = `
-        <div class="ytp-tooltip-text-wrapper" aria-hidden="true">
-          <div class="ytp-tooltip-bottom-text">
-            <span class="ytp-tooltip-text"></span>
-          </div>
-        </div>`;
-      document.documentElement.appendChild(tooltip);
-    }
-    return tooltip;
+  function getNativePlayerTooltip() {
+    return getPlayer()?.querySelector?.('.ytp-tooltip') || document.querySelector('.ytp-tooltip');
   }
 
-  function setClipTapPlayerTooltipText(tooltip, text) {
+  function resetNativePlayerTooltipForClipTap(tooltip, text) {
+    if (!tooltip) return;
+    tooltip.classList.add('ytp-bottom', 'cliptap-player-tooltip-active');
+    tooltip.classList.remove('ytp-preview', 'ytp-preview-highlight', 'ytp-text-detail');
+    tooltip.setAttribute('aria-live', 'polite');
+
     const label = tooltip.querySelector('.ytp-tooltip-text');
     if (label) label.textContent = text;
+
+    const titleSpan = tooltip.querySelector('.ytp-tooltip-title span');
+    if (titleSpan) titleSpan.textContent = '';
+
+    tooltip.querySelectorAll([
+      '.ytp-tooltip-edu',
+      '.ytp-tooltip-image',
+      '.ytp-tooltip-title',
+      '.ytp-tooltip-progress-bar-pill',
+      '.ytp-tooltip-duration'
+    ].join(',')).forEach(el => {
+      el.style.display = 'none';
+    });
+
+    const bottomText = tooltip.querySelector('.ytp-tooltip-bottom-text');
+    if (bottomText) {
+      bottomText.style.display = '';
+      bottomText.style.visibility = 'visible';
+    }
+
+    const background = tooltip.querySelector('.ytp-tooltip-bg');
+    if (background) {
+      background.style.display = 'none';
+      background.style.width = '0px';
+      background.style.height = '0px';
+    }
   }
 
-  function positionClipTapPlayerTooltip(tooltip, anchor) {
+  function positionNativePlayerTooltipForClipTap(tooltip, anchor) {
     if (!tooltip || !anchor) return;
-    const rect = anchor.getBoundingClientRect();
     const player = getPlayer();
-    const playerRect = player?.getBoundingClientRect?.() || {
-      left: 0,
-      right: window.innerWidth,
-      top: 0,
-      bottom: window.innerHeight
-    };
+    const playerRect = player?.getBoundingClientRect?.();
+    const anchorRect = anchor.getBoundingClientRect();
+    if (!playerRect) return;
 
     const tooltipRect = tooltip.getBoundingClientRect();
     const width = tooltipRect.width || 150;
     const height = tooltipRect.height || 25;
-    const minLeft = Math.max(8, playerRect.left + 8);
-    const maxLeft = Math.min(window.innerWidth - width - 8, playerRect.right - width - 8);
-    const left = Math.max(minLeft, Math.min(maxLeft, rect.left + rect.width / 2 - width / 2));
-    const top = Math.max(8, rect.top - height - 8);
+    const minLeft = 8;
+    const maxLeft = Math.max(minLeft, playerRect.width - width - 8);
+    const left = clamp(anchorRect.left - playerRect.left + anchorRect.width / 2 - width / 2, minLeft, maxLeft);
+    const top = Math.max(8, anchorRect.top - playerRect.top - height - 8);
 
+    tooltip.style.maxWidth = '300px';
     tooltip.style.left = `${Math.round(left)}px`;
     tooltip.style.top = `${Math.round(top)}px`;
-    tooltip.style.maxWidth = '300px';
+    tooltip.style.display = 'block';
+    tooltip.style.visibility = 'visible';
+    tooltip.style.opacity = '1';
   }
 
   function showClipTapPlayerTooltip(anchor, text = 'Download with ClipTap') {
-    const tooltip = getClipTapPlayerTooltip();
+    const tooltip = getNativePlayerTooltip();
     if (!tooltip || !anchor) return;
-    setClipTapPlayerTooltipText(tooltip, text);
-    tooltip.classList.add('cliptap-visible', 'cliptap-player-tooltip-active');
-    positionClipTapPlayerTooltip(tooltip, anchor);
-    window.requestAnimationFrame(() => positionClipTapPlayerTooltip(tooltip, anchor));
+    resetNativePlayerTooltipForClipTap(tooltip, text);
+    positionNativePlayerTooltipForClipTap(tooltip, anchor);
+    window.requestAnimationFrame(() => positionNativePlayerTooltipForClipTap(tooltip, anchor));
   }
 
   function hideClipTapPlayerTooltip() {
-    const tooltip = document.getElementById('cliptap-player-tooltip');
+    const tooltip = document.querySelector('.ytp-tooltip.cliptap-player-tooltip-active');
     if (!tooltip) return;
-    tooltip.classList.remove('cliptap-visible', 'cliptap-player-tooltip-active');
+    tooltip.classList.remove('cliptap-player-tooltip-active');
+    tooltip.style.display = 'none';
+    tooltip.style.visibility = 'hidden';
+    tooltip.style.opacity = '0';
   }
 
   function bindClipTapPlayerTooltip(button) {
@@ -777,11 +751,12 @@
     button.addEventListener('mouseenter', () => showClipTapPlayerTooltip(button));
     button.addEventListener('mousemove', () => {
       const tooltip = document.querySelector('.ytp-tooltip.cliptap-player-tooltip-active');
-      if (tooltip) positionClipTapPlayerTooltip(tooltip, button);
+      if (tooltip) positionNativePlayerTooltipForClipTap(tooltip, button);
     });
     button.addEventListener('mouseleave', hideClipTapPlayerTooltip);
     button.addEventListener('focus', () => showClipTapPlayerTooltip(button));
     button.addEventListener('blur', hideClipTapPlayerTooltip);
+    button.addEventListener('click', hideClipTapPlayerTooltip);
     button.dataset.cliptapPlayerTooltipVersion = PLAYER_TOOLBAR_ICON_VERSION;
   }
 
