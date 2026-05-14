@@ -9,6 +9,7 @@
 - Fixed section downloads getting stuck at the metadata step by forcing YouTube metadata reads to target the current video instead of playlist context.
 
 **ClipTap**
+- Switched ClipTap player and playlist tooltips to native YouTube tooltip attributes/components and removed the channel tooltip.
 - Added ClipTap tooltips for player, playlist, and channel actions, plus toast feedback for playlist and channel download requests.
 - Added a native-style channel page Download button and helper `channel` mode that passes the current channel URL to yt-dlp.
 - Reworked the `/playlist` page action mounting so the visible Share action is replaced by the native-style ClipTap playlist download button and the original Share action is exposed from More actions.
