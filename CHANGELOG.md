@@ -9,6 +9,14 @@
 - Fixed section downloads getting stuck at the metadata step by forcing YouTube metadata reads to target the current video instead of playlist context.
 
 **ClipTap**
+- Reworked player tooltip binding to capture YouTube's native tooltip event listeners from existing player controls and attach those same handlers to the ClipTap toolbar button.
+- Reworked player tooltip binding to search for an existing YouTube top-chrome tooltip manager instead of constructing a new P9F manager with the wrong internal API.
+- Created a ClipTap-specific YouTube native tooltip manager with the player P9F tooltip class, then registered the player toolbar button through the native tooltip registration function.
+- Expanded native YouTube player tooltip binding to capture the tooltip manager through both registration and P9F construction paths, with cache-busted bridge loading and safer option defaults.
+- Registered the player toolbar ClipTap button with YouTube's native tooltip manager through a page-context bridge.
+- Restored the player toolbar ClipTap tooltip to YouTube's native tooltip attribute and event flow, removing the custom fallback tooltip layer.
+- Reduced player tooltip transition delay by showing the ClipTap tooltip as soon as YouTube finishes hiding the previous native tooltip.
+- Fixed player tooltip race conditions when moving directly between native YouTube controls and the ClipTap toolbar button.
 - Fixed direct hover transitions from native YouTube toolbar tooltips to the ClipTap tooltip so the shared player tooltip layer no longer inherits stale text or positioning.
 - Fixed the player toolbar ClipTap tooltip so it no longer leaves YouTube native toolbar tooltip text or animation state stuck after hover.
 - Fixed the player toolbar tooltip so ClipTap restores YouTube native tooltip state instead of breaking other toolbar tooltips.

@@ -22,6 +22,16 @@
         "*://youtu.be/*"
       ],
       "js": [
+        "player-tooltip-loader.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "*://*.youtube.com/*",
+        "*://youtu.be/*"
+      ],
+      "js": [
         "content.js"
       ],
       "run_at": "document_idle"
@@ -42,7 +52,8 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "icons/cliptap.png"
+        "icons/cliptap.png",
+        "player-tooltip-bridge.js"
       ],
       "matches": [
         "*://*.youtube.com/*",
