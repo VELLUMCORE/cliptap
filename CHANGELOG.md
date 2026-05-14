@@ -9,6 +9,7 @@
 - Fixed section downloads getting stuck at the metadata step by forcing YouTube metadata reads to target the current video instead of playlist context.
 
 **ClipTap**
+- Positioned the playlist page download action immediately before More actions, moved the original Share action out of the visible row, and limited custom hover styling so the native button highlight stays consistent.
 - Rebuilt the `/playlist` page playlist download action as a native YouTube-style button clone using the same icon wrapper and 24px currentColor SVG structure as adjacent actions.
 - Enlarged the YouTube playlist panel download icon with a crisp 28px filled SVG glyph and tightened its toolbar spacing.
 - Recentered and sharpened the YouTube playlist download glyph by returning the render box to a crisp 24px size and simplifying the filled SVG path.
