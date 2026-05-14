@@ -610,9 +610,9 @@
     document.documentElement.appendChild(style);
   }
 
-  const PLAYER_TOOLBAR_ICON_VERSION = '46';
-  const PLAYLIST_BUTTON_VERSION = '56';
-  const CHANNEL_BUTTON_VERSION = '56';
+  const PLAYER_TOOLBAR_ICON_VERSION = '57';
+  const PLAYLIST_BUTTON_VERSION = '57';
+  const CHANNEL_BUTTON_VERSION = '57';
   let cliptapToastTimer = 0;
 
   function ensureClipTapToast() {
@@ -640,7 +640,7 @@
   }
 
   function getNativePaperTooltip(text) {
-    return `<tp-yt-paper-tooltip fit-to-visible-bounds offset="8" role="tooltip" tabindex="-1" aria-label="tooltip"><div id="tooltip" class="style-scope tp-yt-paper-tooltip hidden" style-target="tooltip">${text}</div></tp-yt-paper-tooltip>`;
+    return `<tp-yt-paper-tooltip fit-to-visible-bounds offset="8" role="tooltip" tabindex="-1" aria-label="tooltip">${text}</tp-yt-paper-tooltip>`;
   }
 
   function applyNativeTooltipAttributes(element, text, targetId = '') {
@@ -662,7 +662,71 @@
     tooltip.innerHTML = getNativePaperTooltip(text);
     const node = tooltip.content.firstElementChild;
     node.classList.add('cliptap-native-tooltip');
+    node.textContent = text;
     host.appendChild(node);
+  }
+
+  function getClipTapPlayerTooltip() {
+    return document.querySelector('.ytp-tooltip') || null;
+  }
+
+  function setClipTapPlayerTooltipText(tooltip, text) {
+    const bottomText = tooltip.querySelector('.ytp-tooltip-bottom-text .ytp-tooltip-text') ||
+      tooltip.querySelector('.ytp-tooltip-text');
+    if (bottomText) bottomText.textContent = text;
+
+    const titleText = tooltip.querySelector('.ytp-tooltip-title span');
+    if (titleText) titleText.textContent = '';
+
+    const progressTitle = tooltip.querySelector('.ytp-tooltip-progress-bar-pill-title');
+    if (progressTitle) progressTitle.textContent = '';
+    const progressTime = tooltip.querySelector('.ytp-tooltip-progress-bar-pill-time-stamp');
+    if (progressTime) progressTime.textContent = '';
+  }
+
+  function positionClipTapPlayerTooltip(tooltip, anchor) {
+    const rect = anchor.getBoundingClientRect();
+    const tooltipRect = tooltip.getBoundingClientRect();
+    const width = tooltipRect.width || 160;
+    const left = Math.max(8, Math.min(window.innerWidth - width - 8, rect.left + rect.width / 2 - width / 2));
+    const top = Math.max(8, rect.top - 42);
+    tooltip.style.left = `${Math.round(left)}px`;
+    tooltip.style.top = `${Math.round(top)}px`;
+    tooltip.style.maxWidth = '300px';
+  }
+
+  function showClipTapPlayerTooltip(anchor, text = 'Download with ClipTap') {
+    const tooltip = getClipTapPlayerTooltip();
+    if (!tooltip || !anchor) return;
+    setClipTapPlayerTooltipText(tooltip, text);
+    tooltip.classList.add('ytp-bottom', 'cliptap-player-tooltip-active');
+    tooltip.style.display = 'block';
+    tooltip.style.visibility = 'visible';
+    tooltip.style.opacity = '1';
+    positionClipTapPlayerTooltip(tooltip, anchor);
+    window.requestAnimationFrame(() => positionClipTapPlayerTooltip(tooltip, anchor));
+  }
+
+  function hideClipTapPlayerTooltip() {
+    const tooltip = document.querySelector('.ytp-tooltip.cliptap-player-tooltip-active');
+    if (!tooltip) return;
+    tooltip.classList.remove('cliptap-player-tooltip-active');
+    tooltip.style.opacity = '';
+    tooltip.style.visibility = '';
+    tooltip.style.display = '';
+  }
+
+  function bindClipTapPlayerTooltip(button) {
+    if (!button || button.dataset.cliptapPlayerTooltipVersion === PLAYER_TOOLBAR_ICON_VERSION) return;
+    button.addEventListener('mouseenter', () => showClipTapPlayerTooltip(button));
+    button.addEventListener('mousemove', () => {
+      const tooltip = document.querySelector('.ytp-tooltip.cliptap-player-tooltip-active');
+      if (tooltip) positionClipTapPlayerTooltip(tooltip, button);
+    });
+    button.addEventListener('mouseleave', hideClipTapPlayerTooltip);
+    button.addEventListener('focus', () => showClipTapPlayerTooltip(button));
+    button.addEventListener('blur', hideClipTapPlayerTooltip);
+    button.dataset.cliptapPlayerTooltipVersion = PLAYER_TOOLBAR_ICON_VERSION;
   }
 
 
@@ -685,6 +749,7 @@
     applyNativeTooltipAttributes(button, 'Download with ClipTap', 'cliptap-control-button');
     button.setAttribute('data-title-no-tooltip', 'Download with ClipTap');
     button.classList.add('ytp-button', 'cliptap-control-button');
+    bindClipTapPlayerTooltip(button);
 
     if (button.dataset.cliptapIconVersion !== PLAYER_TOOLBAR_ICON_VERSION) {
       button.innerHTML = getPlayerToolbarDownloadIcon();
