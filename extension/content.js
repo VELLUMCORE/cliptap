@@ -610,11 +610,12 @@
     document.documentElement.appendChild(style);
   }
 
-  const PLAYER_TOOLBAR_ICON_VERSION = '61';
+  const PLAYER_TOOLBAR_ICON_VERSION = '62';
   const PLAYLIST_BUTTON_VERSION = '57';
   const CHANNEL_BUTTON_VERSION = '57';
   let cliptapToastTimer = 0;
   let cliptapPlayerTooltipHideTimer = 0;
+  let cliptapPlayerTooltipShowTimer = 0;
 
   function ensureClipTapToast() {
     let toast = document.getElementById('cliptap-feedback-toast');
@@ -676,7 +677,7 @@
       tooltip?.querySelector?.('.ytp-tooltip-text');
   }
 
-  function clearClipTapPlayerTooltipTweaks(tooltip) {
+  function resetNativePlayerTooltipLayer(tooltip) {
     if (!tooltip) return;
     tooltip.classList.remove('cliptap-player-tooltip-active');
     tooltip.removeAttribute('data-cliptap-tooltip-owner');
@@ -699,9 +700,30 @@
       el.style.removeProperty('height');
       el.style.removeProperty('right');
       el.style.removeProperty('text-align');
+      el.style.removeProperty('bottom');
     });
+  }
+
+  function clearClipTapPlayerTooltipTweaks(tooltip) {
+    if (!tooltip) return;
+    const ownedByClipTap = tooltip.getAttribute('data-cliptap-tooltip-owner') === 'true' ||
+      tooltip.classList.contains('cliptap-player-tooltip-active');
     const textNode = getClipTapPlayerTooltipTextNode(tooltip);
-    if (textNode?.textContent === 'Download with ClipTap') {
+    resetNativePlayerTooltipLayer(tooltip);
+    if (ownedByClipTap && textNode?.textContent === 'Download with ClipTap') {
+      textNode.textContent = '';
+    }
+  }
+
+  function primeNativePlayerTooltipForClipTap(tooltip) {
+    if (!tooltip) return;
+    // When the pointer moves directly from a native YouTube toolbar button to
+    // ClipTap, YouTube's shared tooltip layer can still contain the previous
+    // button's text and inline positioning. Reset only that shared layer before
+    // applying ClipTap's text so the previous hover state is not inherited.
+    resetNativePlayerTooltipLayer(tooltip);
+    const textNode = getClipTapPlayerTooltipTextNode(tooltip);
+    if (textNode && textNode.textContent !== 'Download with ClipTap') {
       textNode.textContent = '';
     }
   }
@@ -767,13 +789,21 @@
   function showClipTapPlayerTooltip(anchor, text = 'Download with ClipTap') {
     const tooltip = getNativePlayerTooltip();
     if (!tooltip || !anchor) return;
-    prepareNativePlayerTooltipForClipTap(tooltip, text);
-    positionNativePlayerTooltipForClipTap(tooltip, anchor);
+    window.clearTimeout(cliptapPlayerTooltipShowTimer);
+    window.clearTimeout(cliptapPlayerTooltipHideTimer);
+    primeNativePlayerTooltipForClipTap(tooltip);
+    cliptapPlayerTooltipShowTimer = window.setTimeout(() => {
+      if (!anchor.matches?.(':hover') && document.activeElement !== anchor) return;
+      prepareNativePlayerTooltipForClipTap(tooltip, text);
+      positionNativePlayerTooltipForClipTap(tooltip, anchor);
+    }, 24);
   }
 
   function hideClipTapPlayerTooltip() {
+    window.clearTimeout(cliptapPlayerTooltipShowTimer);
     const tooltip = getNativePlayerTooltip();
-    if (!tooltip?.classList?.contains('cliptap-player-tooltip-active')) return;
+    if (!tooltip?.classList?.contains('cliptap-player-tooltip-active') &&
+      tooltip?.getAttribute?.('data-cliptap-tooltip-owner') !== 'true') return;
     clearClipTapPlayerTooltipTweaks(tooltip);
     cliptapPlayerTooltipHideTimer = window.setTimeout(() => {
       clearClipTapPlayerTooltipTweaks(tooltip);
@@ -789,7 +819,6 @@
     button.addEventListener('click', hideClipTapPlayerTooltip);
     button.dataset.cliptapPlayerTooltipVersion = PLAYER_TOOLBAR_ICON_VERSION;
   }
-
 
   function getPlayerToolbarDownloadIcon() {
     return `<span class="cliptap-player-icon-wrap" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" height="26" viewBox="0 0 24 24" width="26" focusable="false" aria-hidden="true" style="pointer-events:none;display:block;width:26px;height:26px;"><path class="ytp-svg-fill" d="M6.25 3A3.25 3.25 0 0 0 3 6.25v3.15a1 1 0 1 0 2 0V6.25C5 5.56 5.56 5 6.25 5H9.4a1 1 0 1 0 0-2H6.25Zm8.35 0a1 1 0 1 0 0 2h3.15c.69 0 1.25.56 1.25 1.25V9.4a1 1 0 1 0 2 0V6.25A3.25 3.25 0 0 0 17.75 3H14.6ZM12 6.5a1 1 0 0 0-1 1v6.09l-1.65-1.64a1 1 0 1 0-1.41 1.41L12 18.41l4.06-4.05a1 1 0 0 0-1.41-1.42L13 14.59V7.5a1 1 0 0 0-1-1ZM4 13.6a1 1 0 0 0-1 1v3.15A3.25 3.25 0 0 0 6.25 21H9.4a1 1 0 1 0 0-2H6.25C5.56 19 5 18.44 5 17.75V14.6a1 1 0 0 0-1-1Zm16 0a1 1 0 0 0-1 1v3.15c0 .69-.56 1.25-1.25 1.25H14.6a1 1 0 1 0 0 2h3.15A3.25 3.25 0 0 0 21 17.75V14.6a1 1 0 0 0-1-1Z"></path></svg></span>`;
