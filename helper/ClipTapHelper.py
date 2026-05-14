@@ -685,6 +685,7 @@ function formatClock(seconds) {
 
 function formatDuration(job) {
   if (job.payload.mode === 'playlist') return 'Playlist';
+  if (job.payload.mode === 'channel') return 'Channel';
   if (job.isLive && job.payload.mode === 'full') return 'LIVE';
   if (job.payload.mode === 'section') return `${formatClock(job.payload.start)} → ${formatClock(job.payload.end)}`;
   return 'Full video';
@@ -1180,7 +1181,7 @@ def clean_payload(payload: dict) -> dict:
         raise ValueError("Unsupported YouTube URL.")
 
     mode = str(payload.get("mode", "section")).strip().lower()
-    if mode not in {"section", "full", "playlist"}:
+    if mode not in {"section", "full", "playlist", "channel"}:
         raise ValueError("Unsupported download mode.")
 
     quality = str(payload.get("quality", "best"))
@@ -1235,7 +1236,7 @@ def build_metadata_command(payload: dict) -> list[str]:
         raise ClipTapError("yt-dlp is not installed.")
 
     command = list(cmd_base) + ["-J", "--no-warnings", "--skip-download"]
-    if payload.get("mode") == "playlist":
+    if payload.get("mode") in {"playlist", "channel"}:
         command += ["--flat-playlist", "--playlist-items", "1"]
     else:
         command.append("--no-playlist")
@@ -1264,7 +1265,7 @@ def build_download_command(job: DownloadJob) -> list[str]:
         "--force-overwrites",
         "--paths", f"temp:{TEMP_ROOT}",
     ]
-    if mode == "playlist":
+    if mode in {"playlist", "channel"}:
         command += ["--yes-playlist", "--ignore-errors"]
     else:
         command.append("--no-playlist")
@@ -1289,6 +1290,8 @@ def build_download_command(job: DownloadJob) -> list[str]:
             command.append("--force-keyframes-at-cuts")
     elif mode == "playlist":
         output_template = str(OUTPUT_DIR / "%(playlist_title).160s" / "%(playlist_index)03d - %(title).160s [%(id)s].%(ext)s")
+    elif mode == "channel":
+        output_template = str(OUTPUT_DIR / "%(uploader).160s" / "%(upload_date)s - %(title).160s [%(id)s].%(ext)s")
     else:
         output_template = str(OUTPUT_DIR / "%(title).160s [%(id)s].%(ext)s")
         if job.is_live:

@@ -9,6 +9,9 @@
 - Fixed section downloads getting stuck at the metadata step by forcing YouTube metadata reads to target the current video instead of playlist context.
 
 **ClipTap**
+- Added a native-style channel page Download button and helper `channel` mode that passes the current channel URL to yt-dlp.
+- Reworked the `/playlist` page action mounting so the visible Share action is replaced by the native-style ClipTap playlist download button and the original Share action is exposed from More actions.
+- Fixed the playlist page action mount so ClipTap replaces the visible Share action and keeps the original Share action available through More actions.
 - Positioned the playlist page download action immediately before More actions, moved the original Share action out of the visible row, and limited custom hover styling so the native button highlight stays consistent.
 - Rebuilt the `/playlist` page playlist download action as a native YouTube-style button clone using the same icon wrapper and 24px currentColor SVG structure as adjacent actions.
 - Enlarged the YouTube playlist panel download icon with a crisp 28px filled SVG glyph and tightened its toolbar spacing.

@@ -94,6 +94,36 @@
     return getTitle() || 'YouTube playlist';
   }
 
+  function isChannelPageUrl() {
+    if (location.hostname !== 'www.youtube.com' && location.hostname !== 'youtube.com') return false;
+    const path = location.pathname;
+    if (path === '/watch' || path === '/playlist' || path.startsWith('/shorts/')) return false;
+    return path.startsWith('/@') ||
+      path.startsWith('/channel/') ||
+      path.startsWith('/c/') ||
+      path.startsWith('/user/');
+  }
+
+  function getChannelUrl() {
+    return `${location.origin}${location.pathname}`;
+  }
+
+  function getChannelTitle() {
+    const candidates = [
+      'yt-page-header-view-model h1',
+      'ytd-channel-name yt-formatted-string',
+      '#channel-name yt-formatted-string',
+      '#text.ytd-channel-name',
+      'h1 yt-formatted-string',
+      'h1'
+    ];
+    for (const selector of candidates) {
+      const value = document.querySelector(selector)?.textContent?.trim();
+      if (value) return value;
+    }
+    return (document.title || 'YouTube channel').replace(/ - YouTube$/, '').trim();
+  }
+
   function secondsToClock(value, fractionDigits = 2) {
     const total = Math.max(0, Number(value) || 0);
     const scale = 10 ** fractionDigits;
@@ -553,7 +583,8 @@
   }
 
   const PLAYER_TOOLBAR_ICON_VERSION = '46';
-  const PLAYLIST_BUTTON_VERSION = '51';
+  const PLAYLIST_BUTTON_VERSION = '53';
+  const CHANNEL_BUTTON_VERSION = '54';
 
   function getPlayerToolbarDownloadIcon() {
     return `<span class="cliptap-player-icon-wrap" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" height="26" viewBox="0 0 24 24" width="26" focusable="false" aria-hidden="true" style="pointer-events:none;display:block;width:26px;height:26px;"><path class="ytp-svg-fill" d="M6.25 3A3.25 3.25 0 0 0 3 6.25v3.15a1 1 0 1 0 2 0V6.25C5 5.56 5.56 5 6.25 5H9.4a1 1 0 1 0 0-2H6.25Zm8.35 0a1 1 0 1 0 0 2h3.15c.69 0 1.25.56 1.25 1.25V9.4a1 1 0 1 0 2 0V6.25A3.25 3.25 0 0 0 17.75 3H14.6ZM12 6.5a1 1 0 0 0-1 1v6.09l-1.65-1.64a1 1 0 1 0-1.41 1.41L12 18.41l4.06-4.05a1 1 0 0 0-1.41-1.42L13 14.59V7.5a1 1 0 0 0-1-1ZM4 13.6a1 1 0 0 0-1 1v3.15A3.25 3.25 0 0 0 6.25 21H9.4a1 1 0 1 0 0-2H6.25C5.56 19 5 18.44 5 17.75V14.6a1 1 0 0 0-1-1Zm16 0a1 1 0 0 0-1 1v3.15c0 .69-.56 1.25-1.25 1.25H14.6a1 1 0 1 0 0 2h3.15A3.25 3.25 0 0 0 21 17.75V14.6a1 1 0 0 0-1-1Z"></path></svg></span>`;
@@ -1008,6 +1039,38 @@
     }
   }
 
+  async function requestChannelDownload(button) {
+    if (!isChannelPageUrl()) return;
+
+    const payload = {
+      mode: 'channel',
+      url: getChannelUrl(),
+      title: getChannelTitle(),
+      quality: state.quality,
+      cookieBrowser: state.cookieBrowser,
+      forceKeyframes: false
+    };
+
+    try {
+      button?.classList.add('cliptap-sending');
+      setPanelMessage('Sending channel download request...');
+      const res = await fetch('http://127.0.0.1:17723/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Request failed.');
+      setPanelMessage('Channel download started.');
+    } catch (error) {
+      setPanelMessage('The helper is off or an error occurred.');
+      console.error('[ClipTap]', error);
+    } finally {
+      button?.classList.remove('cliptap-sending');
+    }
+  }
+
+
   function resetForNewVideoIfNeeded() {
     const key = getVideoKey();
     if (!key || key === state.lastVideoKey) return;
@@ -1160,30 +1223,70 @@
     return element?.closest?.('.ytFlexibleActionsViewModelActionRowAction, .ytFlexibleActionsViewModelAction') || element || null;
   }
 
-  function findPlaylistActionByLabels(words, root = null) {
-    const header = root || document.querySelector('ytd-playlist-header-renderer') || document;
-    const matches = [...header.querySelectorAll('button, a, div[role="button"], .ytFlexibleActionsViewModelActionRowAction')];
-    for (const el of matches) {
-      if (el.closest?.('.cliptap-playlist-download-button')) continue;
-      const haystack = [
-        el.getAttribute('aria-label'),
-        el.getAttribute('title'),
-        el.getAttribute('data-tooltip-text'),
-        el.textContent
-      ].filter(Boolean).join(' ').toLowerCase();
-      if (words.some(word => haystack.includes(word))) return getPlaylistActionWrapper(el);
+  function getPlaylistActionRow() {
+    const selectors = [
+      '.ytFlexibleActionsViewModelActionRow',
+      'yt-flexible-actions-view-model .ytFlexibleActionsViewModelActionRow',
+      'ytd-playlist-header-renderer .ytFlexibleActionsViewModelActionRow',
+      'ytd-playlist-header-renderer #actions .ytFlexibleActionsViewModelActionRow',
+      'ytd-playlist-header-renderer #buttons .ytFlexibleActionsViewModelActionRow'
+    ];
+    for (const selector of selectors) {
+      const rows = [...document.querySelectorAll(selector)];
+      const row = rows.find(candidate => {
+        const rect = candidate.getBoundingClientRect?.();
+        const hasActions = candidate.querySelector?.('.ytFlexibleActionsViewModelActionRowAction, button, a');
+        return hasActions && (!rect || rect.width > 0 || rect.height > 0);
+      });
+      if (row) return row;
     }
     return null;
   }
 
-  function findPlaylistShareAction() {
-    return findPlaylistActionByLabels(['share', '공유']);
+  function actionText(action) {
+    if (!action) return '';
+    const nodes = [
+      action,
+      ...action.querySelectorAll?.('button, a, div[role="button"], [aria-label], [title], [data-tooltip-text]') || []
+    ];
+    return nodes.map(el => [
+      el.getAttribute?.('aria-label'),
+      el.getAttribute?.('title'),
+      el.getAttribute?.('data-tooltip-text'),
+      el.textContent
+    ].filter(Boolean).join(' ')).join(' ').toLowerCase();
+  }
+
+  function findPlaylistActionByLabels(words, root = null) {
+    const scope = root || getPlaylistActionRow() || document.querySelector('ytd-playlist-header-renderer') || document;
+    const actions = [...scope.querySelectorAll('.ytFlexibleActionsViewModelActionRowAction, .ytFlexibleActionsViewModelAction')];
+    for (const action of actions) {
+      if (action.classList?.contains('cliptap-page-playlist-button')) continue;
+      const haystack = actionText(action);
+      if (words.some(word => haystack.includes(word))) return action;
+    }
+
+    const controls = [...scope.querySelectorAll('button, a, div[role="button"]')];
+    for (const control of controls) {
+      if (control.closest?.('.cliptap-page-playlist-button')) continue;
+      const haystack = actionText(control);
+      if (words.some(word => haystack.includes(word))) return getPlaylistActionWrapper(control);
+    }
+    return null;
+  }
+
+  function findPlaylistShareAction(root = null) {
+    const scope = root || getPlaylistActionRow();
+    return findPlaylistActionByLabels(['share', '공유'], scope);
   }
 
   function findPlaylistMoreAction(container = null) {
-    const scope = container || document.querySelector('ytd-playlist-header-renderer') || document;
-    return findPlaylistActionByLabels(['more actions', 'more', '자세히', '더보기', '더 보기'], scope) ||
-      scope.querySelector('.ytFlexibleActionsViewModelActionRowAction:last-child');
+    const scope = container || getPlaylistActionRow() || document.querySelector('ytd-playlist-header-renderer') || document;
+    const action = findPlaylistActionByLabels(['more actions', 'more', '자세히', '더보기', '더 보기'], scope);
+    if (action) return action;
+    const actions = [...scope.querySelectorAll('.ytFlexibleActionsViewModelActionRowAction, .ytFlexibleActionsViewModelAction')]
+      .filter(el => !el.classList?.contains('cliptap-page-playlist-button') && !el.dataset.cliptapHiddenShare);
+    return actions[actions.length - 1] || null;
   }
 
   function getShareMenuIcon() {
@@ -1191,7 +1294,7 @@
   }
 
   function getOpenMenuContainer() {
-    const candidates = [...document.querySelectorAll('ytd-menu-popup-renderer, tp-yt-paper-listbox, ytd-popup-container #items, #items.ytd-menu-popup-renderer')];
+    const candidates = [...document.querySelectorAll('ytd-menu-popup-renderer #items, ytd-menu-popup-renderer, tp-yt-paper-listbox, ytd-popup-container #items, #items.ytd-menu-popup-renderer')];
     return candidates.reverse().find(el => {
       const rect = el.getBoundingClientRect?.();
       return rect && rect.width > 0 && rect.height > 0;
@@ -1227,73 +1330,78 @@
     menu.insertBefore(item, menu.firstChild);
   }
 
+  function startPlaylistMenuObserver() {
+    if (document.documentElement.dataset.cliptapShareMenuObserver === PLAYLIST_BUTTON_VERSION) return;
+    document.documentElement.dataset.cliptapShareMenuObserver = PLAYLIST_BUTTON_VERSION;
+    const observer = new MutationObserver(() => ensurePlaylistShareMenuItem());
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+  }
+
   function bindPlaylistMoreAction(moreAction) {
     const clickable = moreAction?.querySelector?.('button, a, div[role="button"]') || moreAction;
-    if (!clickable || clickable.dataset.cliptapMoreBound === 'true') return;
-    clickable.addEventListener('click', () => {
-      setTimeout(ensurePlaylistShareMenuItem, 80);
-      setTimeout(ensurePlaylistShareMenuItem, 220);
-    }, true);
-    clickable.dataset.cliptapMoreBound = 'true';
+    if (clickable && clickable.dataset.cliptapMoreBound !== PLAYLIST_BUTTON_VERSION) {
+      clickable.addEventListener('click', () => {
+        setTimeout(ensurePlaylistShareMenuItem, 40);
+        setTimeout(ensurePlaylistShareMenuItem, 120);
+        setTimeout(ensurePlaylistShareMenuItem, 280);
+      }, true);
+      clickable.dataset.cliptapMoreBound = PLAYLIST_BUTTON_VERSION;
+    }
+    startPlaylistMenuObserver();
+  }
+
+  function hidePlaylistShareAction(shareAction) {
+    if (!shareAction || shareAction.classList?.contains('cliptap-page-playlist-button')) return;
+    shareAction.dataset.cliptapHiddenShare = 'true';
+    shareAction.style.display = 'none';
+  }
+
+  function restorePlaylistShareActions() {
+    document.querySelectorAll('[data-cliptap-hidden-share="true"]').forEach(el => {
+      el.style.display = '';
+      delete el.dataset.cliptapHiddenShare;
+    });
   }
 
   function findPlaylistActionContainer() {
-    const selectors = [
-      'ytd-playlist-header-renderer yt-flexible-actions-view-model',
-      'ytd-playlist-header-renderer div.ytFlexibleActionsViewModelActionRow',
-      'ytd-playlist-header-renderer #actions',
-      'ytd-playlist-header-renderer #buttons',
-      'ytd-playlist-header-renderer #top-level-buttons-computed',
-      'ytd-playlist-header-renderer ytd-menu-renderer #top-level-buttons-computed',
-      'ytd-playlist-header-renderer ytd-menu-renderer'
-    ];
-    for (const selector of selectors) {
-      const element = document.querySelector(selector);
-      if (element) return element;
-    }
-    return null;
+    return getPlaylistActionRow();
   }
 
   function mountPlaylistPageButton() {
-    const mounted = document.querySelector('.cliptap-page-playlist-button');
+    const mountedButtons = [...document.querySelectorAll('.cliptap-page-playlist-button')];
     if (!isPlaylistPageUrl()) {
-      mounted?.remove();
-      document.querySelectorAll('[data-cliptap-hidden-share="true"]').forEach(el => {
-        el.style.display = '';
-        delete el.dataset.cliptapHiddenShare;
-      });
+      mountedButtons.forEach(el => el.remove());
+      restorePlaylistShareActions();
       return;
     }
 
     const container = findPlaylistActionContainer();
     if (!container) return;
 
-    const shareAction = findPlaylistShareAction();
+    const shareAction = findPlaylistShareAction(container);
     const moreAction = findPlaylistMoreAction(container);
-    const insertBefore = moreAction?.parentElement === container ? moreAction : null;
-
     bindPlaylistMoreAction(moreAction);
 
-    if (shareAction && !shareAction.classList?.contains('cliptap-page-playlist-button')) {
-      shareAction.dataset.cliptapHiddenShare = 'true';
-      shareAction.style.display = 'none';
+    if (!shareAction && !moreAction) return;
+
+    let button = mountedButtons.find(el => el.parentElement === container && el.dataset.cliptapPlaylistVersion === PLAYLIST_BUTTON_VERSION) || null;
+    mountedButtons.filter(el => el !== button).forEach(el => el.remove());
+
+    if (!button) {
+      const template = shareAction || moreAction || container.querySelector('.ytFlexibleActionsViewModelActionIconOnlyButton, .ytFlexibleActionsViewModelActionRowAction');
+      button = makePlaylistPageButtonElement(template);
     }
 
-    if (
-      mounted &&
-      mounted.parentElement === container &&
-      mounted.dataset.cliptapPlaylistVersion === PLAYLIST_BUTTON_VERSION &&
-      (!insertBefore || mounted.nextElementSibling === insertBefore)
-    ) return;
-    mounted?.remove();
+    hidePlaylistShareAction(shareAction);
 
-    const template = shareAction || moreAction || container.querySelector('.ytFlexibleActionsViewModelActionIconOnlyButton, .ytFlexibleActionsViewModelActionRowAction');
-    const button = makePlaylistPageButtonElement(template);
-    if (insertBefore) {
-      container.insertBefore(button, insertBefore);
-    } else {
+    const anchor = shareAction?.parentElement === container ? shareAction : moreAction;
+    if (anchor?.parentElement === container) {
+      if (button.nextElementSibling !== anchor) container.insertBefore(button, anchor);
+    } else if (button.parentElement !== container) {
       container.appendChild(button);
     }
+
+    button.dataset.cliptapPlaylistVersion = PLAYLIST_BUTTON_VERSION;
   }
 
   function findWatchPlaylistToolbar() {
@@ -1333,7 +1441,122 @@
     toolbar.appendChild(button);
   }
 
+  function getChannelDownloadIcon() {
+    return `<div aria-hidden="true" class="ytSpecButtonShapeNextIcon"><span class="ytIconWrapperHost" style="width: 24px; height: 24px;"><span class="yt-icon-shape ytSpecIconShapeHost"><div style="width: 100%; height: 100%; display: block; fill: currentcolor;"><svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" aria-hidden="true" style="pointer-events:none;display:inherit;width:100%;height:100%;"><path d="M12 2a1 1 0 00-1 1v11.586l-4.293-4.293a1 1 0 10-1.414 1.414L12 18.414l6.707-6.707a1 1 0 10-1.414-1.414L13 14.586V3a1 1 0 00-1-1Zm7 18H5a1 1 0 000 2h14a1 1 0 000-2Z"></path></svg></div></span></span></div>`;
+  }
+
+  function findChannelActionsContainer() {
+    const selectors = [
+      'yt-flexible-actions-view-model.ytPageHeaderViewModelFlexibleActions',
+      'yt-page-header-view-model yt-flexible-actions-view-model',
+      'ytd-channel-header-renderer yt-flexible-actions-view-model',
+      'ytd-c4-tabbed-header-renderer yt-flexible-actions-view-model'
+    ];
+    for (const selector of selectors) {
+      const element = document.querySelector(selector);
+      if (element?.querySelector?.('.ytFlexibleActionsViewModelAction, button, a')) return element;
+    }
+    return null;
+  }
+
+  function getChannelActionTemplate(container) {
+    const actions = [...container.querySelectorAll(':scope > .ytFlexibleActionsViewModelAction')]
+      .filter(action => !action.classList.contains('cliptap-channel-download-action'));
+    const preferred = actions.find(action => actionText(action).includes('community')) ||
+      actions.find(action => actionText(action).includes('join')) ||
+      actions[actions.length - 1];
+    return preferred || null;
+  }
+
+  function makeChannelDownloadButtonElement(template = null) {
+    const wrapper = template?.cloneNode?.(true) || document.createElement('div');
+    wrapper.className = 'ytFlexibleActionsViewModelAction cliptap-channel-download-action';
+
+    wrapper.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+    wrapper.querySelectorAll('tp-yt-paper-tooltip').forEach(el => el.remove());
+    wrapper.querySelectorAll('yt-animated-action, .ytAnimatedActionHost, .ytAnimatedActionLottie, lottie-component').forEach(el => {
+      if (!el.closest('.cliptap-channel-download-action')) return;
+    });
+
+    let clickable = wrapper.querySelector('button, a, div[role="button"]');
+    if (!clickable || clickable.closest('yt-subscribe-button-view-model')) {
+      wrapper.textContent = '';
+      const host = document.createElement('button-view-model');
+      host.className = 'ytSpecButtonViewModelHost';
+      clickable = document.createElement('button');
+      clickable.className = 'ytSpecButtonShapeNextHost ytSpecButtonShapeNextTonal ytSpecButtonShapeNextMono ytSpecButtonShapeNextSizeM ytSpecButtonShapeNextIconLeading ytSpecButtonShapeNextEnableBackdropFilterExperiment';
+      host.appendChild(clickable);
+      wrapper.appendChild(host);
+    }
+
+    if (clickable.tagName.toLowerCase() === 'a') {
+      clickable.removeAttribute('href');
+      clickable.setAttribute('role', 'button');
+      clickable.setAttribute('tabindex', '0');
+    } else if (clickable.tagName.toLowerCase() === 'button') {
+      clickable.type = 'button';
+    } else {
+      clickable.setAttribute('role', 'button');
+      clickable.setAttribute('tabindex', '0');
+    }
+
+    clickable.className = 'ytSpecButtonShapeNextHost ytSpecButtonShapeNextTonal ytSpecButtonShapeNextMono ytSpecButtonShapeNextSizeM ytSpecButtonShapeNextIconLeading ytSpecButtonShapeNextEnableBackdropFilterExperiment';
+    clickable.title = '';
+    clickable.setAttribute('aria-label', 'Download channel with ClipTap');
+    clickable.setAttribute('aria-disabled', 'false');
+    clickable.removeAttribute('disabled');
+    clickable.removeAttribute('href');
+
+    clickable.innerHTML = `${getChannelDownloadIcon()}<div class="ytSpecButtonShapeNextButtonTextContent">Download</div><yt-touch-feedback-shape aria-hidden="true" class="ytSpecTouchFeedbackShapeHost ytSpecTouchFeedbackShapeTouchResponse"><div class="ytSpecTouchFeedbackShapeStroke"></div><div class="ytSpecTouchFeedbackShapeFill"></div></yt-touch-feedback-shape>`;
+
+    wrapper.title = 'Download channel with ClipTap';
+    wrapper.setAttribute('aria-label', 'Download channel with ClipTap');
+    wrapper.dataset.cliptapChannelVersion = CHANNEL_BUTTON_VERSION;
+
+    if (wrapper.dataset.cliptapChannelBound !== CHANNEL_BUTTON_VERSION) {
+      wrapper.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        requestChannelDownload(wrapper);
+      }, true);
+      wrapper.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        event.stopPropagation();
+        requestChannelDownload(wrapper);
+      }, true);
+      wrapper.dataset.cliptapChannelBound = CHANNEL_BUTTON_VERSION;
+    }
+
+    return wrapper;
+  }
+
+  function mountChannelDownloadButton() {
+    const mountedButtons = [...document.querySelectorAll('.cliptap-channel-download-action')];
+    if (!isChannelPageUrl()) {
+      mountedButtons.forEach(el => el.remove());
+      return;
+    }
+
+    const container = findChannelActionsContainer();
+    if (!container) return;
+
+    let button = mountedButtons.find(el => el.parentElement === container && el.dataset.cliptapChannelVersion === CHANNEL_BUTTON_VERSION) || null;
+    mountedButtons.filter(el => el !== button).forEach(el => el.remove());
+
+    if (!button) {
+      button = makeChannelDownloadButtonElement(getChannelActionTemplate(container));
+    }
+
+    if (button.parentElement !== container || button.nextElementSibling) {
+      container.appendChild(button);
+    }
+
+    button.dataset.cliptapChannelVersion = CHANNEL_BUTTON_VERSION;
+  }
+
   function mountPlaylistDownloadButtons() {
+    mountChannelDownloadButton();
     mountPlaylistPageButton();
     mountWatchPlaylistButton();
   }
