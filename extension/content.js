@@ -427,9 +427,9 @@
       .cliptap-playlist-download-button[hidden] {
         display: none !important;
       }
-      .cliptap-playlist-native-button,
-      button.cliptap-playlist-native-button,
-      div.cliptap-playlist-native-button {
+      .cliptap-playlist-native-button:not(.cliptap-page-playlist-button),
+      button.cliptap-playlist-native-button:not(.cliptap-page-playlist-button),
+      div.cliptap-playlist-native-button:not(.cliptap-page-playlist-button) {
         appearance: none !important;
         -webkit-appearance: none !important;
         position: relative !important;
@@ -444,8 +444,8 @@
         min-height: 40px !important;
         max-width: 40px !important;
         max-height: 40px !important;
-        padding: 8px !important;
-        margin: 0 2px !important;
+        padding: 6px !important;
+        margin: 0 !important;
         border: 0 !important;
         border-radius: 50% !important;
         background: transparent !important;
@@ -453,6 +453,31 @@
         vertical-align: middle !important;
         overflow: visible !important;
         z-index: 3 !important;
+      }
+      .cliptap-page-playlist-button {
+        color: inherit !important;
+      }
+      .cliptap-page-playlist-button .ytIconWrapperHost {
+        width: 24px !important;
+        height: 24px !important;
+      }
+      .cliptap-page-playlist-button svg.cliptap-native-playlist-svg,
+      .cliptap-page-playlist-button svg {
+        display: inherit !important;
+        width: 100% !important;
+        height: 100% !important;
+        min-width: 24px !important;
+        min-height: 24px !important;
+        margin: 0 !important;
+        pointer-events: none !important;
+      }
+      .cliptap-page-playlist-button path {
+        fill: currentColor !important;
+        stroke: none !important;
+      }
+      .cliptap-watch-playlist-button {
+        margin-left: -3px !important;
+        margin-right: -1px !important;
       }
       .cliptap-page-playlist-button.ytFlexibleActionsViewModelActionIconOnlyButton,
       .cliptap-page-playlist-button.ytFlexibleActionsViewModelActionRowAction {
@@ -472,20 +497,21 @@
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
-        width: 24px !important;
-        height: 24px !important;
-        min-width: 24px !important;
-        min-height: 24px !important;
+        width: 28px !important;
+        height: 28px !important;
+        min-width: 28px !important;
+        min-height: 28px !important;
         line-height: 0 !important;
         color: #fff !important;
+        transform: none !important;
         pointer-events: none !important;
       }
       .cliptap-playlist-icon-wrap svg.cliptap-native-playlist-svg {
         display: inherit !important;
-        width: 100% !important;
-        height: 100% !important;
-        min-width: 24px !important;
-        min-height: 24px !important;
+        width: 28px !important;
+        height: 28px !important;
+        min-width: 28px !important;
+        min-height: 28px !important;
         margin: 0 !important;
         pointer-events: none !important;
         overflow: visible !important;
@@ -502,7 +528,8 @@
     document.documentElement.appendChild(style);
   }
 
-  const PLAYER_TOOLBAR_ICON_VERSION = '43';
+  const PLAYER_TOOLBAR_ICON_VERSION = '46';
+  const PLAYLIST_BUTTON_VERSION = '50';
 
   function getPlayerToolbarDownloadIcon() {
     return `<span class="cliptap-player-icon-wrap" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" height="26" viewBox="0 0 24 24" width="26" focusable="false" aria-hidden="true" style="pointer-events:none;display:block;width:26px;height:26px;"><path class="ytp-svg-fill" d="M6.25 3A3.25 3.25 0 0 0 3 6.25v3.15a1 1 0 1 0 2 0V6.25C5 5.56 5.56 5 6.25 5H9.4a1 1 0 1 0 0-2H6.25Zm8.35 0a1 1 0 1 0 0 2h3.15c.69 0 1.25.56 1.25 1.25V9.4a1 1 0 1 0 2 0V6.25A3.25 3.25 0 0 0 17.75 3H14.6ZM12 6.5a1 1 0 0 0-1 1v6.09l-1.65-1.64a1 1 0 1 0-1.41 1.41L12 18.41l4.06-4.05a1 1 0 0 0-1.41-1.42L13 14.59V7.5a1 1 0 0 0-1-1ZM4 13.6a1 1 0 0 0-1 1v3.15A3.25 3.25 0 0 0 6.25 21H9.4a1 1 0 1 0 0-2H6.25C5.56 19 5 18.44 5 17.75V14.6a1 1 0 0 0-1-1Zm16 0a1 1 0 0 0-1 1v3.15c0 .69-.56 1.25-1.25 1.25H14.6a1 1 0 1 0 0 2h3.15A3.25 3.25 0 0 0 21 17.75V14.6a1 1 0 0 0-1-1Z"></path></svg></span>`;
@@ -969,13 +996,97 @@
   }
 
 
+  function getPlaylistDownloadSvg() {
+    return `<svg class="cliptap-native-playlist-svg" xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" aria-hidden="true" style="pointer-events:none;display:inherit;width:100%;height:100%;"><path d="M4 5h10a1 1 0 1 1 0 2H4a1 1 0 0 1 0-2Zm0 6h8.5a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2Zm0 6h6.25a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2Zm13-10a1 1 0 0 1 1 1v6.59l1.29-1.3a1 1 0 1 1 1.42 1.42L17 19.41l-3.71-3.7a1 1 0 1 1 1.42-1.42l1.29 1.3V8a1 1 0 0 1 1-1Z"></path></svg>`;
+  }
+
   function getPlaylistDownloadIcon() {
     return `
       <span class="cliptap-playlist-icon-wrap" aria-hidden="true">
-        <svg class="cliptap-native-playlist-svg" xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" aria-hidden="true" style="pointer-events:none;display:inherit;width:100%;height:100%;">
-          <path d="M4 5h10a1 1 0 110 2H4a1 1 0 010-2Zm0 6h8.25a1 1 0 110 2H4a1 1 0 110-2Zm0 6h6a1 1 0 110 2H4a1 1 0 110-2Zm13-9a1 1 0 011 1v5.586l1.293-1.293a1 1 0 111.414 1.414L17 18.414l-3.707-3.707a1 1 0 111.414-1.414L16 14.586V9a1 1 0 011-1Zm3 12h-6a1 1 0 100 2h6a1 1 0 100-2Z"></path>
-        </svg>
+        ${getPlaylistDownloadSvg()}
       </span>`;
+  }
+
+  function getNativePlaylistActionIcon() {
+    return `<div aria-hidden="true" class="ytSpecButtonShapeNextIcon"><span class="ytIconWrapperHost" style="width: 24px; height: 24px;"><span class="yt-icon-shape ytSpecIconShapeHost"><div style="width: 100%; height: 100%; display: block; fill: currentcolor;">${getPlaylistDownloadSvg()}</div></span></span></div>`;
+  }
+
+  function bindPlaylistButtonEvents(element) {
+    if (!element || element.dataset.cliptapBound === 'true') return;
+    element.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      requestPlaylistDownload(element);
+    }, true);
+    element.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      event.stopPropagation();
+      requestPlaylistDownload(element);
+    }, true);
+    element.dataset.cliptapBound = 'true';
+  }
+
+  function makePlaylistPageButtonElement(template = null) {
+    const wrapper = template?.cloneNode?.(true) || document.createElement('div');
+    wrapper.classList.add(
+      'ytFlexibleActionsViewModelAction',
+      'ytFlexibleActionsViewModelActionRowAction',
+      'ytFlexibleActionsViewModelActionIconOnlyButton',
+      'cliptap-playlist-download-button',
+      'cliptap-playlist-native-button',
+      'cliptap-page-playlist-button'
+    );
+    wrapper.removeAttribute('hidden');
+    wrapper.removeAttribute('data-cliptap-hidden-share');
+    wrapper.style.display = '';
+
+    wrapper.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+    wrapper.querySelectorAll('tp-yt-paper-tooltip').forEach(el => el.remove());
+
+    let clickable = wrapper.querySelector('button, a, div[role="button"]');
+    if (!clickable) {
+      clickable = document.createElement('button');
+      clickable.className = 'ytSpecButtonShapeNextHost ytSpecButtonShapeNextTonal ytSpecButtonShapeNextOverlay ytSpecButtonShapeNextSizeM ytSpecButtonShapeNextIconButton ytSpecButtonShapeNextEnableBackdropFilterExperiment';
+      wrapper.textContent = '';
+      const host = document.createElement('button-view-model');
+      host.className = 'ytSpecButtonViewModelHost';
+      host.appendChild(clickable);
+      wrapper.appendChild(host);
+    }
+
+    if (clickable.tagName.toLowerCase() === 'a') {
+      clickable.removeAttribute('href');
+      clickable.setAttribute('role', 'button');
+      clickable.setAttribute('tabindex', '0');
+    } else if (clickable.tagName.toLowerCase() === 'button') {
+      clickable.type = 'button';
+    } else {
+      clickable.setAttribute('role', 'button');
+      clickable.setAttribute('tabindex', '0');
+    }
+
+    clickable.title = '';
+    clickable.setAttribute('aria-label', 'Download playlist with ClipTap');
+    clickable.setAttribute('aria-disabled', 'false');
+    clickable.removeAttribute('disabled');
+    clickable.removeAttribute('href');
+
+    const oldIcon = clickable.querySelector('.ytSpecButtonShapeNextIcon');
+    if (oldIcon) {
+      oldIcon.outerHTML = getNativePlaylistActionIcon();
+    } else {
+      clickable.insertAdjacentHTML('afterbegin', getNativePlaylistActionIcon());
+    }
+
+    wrapper.title = 'Download playlist with ClipTap';
+    wrapper.setAttribute('aria-label', 'Download playlist with ClipTap');
+    wrapper.setAttribute('data-tooltip-text', 'Download playlist with ClipTap');
+    wrapper.dataset.cliptapPlaylistVersion = PLAYLIST_BUTTON_VERSION;
+
+    bindPlaylistButtonEvents(wrapper);
+    bindPlaylistButtonEvents(clickable);
+    return wrapper;
   }
 
   function makePlaylistButtonElement(kind, template = null) {
@@ -1003,17 +1114,7 @@
     button.title = 'Download playlist with ClipTap';
     button.setAttribute('aria-label', 'Download playlist with ClipTap');
     button.setAttribute('data-tooltip-text', 'Download playlist with ClipTap');
-    button.addEventListener('click', event => {
-      event.preventDefault();
-      event.stopPropagation();
-      requestPlaylistDownload(button);
-    }, true);
-    button.addEventListener('keydown', event => {
-      if (event.key !== 'Enter' && event.key !== ' ') return;
-      event.preventDefault();
-      event.stopPropagation();
-      requestPlaylistDownload(button);
-    }, true);
+    bindPlaylistButtonEvents(button);
     return button;
   }
 
@@ -1080,13 +1181,16 @@
       });
       return;
     }
-    if (mounted && document.documentElement.contains(mounted)) return;
 
     const target = findPlaylistShareAction();
     const container = target?.parentElement || findPlaylistActionContainer();
     if (!container) return;
 
-    const button = makePlaylistButtonElement('page', target);
+    if (mounted && mounted.parentElement === container && mounted.dataset.cliptapPlaylistVersion === PLAYLIST_BUTTON_VERSION) return;
+    mounted?.remove();
+
+    const template = target || container.querySelector('.ytFlexibleActionsViewModelActionIconOnlyButton, .ytFlexibleActionsViewModelActionRowAction');
+    const button = makePlaylistPageButtonElement(template);
     if (target?.parentElement) {
       target.parentElement.insertBefore(button, target);
       target.dataset.cliptapHiddenShare = 'true';
@@ -1098,11 +1202,12 @@
 
   function findWatchPlaylistToolbar() {
     const selectors = [
+      '#playlist-action-menu #top-level-buttons-computed',
+      'ytd-playlist-panel-renderer ytd-menu-renderer #top-level-buttons-computed',
+      'ytd-playlist-panel-renderer #top-level-buttons-computed',
       '#playlist-action-menu > .ytd-playlist-panel-renderer.style-scope',
       'ytd-playlist-panel-renderer #playlist-action-menu',
       '#playlist-action-menu',
-      'ytd-playlist-panel-renderer #top-level-buttons-computed',
-      'ytd-playlist-panel-renderer ytd-menu-renderer #top-level-buttons-computed',
       'ytd-playlist-panel-renderer ytd-menu-renderer',
       'ytd-playlist-panel-renderer #menu'
     ];
@@ -1119,13 +1224,16 @@
       mounted?.remove();
       return;
     }
-    if (mounted && document.documentElement.contains(mounted)) return;
 
     const toolbar = findWatchPlaylistToolbar();
-    if (!toolbar || toolbar.querySelector('.cliptap-watch-playlist-button')) return;
+    if (!toolbar) return;
+
+    if (mounted && mounted.parentElement === toolbar && mounted.dataset.cliptapPlaylistVersion === PLAYLIST_BUTTON_VERSION) return;
+    mounted?.remove();
 
     const template = toolbar.querySelector('button, div[role="button"], yt-button-shape, ytd-toggle-button-renderer, ytd-button-renderer, tp-yt-paper-button');
     const button = makePlaylistButtonElement('watch', template);
+    button.dataset.cliptapPlaylistVersion = PLAYLIST_BUTTON_VERSION;
     toolbar.appendChild(button);
   }
 

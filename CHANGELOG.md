@@ -9,6 +9,11 @@
 - Fixed section downloads getting stuck at the metadata step by forcing YouTube metadata reads to target the current video instead of playlist context.
 
 **ClipTap**
+- Rebuilt the `/playlist` page playlist download action as a native YouTube-style button clone using the same icon wrapper and 24px currentColor SVG structure as adjacent actions.
+- Enlarged the YouTube playlist panel download icon with a crisp 28px filled SVG glyph and tightened its toolbar spacing.
+- Recentered and sharpened the YouTube playlist download glyph by returning the render box to a crisp 24px size and simplifying the filled SVG path.
+- Tightened the YouTube watch playlist toolbar button spacing and slightly enlarged the playlist download glyph to better align with native Loop and Shuffle controls.
+- Reverted the player toolbar ClipTap icon back to the v1.3-43 glyph while keeping the corrected size and placement.
 - Enlarged the player toolbar ClipTap glyph to better match adjacent YouTube controls and forced existing SPA-mounted buttons to refresh to the latest icon markup.
 - Reduced and re-centered the player toolbar ClipTap icon, and refined its corner-frame silhouette so it fits the native YouTube toolbar more naturally.
 - Reworked the player toolbar ClipTap icon into a native-style filled glyph that reflects the ClipTap corner-frame logo instead of a plain download arrow.
