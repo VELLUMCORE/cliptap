@@ -574,17 +574,151 @@
         fill: #fff !important;
         stroke: none !important;
       }
-      .cliptap-playlist-download-button.cliptap-sending {
-        opacity: .55 !important;
+      .cliptap-playlist-download-button.cliptap-sending,
+      .cliptap-channel-download-action.cliptap-sending {
+        opacity: .62 !important;
         pointer-events: none !important;
+      }
+      #cliptap-floating-tooltip {
+        position: fixed;
+        z-index: 2147483647;
+        max-width: 260px;
+        padding: 7px 9px;
+        border-radius: 4px;
+        background: rgba(28, 28, 28, .96);
+        color: #fff;
+        font: 500 12px/1.25 Roboto, Arial, sans-serif;
+        white-space: nowrap;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
+        opacity: 0;
+        transform: translate(-50%, 2px);
+        pointer-events: none;
+        transition: opacity .12s ease, transform .12s ease;
+      }
+      #cliptap-floating-tooltip.cliptap-visible {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+      #cliptap-floating-tooltip[data-placement="player"] {
+        background: rgba(20, 20, 20, .94);
+        font-size: 11px;
+      }
+      #cliptap-feedback-toast {
+        position: fixed;
+        left: 50%;
+        bottom: 28px;
+        z-index: 2147483647;
+        max-width: min(420px, calc(100vw - 32px));
+        padding: 10px 14px;
+        border-radius: 4px;
+        background: rgba(32, 32, 32, .96);
+        color: #fff;
+        font: 500 13px/1.35 Roboto, Arial, sans-serif;
+        box-shadow: 0 3px 14px rgba(0, 0, 0, .32);
+        opacity: 0;
+        transform: translate(-50%, 10px);
+        pointer-events: none;
+        transition: opacity .16s ease, transform .16s ease;
+      }
+      #cliptap-feedback-toast.cliptap-visible {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+      #cliptap-feedback-toast.cliptap-error {
+        background: rgba(190, 43, 43, .96);
+      }
+      #cliptap-feedback-toast.cliptap-success {
+        background: rgba(38, 38, 38, .98);
       }
     `;
     document.documentElement.appendChild(style);
   }
 
   const PLAYER_TOOLBAR_ICON_VERSION = '46';
-  const PLAYLIST_BUTTON_VERSION = '53';
-  const CHANNEL_BUTTON_VERSION = '54';
+  const PLAYLIST_BUTTON_VERSION = '55';
+  const CHANNEL_BUTTON_VERSION = '55';
+  let cliptapTooltipTimer = 0;
+  let cliptapToastTimer = 0;
+
+  function ensureClipTapTooltip() {
+    let tooltip = document.getElementById('cliptap-floating-tooltip');
+    if (!tooltip) {
+      tooltip = document.createElement('div');
+      tooltip.id = 'cliptap-floating-tooltip';
+      tooltip.setAttribute('role', 'tooltip');
+      document.documentElement.appendChild(tooltip);
+    }
+    return tooltip;
+  }
+
+  function hideClipTapTooltip() {
+    window.clearTimeout(cliptapTooltipTimer);
+    const tooltip = document.getElementById('cliptap-floating-tooltip');
+    tooltip?.classList.remove('cliptap-visible');
+  }
+
+  function showClipTapTooltip(anchor, text, placement = 'page') {
+    if (!anchor || !text) return;
+    window.clearTimeout(cliptapTooltipTimer);
+    cliptapTooltipTimer = window.setTimeout(() => {
+      const tooltip = ensureClipTapTooltip();
+      tooltip.textContent = text;
+      tooltip.dataset.placement = placement;
+      tooltip.classList.add('cliptap-visible');
+      const rect = anchor.getBoundingClientRect();
+      const tipRect = tooltip.getBoundingClientRect();
+      const center = rect.left + rect.width / 2;
+      const left = Math.max(8 + tipRect.width / 2, Math.min(window.innerWidth - 8 - tipRect.width / 2, center));
+      const top = placement === 'player'
+        ? Math.max(8, rect.top - tipRect.height - 10)
+        : Math.min(window.innerHeight - tipRect.height - 8, rect.bottom + 8);
+      tooltip.style.left = `${left}px`;
+      tooltip.style.top = `${top}px`;
+    }, placement === 'player' ? 350 : 250);
+  }
+
+  function bindClipTapTooltip(anchor, text, placement = 'page') {
+    if (!anchor) return;
+    anchor.dataset.cliptapTooltipText = text;
+    anchor.dataset.cliptapTooltipPlacement = placement;
+    if (anchor.dataset.cliptapTooltipBound === 'true') return;
+    anchor.addEventListener('mouseenter', event => {
+      const target = event.currentTarget;
+      showClipTapTooltip(target, target.dataset.cliptapTooltipText, target.dataset.cliptapTooltipPlacement || placement);
+    });
+    anchor.addEventListener('focus', event => {
+      const target = event.currentTarget;
+      showClipTapTooltip(target, target.dataset.cliptapTooltipText, target.dataset.cliptapTooltipPlacement || placement);
+    });
+    anchor.addEventListener('mouseleave', hideClipTapTooltip);
+    anchor.addEventListener('blur', hideClipTapTooltip);
+    anchor.addEventListener('click', hideClipTapTooltip, true);
+    anchor.dataset.cliptapTooltipBound = 'true';
+  }
+
+  function ensureClipTapToast() {
+    let toast = document.getElementById('cliptap-feedback-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'cliptap-feedback-toast';
+      toast.setAttribute('role', 'status');
+      toast.setAttribute('aria-live', 'polite');
+      document.documentElement.appendChild(toast);
+    }
+    return toast;
+  }
+
+  function showClipTapToast(message, type = 'info') {
+    const toast = ensureClipTapToast();
+    window.clearTimeout(cliptapToastTimer);
+    toast.textContent = message;
+    toast.classList.toggle('cliptap-error', type === 'error');
+    toast.classList.toggle('cliptap-success', type === 'success');
+    toast.classList.add('cliptap-visible');
+    cliptapToastTimer = window.setTimeout(() => {
+      toast.classList.remove('cliptap-visible');
+    }, type === 'error' ? 4200 : 2800);
+  }
 
   function getPlayerToolbarDownloadIcon() {
     return `<span class="cliptap-player-icon-wrap" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" height="26" viewBox="0 0 24 24" width="26" focusable="false" aria-hidden="true" style="pointer-events:none;display:block;width:26px;height:26px;"><path class="ytp-svg-fill" d="M6.25 3A3.25 3.25 0 0 0 3 6.25v3.15a1 1 0 1 0 2 0V6.25C5 5.56 5.56 5 6.25 5H9.4a1 1 0 1 0 0-2H6.25Zm8.35 0a1 1 0 1 0 0 2h3.15c.69 0 1.25.56 1.25 1.25V9.4a1 1 0 1 0 2 0V6.25A3.25 3.25 0 0 0 17.75 3H14.6ZM12 6.5a1 1 0 0 0-1 1v6.09l-1.65-1.64a1 1 0 1 0-1.41 1.41L12 18.41l4.06-4.05a1 1 0 0 0-1.41-1.42L13 14.59V7.5a1 1 0 0 0-1-1ZM4 13.6a1 1 0 0 0-1 1v3.15A3.25 3.25 0 0 0 6.25 21H9.4a1 1 0 1 0 0-2H6.25C5.56 19 5 18.44 5 17.75V14.6a1 1 0 0 0-1-1Zm16 0a1 1 0 0 0-1 1v3.15c0 .69-.56 1.25-1.25 1.25H14.6a1 1 0 1 0 0 2h3.15A3.25 3.25 0 0 0 21 17.75V14.6a1 1 0 0 0-1-1Z"></path></svg></span>`;
@@ -602,9 +736,12 @@
       button.type = 'button';
     }
 
-    button.title = 'ClipTap section downloader';
-    button.setAttribute('aria-label', 'ClipTap section downloader');
+    button.title = '';
+    button.setAttribute('aria-label', 'Download with ClipTap');
+    button.setAttribute('data-tooltip-title', 'Download with ClipTap');
+    button.setAttribute('data-title-no-tooltip', 'Download with ClipTap');
     button.classList.add('ytp-button', 'cliptap-control-button');
+    bindClipTapTooltip(button, 'Download with ClipTap', 'player');
 
     if (button.dataset.cliptapIconVersion !== PLAYER_TOOLBAR_ICON_VERSION) {
       button.innerHTML = getPlayerToolbarDownloadIcon();
@@ -983,6 +1120,8 @@
 
     try {
       button?.classList.add('cliptap-sending');
+      button?.setAttribute('aria-busy', 'true');
+      showClipTapToast('Sending playlist download request to ClipTap...');
       setPanelMessage('Sending playlist download request...');
       const res = await fetch('http://127.0.0.1:17723/download', {
         method: 'POST',
@@ -991,12 +1130,15 @@
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Helper error');
+      showClipTapToast('Playlist download request sent to ClipTap.', 'success');
       setPanelMessage('Playlist download started.');
     } catch (error) {
+      showClipTapToast('ClipTap Helper is not running or the request failed.', 'error');
       setPanelMessage('The helper is off or the playlist request failed.');
       console.error('[ClipTap]', error);
     } finally {
       button?.classList.remove('cliptap-sending');
+      button?.removeAttribute('aria-busy');
     }
   }
 
@@ -1053,6 +1195,8 @@
 
     try {
       button?.classList.add('cliptap-sending');
+      button?.setAttribute('aria-busy', 'true');
+      showClipTapToast('Sending channel download request to ClipTap...');
       setPanelMessage('Sending channel download request...');
       const res = await fetch('http://127.0.0.1:17723/download', {
         method: 'POST',
@@ -1061,12 +1205,15 @@
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Request failed.');
+      showClipTapToast('Channel download request sent to ClipTap.', 'success');
       setPanelMessage('Channel download started.');
     } catch (error) {
+      showClipTapToast('ClipTap Helper is not running or the request failed.', 'error');
       setPanelMessage('The helper is off or an error occurred.');
       console.error('[ClipTap]', error);
     } finally {
       button?.classList.remove('cliptap-sending');
+      button?.removeAttribute('aria-busy');
     }
   }
 
@@ -1166,10 +1313,12 @@
       clickable.insertAdjacentHTML('afterbegin', getNativePlaylistActionIcon());
     }
 
-    wrapper.title = 'Download playlist with ClipTap';
+    wrapper.title = '';
     wrapper.setAttribute('aria-label', 'Download playlist with ClipTap');
     wrapper.setAttribute('data-tooltip-text', 'Download playlist with ClipTap');
     wrapper.dataset.cliptapPlaylistVersion = PLAYLIST_BUTTON_VERSION;
+    bindClipTapTooltip(clickable, 'Download playlist with ClipTap', 'page');
+    bindClipTapTooltip(wrapper, 'Download playlist with ClipTap', 'page');
 
     bindPlaylistButtonEvents(wrapper);
     bindPlaylistButtonEvents(clickable);
@@ -1198,9 +1347,10 @@
       `cliptap-${kind}-playlist-button`
     );
     button.innerHTML = getPlaylistDownloadIcon();
-    button.title = 'Download playlist with ClipTap';
+    button.title = '';
     button.setAttribute('aria-label', 'Download playlist with ClipTap');
     button.setAttribute('data-tooltip-text', 'Download playlist with ClipTap');
+    bindClipTapTooltip(button, 'Download playlist with ClipTap', 'page');
     bindPlaylistButtonEvents(button);
     return button;
   }
@@ -1503,15 +1653,18 @@
     clickable.className = 'ytSpecButtonShapeNextHost ytSpecButtonShapeNextTonal ytSpecButtonShapeNextMono ytSpecButtonShapeNextSizeM ytSpecButtonShapeNextIconLeading ytSpecButtonShapeNextEnableBackdropFilterExperiment';
     clickable.title = '';
     clickable.setAttribute('aria-label', 'Download channel with ClipTap');
+    clickable.setAttribute('data-tooltip-text', 'Download channel with ClipTap');
     clickable.setAttribute('aria-disabled', 'false');
     clickable.removeAttribute('disabled');
     clickable.removeAttribute('href');
 
     clickable.innerHTML = `${getChannelDownloadIcon()}<div class="ytSpecButtonShapeNextButtonTextContent">Download</div><yt-touch-feedback-shape aria-hidden="true" class="ytSpecTouchFeedbackShapeHost ytSpecTouchFeedbackShapeTouchResponse"><div class="ytSpecTouchFeedbackShapeStroke"></div><div class="ytSpecTouchFeedbackShapeFill"></div></yt-touch-feedback-shape>`;
 
-    wrapper.title = 'Download channel with ClipTap';
+    wrapper.title = '';
     wrapper.setAttribute('aria-label', 'Download channel with ClipTap');
     wrapper.dataset.cliptapChannelVersion = CHANNEL_BUTTON_VERSION;
+    bindClipTapTooltip(clickable, 'Download channel with ClipTap', 'page');
+    bindClipTapTooltip(wrapper, 'Download channel with ClipTap', 'page');
 
     if (wrapper.dataset.cliptapChannelBound !== CHANNEL_BUTTON_VERSION) {
       wrapper.addEventListener('click', event => {
