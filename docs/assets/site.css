@@ -724,19 +724,10 @@ button { font: inherit; }
   width: 12px;
   height: 12px;
 }
-.service-status.working {
-  height: 22px;
-  margin-top: 12px;
-  padding: 0 9px;
-  gap: 5px;
+.service-status.soon.working {
   color: #ffd37a;
   background: rgba(255, 190, 92, 0.14);
-  border: 1px solid rgba(255, 190, 92, 0.24);
-  font-size: 11px;
-}
-.service-status.working svg {
-  width: 12px;
-  height: 12px;
+  border-color: rgba(255, 190, 92, 0.24);
 }
 .request-site-panel {
   height: 88px;
