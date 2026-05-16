@@ -3,12 +3,20 @@
 ## v1.4
 
 **ClipTap Helper**
+- Corrected live DVR section offsets so yt-dlp receives source-relative ranges instead of UI timeline ranges.
+- Fixed live DVR section downloads so selected ranges no longer hang while recording the live stream.
 - Added automatic update checks when the Helper manager starts and a clear shutdown message after stopping the Helper.
 - Replaced the Restart Helper hint with a Stop Helper button that shuts down the local manager.
 - Replaced the Auto-merge setting with independent output toggles that can download audio files, video-only files, merged video files, or any combination of them.
 - Removed the Save Settings button and made Helper defaults save automatically when changed.
 
 **ClipTap**
+- Fixed live DVR range handles to use the current YouTube progress timeline instead of the raw media duration.
+- Fixed live DVR start/end range positioning by matching the YouTube live timeline duration.
+- Added clear buttons for player start and end points across long-form videos and Shorts.
+- Fixed Shorts toolbar label styling and restored start/end range handles on the visible Shorts scrubber.
+- Added native YouTube Shorts support with a Shorts toolbar button, ClipTap panel downloads, and timeline range handles.
+- Removed channel Download controls from search results and subscription channel listings so channel downloads stay on channel pages only.
 - Reworked the homepage screenshot carousel to show three screenshots at once and include the full screenshot set.
 - Rebuilt the README with current v1.4 screenshots and made the homepage screenshot carousel interactive.
 - Added smooth slide motion to the homepage screenshot carousel and expanded the README legal notice.

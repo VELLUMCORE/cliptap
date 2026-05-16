@@ -22,12 +22,69 @@
   let loopRafId = 0;
 
 
+  function isShortsPageUrl() {
+    return location.pathname.startsWith('/shorts/');
+  }
+
+  function getShortsId() {
+    const match = location.pathname.match(/^\/shorts\/([^/?#]+)/);
+    return match ? decodeURIComponent(match[1]) : '';
+  }
+
+  function getVisibleArea(rect) {
+    if (!rect) return 0;
+    const left = Math.max(0, rect.left);
+    const right = Math.min(window.innerWidth || 0, rect.right);
+    const top = Math.max(0, rect.top);
+    const bottom = Math.min(window.innerHeight || 0, rect.bottom);
+    return Math.max(0, right - left) * Math.max(0, bottom - top);
+  }
+
+  function getActiveShortRenderer() {
+    const renderers = [...document.querySelectorAll('ytd-reel-video-renderer')];
+    if (!renderers.length) return null;
+
+    const marked = renderers.find(el => el.matches('[is-active], [active]'));
+    if (marked) return marked;
+
+    const viewportCenterY = (window.innerHeight || 0) / 2;
+    const visible = renderers
+      .map(el => ({ el, rect: el.getBoundingClientRect?.() }))
+      .filter(item => item.rect && item.rect.width > 0 && item.rect.height > 0)
+      .sort((a, b) => {
+        const aContainsCenter = a.rect.top <= viewportCenterY && a.rect.bottom >= viewportCenterY ? 1 : 0;
+        const bContainsCenter = b.rect.top <= viewportCenterY && b.rect.bottom >= viewportCenterY ? 1 : 0;
+        if (aContainsCenter !== bContainsCenter) return bContainsCenter - aContainsCenter;
+        return getVisibleArea(b.rect) - getVisibleArea(a.rect);
+      });
+
+    return visible[0]?.el || renderers[0] || null;
+  }
+
+  function getShortsScope() {
+    return isShortsPageUrl() ? getActiveShortRenderer() : null;
+  }
+
   function getVideo() {
+    const shortsScope = getShortsScope();
+    if (shortsScope) {
+      const scopedVideos = [...shortsScope.querySelectorAll('video')];
+      return scopedVideos.find(v => Number.isFinite(v.duration) && v.duration > 0) || scopedVideos[0] || null;
+    }
+
     const videos = [...document.querySelectorAll('video')];
     return videos.find(v => Number.isFinite(v.duration) && v.duration > 0) || videos[0] || null;
   }
 
   function getPlayer() {
+    const shortsScope = getShortsScope();
+    if (shortsScope) {
+      return shortsScope.querySelector('#shorts-player.html5-video-player') ||
+        shortsScope.querySelector('.html5-video-player') ||
+        getVideo()?.closest('.html5-video-player') ||
+        null;
+    }
+
     return document.querySelector('#movie_player.html5-video-player') ||
       document.querySelector('.html5-video-player') ||
       getVideo()?.closest('.html5-video-player') ||
@@ -58,16 +115,51 @@
     return null;
   }
 
+  function getShortsProgressBar() {
+    const shortsScope = getShortsScope();
+    if (!shortsScope) return null;
+
+    const visibleCandidate = (...selectors) => {
+      for (const selector of selectors) {
+        const candidates = [...shortsScope.querySelectorAll(selector)];
+        const visible = candidates.find(el => {
+          const rect = el.getBoundingClientRect?.();
+          if (!rect || rect.width <= 0 || rect.height <= 0) return false;
+          const style = getComputedStyle(el);
+          return style.display !== 'none' && style.visibility !== 'hidden';
+        });
+        if (visible) return visible;
+      }
+      return null;
+    };
+
+    return visibleCandidate(
+      '#scrubber .ytPlayerProgressBarDragContainer',
+      '#scrubber yt-progress-bar',
+      '#scrubber'
+    ) || shortsScope.querySelector('#scrubber .ytPlayerProgressBarDragContainer') ||
+      shortsScope.querySelector('#scrubber') ||
+      null;
+  }
+
   function getProgressBar() {
+    const shortsProgressBar = getShortsProgressBar();
+    if (shortsProgressBar) return shortsProgressBar;
     return document.querySelector('.ytp-progress-bar');
   }
 
   function getVideoKey() {
+    const shortsId = getShortsId();
+    if (shortsId) return `shorts:${shortsId}`;
     const url = new URL(location.href);
     return url.searchParams.get('v') || getVideo()?.currentSrc || location.href;
   }
 
   function getTitle() {
+    const shortsScope = getShortsScope();
+    const shortsTitle = shortsScope?.querySelector?.('.ytp-title-link, .ytReelMetapanelViewModelMetapanelItem [role="text"]')?.textContent?.trim();
+    if (shortsTitle) return shortsTitle;
+
     const titleEl = document.querySelector('h1.ytd-watch-metadata yt-formatted-string') ||
       document.querySelector('h1.title') ||
       document.querySelector('title');
@@ -145,8 +237,8 @@
     return `${location.origin}/${baseParts.join('/')}`;
   }
 
-  function getChannelDownloadTarget(kind = 'whole') {
-    const base = getChannelBaseUrl();
+  function getChannelDownloadTarget(kind = 'whole', baseUrl = '') {
+    const base = baseUrl || getChannelBaseUrl();
     if (kind === 'videos') return `${base}/videos`;
     if (kind === 'shorts') return `${base}/shorts`;
     if (kind === 'lives') return `${base}/streams`;
@@ -210,9 +302,78 @@
     return Math.min(max, Math.max(min, value));
   }
 
-  function getDuration() {
+  function getPlayerVideoData() {
+    const player = getPlayer();
+    try {
+      return typeof player?.getVideoData === 'function' ? player.getVideoData() : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function getProgressTimelineDuration() {
+    const bar = getProgressBar();
+    const value = Number(bar?.getAttribute?.('aria-valuemax'));
+    return Number.isFinite(value) && value > 0 ? value : 0;
+  }
+
+  function getProgressTimelinePosition() {
+    const bar = getProgressBar();
+    const value = Number(bar?.getAttribute?.('aria-valuenow'));
+    return Number.isFinite(value) && value >= 0 ? value : 0;
+  }
+
+  function getVideoDuration() {
     const duration = getVideo()?.duration;
     return Number.isFinite(duration) && duration > 0 ? duration : 0;
+  }
+
+  function hasLiveDvrSignals() {
+    if (isShortsPageUrl()) return false;
+    const data = getPlayerVideoData();
+    if (data?.isLive && data?.allowLiveDvr) return true;
+    const player = getPlayer();
+    const hasLiveBadge = Boolean(player?.querySelector?.('.ytp-live-badge') || document.querySelector('.ytp-live-badge'));
+    const progressDuration = getProgressTimelineDuration();
+    const videoDuration = getVideoDuration();
+    return hasLiveBadge && progressDuration > 0 && videoDuration > progressDuration + 30;
+  }
+
+  function isLiveDvrPlayback() {
+    return hasLiveDvrSignals();
+  }
+
+  function getDuration() {
+    const progressDuration = getProgressTimelineDuration();
+    if (!isShortsPageUrl() && progressDuration > 0) return progressDuration;
+
+    return getVideoDuration();
+  }
+
+  function getCurrentTimelineTime() {
+    const progressDuration = getProgressTimelineDuration();
+    const progressNow = getProgressTimelinePosition();
+    if (!isShortsPageUrl() && progressDuration > 0 && progressNow >= 0) {
+      return clamp(progressNow, 0, progressDuration);
+    }
+    return getVideo()?.currentTime || 0;
+  }
+
+  function getLiveDvrPayloadContext() {
+    if (!isLiveDvrPlayback()) return null;
+
+    const timelineDuration = getProgressTimelineDuration();
+    const timelinePosition = getProgressTimelinePosition();
+    const videoDuration = getVideoDuration();
+    const liveDvrOffset = Math.max(0, videoDuration - timelineDuration);
+
+    return {
+      isLiveDvr: true,
+      timelineDuration,
+      timelinePosition,
+      videoDuration,
+      liveDvrOffset
+    };
   }
 
   function ensureStyle() {
@@ -355,11 +516,14 @@
         font-size: 11px;
         margin-bottom: 2px;
       }
+      #cliptap-player-panel .cliptap-time-input-row {
+        position: relative;
+      }
       #cliptap-player-panel .cliptap-time-box input {
         width: 100%;
         min-width: 0;
         box-sizing: border-box;
-        padding: 2px 3px;
+        padding: 2px 22px 2px 3px;
         margin: 0;
         border: 1px solid transparent;
         border-radius: 3px;
@@ -374,6 +538,30 @@
       }
       #cliptap-player-panel .cliptap-time-box input::placeholder {
         color: rgba(255, 255, 255, .55);
+      }
+      #cliptap-player-panel .cliptap-clear-time {
+        position: absolute;
+        right: 2px;
+        top: 50%;
+        width: 19px;
+        height: 19px;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        transform: translateY(-50%);
+        color: rgba(255, 255, 255, .72);
+        background: transparent;
+        font: 700 14px/19px Arial, Helvetica, sans-serif;
+        cursor: pointer;
+      }
+      #cliptap-player-panel .cliptap-clear-time:hover,
+      #cliptap-player-panel .cliptap-clear-time:focus-visible {
+        color: #fff;
+        background: rgba(255, 255, 255, .13);
+        outline: none;
+      }
+      #cliptap-player-panel .cliptap-clear-time[hidden] {
+        display: none !important;
       }
       #cliptap-player-panel .cliptap-buttons,
       #cliptap-player-panel .cliptap-download-buttons {
@@ -658,8 +846,31 @@
         background: var(--yt-spec-badge-chip-background, rgba(255, 255, 255, .1)) !important;
         outline: none !important;
       }
+      .cliptap-shorts-action {
+        color: var(--yt-spec-text-primary, #f1f1f1) !important;
+      }
+      .cliptap-shorts-action button {
+        color: currentColor !important;
+      }
+      .cliptap-shorts-action svg path {
+        fill: currentColor !important;
+      }
+      .cliptap-shorts-action .ytSpecButtonShapeWithLabelLabel {
+        color: var(--yt-spec-text-primary, #f1f1f1) !important;
+        font: 400 12px/18px Roboto, Arial, sans-serif !important;
+        margin: 4px -8px 0 !important;
+        padding: 0 !important;
+        text-align: start !important;
+        white-space: normal !important;
+      }
+      ytd-reel-video-renderer #scrubber,
+      ytd-reel-video-renderer #scrubber .ytPlayerProgressBarDragContainer {
+        position: relative !important;
+        overflow: visible !important;
+      }
       .cliptap-playlist-download-button.cliptap-sending,
-      .cliptap-channel-download-action.cliptap-sending {
+      .cliptap-channel-download-action.cliptap-sending,
+      .cliptap-shorts-action.cliptap-sending {
         opacity: .62 !important;
         pointer-events: none !important;
       }
@@ -694,9 +905,10 @@
     document.documentElement.appendChild(style);
   }
 
-  const PLAYER_TOOLBAR_ICON_VERSION = '83';
+  const PLAYER_TOOLBAR_ICON_VERSION = '1.4-18';
   const PLAYLIST_BUTTON_VERSION = '57';
-  const CHANNEL_BUTTON_VERSION = '83';
+  const CHANNEL_BUTTON_VERSION = '1.4-18';
+  const SHORTS_BUTTON_VERSION = '1.4-18';
   let cliptapToastTimer = 0;
 
   function ensureClipTapToast() {
@@ -865,11 +1077,17 @@
         <div class="cliptap-time-grid">
           <div class="cliptap-time-box">
             <span>Start</span>
-            <input data-role="start" type="text" inputmode="decimal" placeholder="--:--:--.--" aria-label="ClipTap start time" spellcheck="false">
+            <div class="cliptap-time-input-row">
+              <input data-role="start" type="text" inputmode="decimal" placeholder="--:--:--.--" aria-label="ClipTap start time" spellcheck="false">
+              <button type="button" class="cliptap-clear-time" data-action="clear-start" aria-label="Clear start point" title="Clear start point" hidden>×</button>
+            </div>
           </div>
           <div class="cliptap-time-box">
             <span>End</span>
-            <input data-role="end" type="text" inputmode="decimal" placeholder="--:--:--.--" aria-label="ClipTap end time" spellcheck="false">
+            <div class="cliptap-time-input-row">
+              <input data-role="end" type="text" inputmode="decimal" placeholder="--:--:--.--" aria-label="ClipTap end time" spellcheck="false">
+              <button type="button" class="cliptap-clear-time" data-action="clear-end" aria-label="Clear end point" title="Clear end point" hidden>×</button>
+            </div>
           </div>
         </div>
         <div class="cliptap-buttons">
@@ -1044,6 +1262,19 @@
     render();
   }
 
+  function clearMarker(kind) {
+    if (kind !== 'start' && kind !== 'end') return;
+
+    state[kind] = null;
+    if (state.dragging === kind) state.dragging = null;
+    if (state.loopEnabled && !hasValidLoopRange()) {
+      state.loopEnabled = false;
+      stopLoopWatcher();
+    }
+
+    render();
+  }
+
   function positionToSeconds(clientX) {
     const bar = getProgressBar();
     const duration = getDuration();
@@ -1061,6 +1292,12 @@
   function commitTimeInput(input, shouldSeek = true) {
     const kind = getTimeInputKind(input);
     if (!kind) return false;
+
+    if (!input.value.trim()) {
+      clearMarker(kind);
+      setPanelMessage(kind === 'start' ? 'Start point cleared.' : 'End point cleared.');
+      return true;
+    }
 
     const seconds = clockToSeconds(input.value);
     if (!Number.isFinite(seconds)) {
@@ -1105,12 +1342,6 @@
     event.preventDefault();
     event.stopPropagation();
 
-    const video = getVideo();
-    if (!video) {
-      setPanelMessage('Could not find a video element.');
-      return;
-    }
-
     if (action === 'close') {
       state.panelOpen = false;
       render();
@@ -1123,13 +1354,30 @@
       }
       return;
     }
+    if (action === 'clear-start') {
+      clearMarker('start');
+      setPanelMessage('Start point cleared.');
+      return;
+    }
+    if (action === 'clear-end') {
+      clearMarker('end');
+      setPanelMessage('End point cleared.');
+      return;
+    }
+
+    const video = getVideo();
+    if (!video) {
+      setPanelMessage('Could not find a video element.');
+      return;
+    }
+
     if (action === 'start') {
-      setMarker('start', video.currentTime, false);
+      setMarker('start', getCurrentTimelineTime(), false);
       setPanelMessage('Start point saved. Drag the blue circle to adjust it.');
       return;
     }
     if (action === 'end') {
-      setMarker('end', video.currentTime, false);
+      setMarker('end', getCurrentTimelineTime(), false);
       setPanelMessage('End point saved. Drag the orange circle to adjust it.');
       return;
     }
@@ -1247,6 +1495,9 @@
       forceKeyframes: state.forceKeyframes
     };
 
+    const liveDvrContext = getLiveDvrPayloadContext();
+    if (liveDvrContext) Object.assign(payload, liveDvrContext);
+
     if (mode === 'section') {
       if (state.start == null || state.end == null) {
         setPanelMessage('Set the start and end points first.');
@@ -1277,14 +1528,19 @@
   }
 
   async function requestChannelDownload(button, kind = 'whole') {
-    if (!isChannelPageUrl()) return;
+    const baseUrl = button?.dataset?.cliptapChannelUrl || (isChannelPageUrl() ? getChannelBaseUrl() : '');
+    if (!baseUrl) {
+      showClipTapToast('Could not find a channel URL for this item.', 'error');
+      return;
+    }
 
     const label = getChannelDownloadLabel(kind);
     const titleSuffix = kind === 'whole' ? '' : ` (${label})`;
+    const channelTitle = button?.dataset?.cliptapChannelTitle || getChannelTitle();
     const payload = {
       mode: 'channel',
-      url: getChannelDownloadTarget(kind),
-      title: `${getChannelTitle()}${titleSuffix}`,
+      url: getChannelDownloadTarget(kind, baseUrl),
+      title: `${channelTitle}${titleSuffix}`,
       quality: state.quality,
       cookieBrowser: state.cookieBrowser,
       forceKeyframes: false
@@ -1312,6 +1568,98 @@
       button?.classList.remove('cliptap-sending');
       button?.removeAttribute('aria-busy');
     }
+  }
+
+
+  function getShortsDownloadIcon() {
+    return `<div aria-hidden="true" class="ytSpecButtonShapeNextIcon"><span class="ytIconWrapperHost" style="width: 24px; height: 24px;"><span class="yt-icon-shape ytSpecIconShapeHost"><div style="width: 100%; height: 100%; display: block; fill: currentcolor;"><svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" aria-hidden="true" style="pointer-events:none;display:inherit;width:100%;height:100%;"><path d="M6.25 3A3.25 3.25 0 0 0 3 6.25v3.15a1 1 0 1 0 2 0V6.25C5 5.56 5.56 5 6.25 5H9.4a1 1 0 1 0 0-2H6.25Zm8.35 0a1 1 0 1 0 0 2h3.15c.69 0 1.25.56 1.25 1.25V9.4a1 1 0 1 0 2 0V6.25A3.25 3.25 0 0 0 17.75 3H14.6ZM12 6.5a1 1 0 0 0-1 1v6.09l-1.65-1.64a1 1 0 1 0-1.41 1.41L12 18.41l4.06-4.05a1 1 0 0 0-1.41-1.42L13 14.59V7.5a1 1 0 0 0-1-1ZM4 13.6a1 1 0 0 0-1 1v3.15A3.25 3.25 0 0 0 6.25 21H9.4a1 1 0 1 0 0-2H6.25C5.56 19 5 18.44 5 17.75V14.6a1 1 0 0 0-1-1Zm16 0a1 1 0 0 0-1 1v3.15c0 .69-.56 1.25-1.25 1.25H14.6a1 1 0 1 0 0 2h3.15A3.25 3.25 0 0 0 21 17.75V14.6a1 1 0 0 0-1-1Z"></path></svg></div></span></span></div>`;
+  }
+
+  function getShortsActionBar() {
+    const scope = getShortsScope();
+    if (!scope) return null;
+    return scope.querySelector('ytd-reel-player-overlay-renderer reel-action-bar-view-model') ||
+      scope.querySelector('ytd-reel-player-overlay-renderer .ytwReelActionBarViewModelHost') ||
+      scope.querySelector('reel-action-bar-view-model') ||
+      null;
+  }
+
+  function getShortsActionHostByLabel(actionBar, labels) {
+    if (!actionBar) return null;
+    const lowerLabels = labels.map(label => label.toLowerCase());
+    const buttons = [...actionBar.querySelectorAll('button[aria-label]')]
+      .filter(button => !button.closest('.cliptap-shorts-action'));
+    const button = buttons.find(candidate => {
+      const text = candidate.getAttribute('aria-label')?.toLowerCase() || '';
+      return lowerLabels.some(label => text.includes(label));
+    });
+    return button?.closest?.('button-view-model, like-button-view-model, dislike-button-view-model, reel-action-button-view-model') ||
+      button?.parentElement ||
+      null;
+  }
+
+  function bindShortsDownloadButtonEvents(element) {
+    if (!element || element.dataset.cliptapBound === 'true') return;
+    element.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      togglePanel();
+    }, true);
+    element.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      event.stopPropagation();
+      togglePanel();
+    }, true);
+    element.dataset.cliptapBound = 'true';
+  }
+
+  function makeShortsDownloadButtonElement() {
+    const host = document.createElement('button-view-model');
+    host.className = 'ytSpecButtonViewModelHost ytwReelActionBarViewModelHostDesktopActionButton cliptap-shorts-action';
+    host.dataset.cliptapShortsVersion = SHORTS_BUTTON_VERSION;
+    host.innerHTML = `<label class="ytSpecButtonShapeWithLabelHost"><button class="ytSpecButtonShapeNextHost ytSpecButtonShapeNextTonal ytSpecButtonShapeNextMono ytSpecButtonShapeNextSizeL ytSpecButtonShapeNextIconButton ytSpecButtonShapeNextEnableBackdropFilterExperiment" type="button" title="" aria-label="Download with ClipTap" aria-disabled="false">${getShortsDownloadIcon()}<yt-touch-feedback-shape aria-hidden="true" class="ytSpecTouchFeedbackShapeHost ytSpecTouchFeedbackShapeTouchResponse"><div class="ytSpecTouchFeedbackShapeStroke"></div><div class="ytSpecTouchFeedbackShapeFill"></div></yt-touch-feedback-shape></button><div class="ytSpecButtonShapeWithLabelLabel" aria-hidden="false"><span class="ytAttributedStringHost ytAttributedStringWhiteSpacePreWrap ytAttributedStringTextAlignmentCenter ytAttributedStringWordWrapping" role="text">ClipTap</span></div></label>`;
+    bindShortsDownloadButtonEvents(host);
+    bindShortsDownloadButtonEvents(host.querySelector('button'));
+    return host;
+  }
+
+  function mountShortsDownloadButton() {
+    const mountedButtons = [...document.querySelectorAll('.cliptap-shorts-action')];
+    if (!isShortsPageUrl()) {
+      mountedButtons.forEach(el => el.remove());
+      return false;
+    }
+
+    const actionBar = getShortsActionBar();
+    if (!actionBar) {
+      document.documentElement.dataset.cliptapShortsMountStatus = 'actions-missing';
+      return false;
+    }
+
+    let button = mountedButtons.find(el => el.parentElement === actionBar && el.dataset.cliptapShortsVersion === SHORTS_BUTTON_VERSION) || null;
+    mountedButtons.filter(el => el !== button).forEach(el => el.remove());
+
+    if (!button) button = makeShortsDownloadButtonElement();
+
+    const remixHost = getShortsActionHostByLabel(actionBar, ['remix', '리믹스']);
+    const shareHost = getShortsActionHostByLabel(actionBar, ['share', '공유']);
+
+    if (remixHost?.parentElement === actionBar) {
+      if (button.nextElementSibling !== remixHost) actionBar.insertBefore(button, remixHost);
+    } else if (shareHost?.parentElement === actionBar) {
+      if (button.parentElement !== actionBar) {
+        actionBar.insertBefore(button, shareHost.nextSibling);
+      } else if (shareHost.nextSibling !== button) {
+        actionBar.insertBefore(button, shareHost.nextSibling);
+      }
+    } else if (button.parentElement !== actionBar) {
+      actionBar.appendChild(button);
+    }
+
+    button.dataset.cliptapShortsVersion = SHORTS_BUTTON_VERSION;
+    document.documentElement.dataset.cliptapShortsMountStatus = 'mounted';
+    return true;
   }
 
 
@@ -1981,6 +2329,28 @@
     return preferred || null;
   }
 
+  function bindChannelDownloadButtonEvents(wrapper) {
+    if (!wrapper || wrapper.dataset.cliptapChannelBound === CHANNEL_BUTTON_VERSION) return;
+
+    wrapper.addEventListener('pointerdown', event => {
+      if (event.button !== undefined && event.button !== 0) return;
+      if (getChannelDownloadPopup(wrapper)) return;
+      closeOpenYouTubeNativeActionMenus();
+    }, true);
+    wrapper.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleChannelDownloadMenu(wrapper);
+    }, true);
+    wrapper.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'ArrowDown') return;
+      event.preventDefault();
+      event.stopPropagation();
+      toggleChannelDownloadMenu(wrapper);
+    }, true);
+    wrapper.dataset.cliptapChannelBound = CHANNEL_BUTTON_VERSION;
+  }
+
   function makeChannelDownloadButtonElement() {
     const wrapper = document.createElement('div');
     wrapper.className = 'ytFlexibleActionsViewModelAction cliptap-channel-download-action';
@@ -2002,24 +2372,7 @@
     wrapper.dataset.cliptapChannelVersion = CHANNEL_BUTTON_VERSION;
     wrapper.dataset.cliptapChannelMountedAt = 'visible-flexible-actions';
 
-    wrapper.addEventListener('pointerdown', event => {
-      if (event.button !== undefined && event.button !== 0) return;
-      if (getChannelDownloadPopup(wrapper)) return;
-      closeOpenYouTubeNativeActionMenus();
-    }, true);
-    wrapper.addEventListener('click', event => {
-      event.preventDefault();
-      event.stopPropagation();
-      toggleChannelDownloadMenu(wrapper);
-    }, true);
-    wrapper.addEventListener('keydown', event => {
-      if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'ArrowDown') return;
-      event.preventDefault();
-      event.stopPropagation();
-      toggleChannelDownloadMenu(wrapper);
-    }, true);
-    wrapper.dataset.cliptapChannelBound = CHANNEL_BUTTON_VERSION;
-
+    bindChannelDownloadButtonEvents(wrapper);
     return wrapper;
   }
 
@@ -2112,6 +2465,11 @@
     setInputValue(startEl, state.start);
     setInputValue(endEl, state.end);
 
+    const startClearButton = panel.querySelector('[data-action="clear-start"]');
+    const endClearButton = panel.querySelector('[data-action="clear-end"]');
+    if (startClearButton) startClearButton.hidden = state.start == null;
+    if (endClearButton) endClearButton.hidden = state.end == null;
+
     const loopButton = panel.querySelector('[data-action="toggle-loop"]');
     if (loopButton) {
       loopButton.setAttribute('aria-pressed', String(state.loopEnabled));
@@ -2120,9 +2478,12 @@
   }
 
   function renderButton() {
+    const active = state.panelOpen || state.start != null || state.end != null || state.loopEnabled;
     const button = document.getElementById('cliptap-control-button');
-    if (!button) return;
-    button.classList.toggle('cliptap-active', state.panelOpen || state.start != null || state.end != null || state.loopEnabled);
+    if (button) button.classList.toggle('cliptap-active', active);
+    document.querySelectorAll('.cliptap-shorts-action').forEach(el => {
+      el.classList.toggle('cliptap-active', active);
+    });
   }
 
   let playerToolbarMountWatcherStarted = false;
@@ -2162,6 +2523,7 @@
     safe(ensureStyle);
     safe(mountChannelDownloadButton);
     safe(ensureControlButton);
+    safe(mountShortsDownloadButton);
     safe(ensurePanel);
     safe(ensureProgressOverlay);
     safe(mountPlaylistDownloadButtons);
@@ -2217,6 +2579,46 @@
     }, delay);
   }
 
+  function startShortsMountWatcher() {
+    if (document.documentElement.dataset.cliptapShortsMountWatcher === SHORTS_BUTTON_VERSION) return;
+    document.documentElement.dataset.cliptapShortsMountWatcher = SHORTS_BUTTON_VERSION;
+
+    const tryMount = () => {
+      if (!isShortsPageUrl()) {
+        mountShortsDownloadButton();
+        return;
+      }
+      try {
+        ensureStyle();
+        mountShortsDownloadButton();
+        ensurePanel();
+        ensureProgressOverlay();
+        renderButton();
+        renderProgressOverlay();
+      } catch (error) {
+        console.warn('[ClipTap] Shorts mount failed', error);
+      }
+    };
+
+    ['yt-navigate-finish', 'ytd-navigate-finish', 'yt-page-data-updated'].forEach(name => {
+      window.addEventListener(name, tryMount, true);
+    });
+    window.addEventListener('popstate', tryMount, true);
+    window.addEventListener('hashchange', tryMount, true);
+
+    const observer = new MutationObserver(() => {
+      if (!isShortsPageUrl()) return;
+      window.clearTimeout(startShortsMountWatcher.timer);
+      startShortsMountWatcher.timer = window.setTimeout(tryMount, 80);
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+
+    [0, 100, 250, 600, 1200, 2200, 3600].forEach(delay => {
+      window.setTimeout(tryMount, delay);
+    });
+    window.setInterval(tryMount, 1200);
+  }
+
   function startChannelMountWatcher() {
     if (document.documentElement.dataset.cliptapChannelMountWatcher === CHANNEL_BUTTON_VERSION) return;
     document.documentElement.dataset.cliptapChannelMountWatcher = CHANNEL_BUTTON_VERSION;
@@ -2242,6 +2644,7 @@
 
   loadOptions();
   startChannelMountWatcher();
+  startShortsMountWatcher();
   startPlayerToolbarMountWatcher();
   scheduleRender();
 

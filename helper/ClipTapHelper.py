@@ -1627,6 +1627,23 @@ def clean_payload(payload: dict) -> dict:
             raise ValueError("The end time must be after the start time.")
         cleaned["start"] = start
         cleaned["end"] = end
+        cleaned["isLiveDvr"] = bool(payload.get("isLiveDvr"))
+        for key in ("timelineDuration", "timelinePosition", "videoDuration", "liveDvrOffset"):
+            try:
+                value = float(payload.get(key, 0))
+            except (TypeError, ValueError):
+                value = 0.0
+            if value > 0:
+                cleaned[key] = value
+        if cleaned.get("isLiveDvr"):
+            timeline_duration = float(cleaned.get("timelineDuration") or 0)
+            video_duration = float(cleaned.get("videoDuration") or 0)
+            live_dvr_offset = float(cleaned.get("liveDvrOffset") or 0)
+            if live_dvr_offset <= 0 and video_duration > 0 and timeline_duration > 0:
+                live_dvr_offset = max(0.0, video_duration - timeline_duration)
+            cleaned["liveDvrOffset"] = live_dvr_offset
+            cleaned["downloadStart"] = start + live_dvr_offset
+            cleaned["downloadEnd"] = end + live_dvr_offset
 
     return cleaned
 
@@ -1715,8 +1732,12 @@ def build_download_command(job: DownloadJob) -> list[str]:
     command += ["--ffmpeg-location", str(ffmpeg_path)]
 
     if mode == "section":
-        section = f"*{seconds_to_clock(payload['start'])}-{seconds_to_clock(payload['end'])}"
+        section_start = float(payload.get("downloadStart", payload["start"]))
+        section_end = float(payload.get("downloadEnd", payload["end"]))
+        section = f"*{seconds_to_clock(section_start)}-{seconds_to_clock(section_end)}"
         command += ["--download-sections", section]
+        if payload.get("isLiveDvr") or job.is_live:
+            command += ["--hls-use-mpegts", "--live-from-start"]
         # yt-dlp uses FFmpeg for selected time ranges. On Windows, FFmpeg can
         # update progress with carriage-return or key=value progress records
         # instead of normal yt-dlp percentage lines, so ask FFmpeg to emit a
@@ -2172,11 +2193,29 @@ def run_section_download(job: DownloadJob):
 def run_download(job: DownloadJob):
     try:
         prepare_metadata(job)
-        if job.payload["mode"] == "section":
+        if job.payload["mode"] == "section" and not (job.payload.get("isLiveDvr") or job.is_live):
             run_section_download(job)
             return
 
-        if job.is_live and job.payload["mode"] == "full":
+        if job.payload["mode"] == "section" and (job.payload.get("isLiveDvr") or job.is_live):
+            status = "Downloading live DVR section..." if job.payload.get("isLiveDvr") else "Downloading live section..."
+            phase = "downloading"
+            ui_range = (
+                f"{seconds_to_clock(float(job.payload['start']))} → "
+                f"{seconds_to_clock(float(job.payload['end']))}"
+            )
+            source_range = (
+                f"{seconds_to_clock(float(job.payload.get('downloadStart', job.payload['start'])))} → "
+                f"{seconds_to_clock(float(job.payload.get('downloadEnd', job.payload['end'])))}"
+            )
+            update_job(
+                job,
+                status="Live DVR section detected" if job.payload.get("isLiveDvr") else "Preparing live section...",
+                phase=phase,
+                progress=1.0,
+                downloaded=f"UI {ui_range} · source {source_range}",
+            )
+        elif job.is_live and job.payload["mode"] == "full":
             status = "Recording..."
             phase = "live"
         else:
@@ -2185,6 +2224,19 @@ def run_download(job: DownloadJob):
         update_job(job, status=status, phase=phase)
 
         command = build_download_command(job)
+        if job.payload["mode"] == "section" and job.payload.get("isLiveDvr"):
+            section_arg = ""
+            try:
+                section_index = command.index("--download-sections")
+                section_arg = command[section_index + 1]
+            except Exception:
+                section_arg = "<missing>"
+            update_job(
+                job,
+                status="Downloading live DVR section...",
+                phase=phase,
+                downloaded=f"--download-sections {section_arg}",
+            )
         job.process = popen_text(command, OUTPUT_DIR)
 
         percent_re = re.compile(r"\[download\]\s+(\d+(?:\.\d+)?)%")
@@ -2201,16 +2253,20 @@ def run_download(job: DownloadJob):
         section_duration = None
         section_start = 0.0
         section_end = 0.0
+        source_section_start = 0.0
+        source_section_end = 0.0
         if job.payload["mode"] == "section":
             section_start = float(job.payload["start"])
             section_end = float(job.payload["end"])
+            source_section_start = float(job.payload.get("downloadStart", section_start))
+            source_section_end = float(job.payload.get("downloadEnd", section_end))
             section_duration = max(0.1, section_end - section_start)
 
         def section_progress_from_elapsed(elapsed: float) -> float:
             # FFmpeg may report either output-relative time such as 00:00:12
             # or source-relative time such as 00:09:13 depending on the input.
-            if section_duration and elapsed > section_duration and section_start <= elapsed <= section_end + 5:
-                elapsed -= section_start
+            if section_duration and elapsed > section_duration and source_section_start <= elapsed <= source_section_end + 5:
+                elapsed -= source_section_start
             return max(1.0, min(99.0, (elapsed / section_duration) * 100.0))
 
         for line in iter_process_records(job.process, job.cancel_event):
