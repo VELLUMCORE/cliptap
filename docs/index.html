@@ -38,7 +38,7 @@
       <div class="hero-copy">
         <div class="mini-badge"><span></span> Local. Private. Powerful.</div>
         <h1 id="hero-title"><span>Download videos.</span><span>The smart way.</span></h1>
-        <p class="hero-lead">ClipTap currently supports YouTube natively, with frequent updates and planned support for Vimeo, CHZZK, SOOP, and many more services.</p>
+        <p class="hero-lead">ClipTap currently supports YouTube natively, including videos, playlists, and channel download scopes, with Shorts, YouTube Music, CHZZK, and SOOP planned.</p>
         <div class="hero-actions">
           <a class="button button-primary button-download" href="https://github.com/VELLUMCORE/cliptap/releases/latest">
             <img class="button-icon" src="./images/download.png" alt="" aria-hidden="true" />
@@ -70,7 +70,7 @@
       <div class="feature-grid">
         <article class="feature-card"><div class="feature-icon"><svg viewBox="0 0 24 24"><path d="m13 2-8 12h6l-1 8 9-13h-6z" /></svg></div><h3>Blazing Fast</h3><p>Multi-threaded downloads with resumable support for maximum speed.</p></article>
         <article class="feature-card"><div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.6 2.8 8 7 10 4.2-2 7-5.4 7-10V6z" /></svg></div><h3>Private & Local</h3><p>All processing happens on your machine. Your data stays yours.</p></article>
-        <article class="feature-card"><div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm-8-9h16M12 3c2.2 2.4 3.3 5.4 3.3 9S14.2 18.6 12 21m0-18C9.8 5.4 8.7 8.4 8.7 12S9.8 18.6 12 21" /></svg></div><h3>Frequently Updated</h3><p>Currently supports YouTube only, with Vimeo, CHZZK, SOOP, and many more services planned soon.</p></article>
+        <article class="feature-card"><div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm-8-9h16M12 3c2.2 2.4 3.3 5.4 3.3 9S14.2 18.6 12 21m0-18C9.8 5.4 8.7 8.4 8.7 12S9.8 18.6 12 21" /></svg></div><h3>Frequently Updated</h3><p>Currently supports YouTube videos, playlists, and channel download scopes, with more native services planned.</p></article>
         <article class="feature-card"><div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M12 19V5m0 0-5 5m5-5 5 5" /></svg></div><h3>High Quality</h3><p>Download in up to 8K, including 4K, 1080p, 60fps and more.</p></article>
         <article class="feature-card"><div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M4 5h16v5H4zm0 9h16v5H4zM8 5v14m8-14v14" /></svg></div><h3>Smart Organization</h3><p>Custom file naming, download rules, and auto organization.</p></article>
         <article class="feature-card"><div class="feature-icon"><svg viewBox="0 0 24 24"><path d="m8 9-4 3 4 3m8-6 4 3-4 3M14 5l-4 14" /></svg></div><h3>Open Source</h3><p>Transparent, auditable, and built with love by the community.</p></article>
@@ -82,26 +82,32 @@
       <div class="steps" aria-label="How ClipTap works">
         <article class="step-card"><div class="step-icon"><span>1</span><svg viewBox="0 0 24 24"><path d="M7 7h10v10H7zM12 3v4m0 10v4M3 12h4m10 0h4" /></svg></div><h3>Install Extension</h3><p>Add ClipTap to your browser. It runs silently in the background.</p></article>
         <article class="step-card"><div class="step-icon"><span>2</span><svg viewBox="0 0 24 24"><path d="M5 5h14v11H5zm4 15h6M12 16v4" /></svg></div><h3>Connect Helper</h3><p>Run the local helper app. The extension connects automatically.</p></article>
-        <article class="step-card"><div class="step-icon"><span>3</span><svg viewBox="0 0 24 24"><path d="M12 4v10m0 0 4-4m-4 4-4-4M5 20h14" /></svg></div><h3>Download</h3><p>Browse any site and click the ClipTap button to download instantly.</p></article>
+        <article class="step-card"><div class="step-icon"><span>3</span><svg viewBox="0 0 24 24"><path d="M12 4v10m0 0 4-4m-4 4-4-4M5 20h14" /></svg></div><h3>Download</h3><p>Browse YouTube and click the ClipTap button to send downloads to the local Helper.</p></article>
       </div>
     </section>
 
     <section id="screenshots" class="screenshots-section page-frame section-block">
       <div class="section-heading"><p>Sleek & Powerful</p><h2>Made for power users</h2><span>Clean interface. Powerful under the hood.</span></div>
-      <div class="screenshot-carousel">
-        <button class="carousel-arrow left" aria-label="Previous screenshot">‹</button>
-        <figure class="shot-card shot-left"><img data-placeholder src="images/cliptap-player-panel.png" alt="ClipTap player panel with section and full download buttons" /></figure>
-        <figure class="shot-card shot-center"><img data-placeholder src="images/cliptap-helper-dashboard.png" alt="ClipTap Helper dashboard with queue, settings, server status, and logs" /></figure>
-        <figure class="shot-card shot-right"><img data-placeholder src="images/cliptap-helper-queue.png" alt="ClipTap Helper active download queue table" /></figure>
-        <button class="carousel-arrow right" aria-label="Next screenshot">›</button>
+      <div class="screenshot-carousel" data-screenshot-carousel>
+        <button class="carousel-arrow left" type="button" aria-label="Previous screenshot" data-carousel-prev>‹</button>
+        <figure class="shot-card shot-left"><img data-placeholder data-carousel-slot="prev" src="assets/screenshots/helper-active-download.png" alt="ClipTap Helper active download queue" /></figure>
+        <figure class="shot-card shot-center"><img data-placeholder data-carousel-slot="current" src="assets/screenshots/player-section-selection.png" alt="ClipTap selected section controls inside the YouTube player" /></figure>
+        <figure class="shot-card shot-right"><img data-placeholder data-carousel-slot="next" src="assets/screenshots/playlist-page-download.png" alt="ClipTap playlist page download button" /></figure>
+        <button class="carousel-arrow right" type="button" aria-label="Next screenshot" data-carousel-next>›</button>
       </div>
-      <div class="dots" aria-label="Screenshot pagination"><span class="active"></span><span></span><span></span></div>
+      <div class="dots" aria-label="Screenshot pagination" data-carousel-dots>
+        <button class="active" type="button" aria-label="Show screenshot 1"></button>
+        <button type="button" aria-label="Show screenshot 2"></button>
+        <button type="button" aria-label="Show screenshot 3"></button>
+        <button type="button" aria-label="Show screenshot 4"></button>
+        <button type="button" aria-label="Show screenshot 5"></button>
+      </div>
     </section>
 
     <section id="download" class="cta-banner page-frame">
       <div class="cta-copy">
         <h2>Ready to level up your downloads?</h2>
-        <p>Join thousands of users who trust ClipTap.</p>
+        <p>Keep YouTube downloads local and under your control.</p>
         <div class="cta-actions">
           <a class="button button-primary button-download" href="https://github.com/VELLUMCORE/cliptap/releases/latest"><img class="button-icon" src="./images/windows.svg" alt="" aria-hidden="true" />Download for Windows</a>
           <a class="button button-secondary button-github" href="https://github.com/VELLUMCORE/cliptap"><img class="button-icon" src="./images/github.png" alt="" aria-hidden="true" />View on GitHub</a>

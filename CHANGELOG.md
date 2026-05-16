@@ -9,6 +9,7 @@
 - Removed the Save Settings button and made Helper defaults save automatically when changed.
 
 **ClipTap**
+- Rebuilt the README with current v1.4 screenshots and made the homepage screenshot carousel interactive.
 - Updated the Supported Sites page to mark YouTube playlists and channels as supported and YouTube Shorts as working on.
 
 ## v1.3
