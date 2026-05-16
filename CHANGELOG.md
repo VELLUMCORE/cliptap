@@ -9,6 +9,7 @@
 - Removed the Save Settings button and made Helper defaults save automatically when changed.
 
 **ClipTap**
+- Reworked the homepage screenshot carousel to show three screenshots at once and include the full screenshot set.
 - Rebuilt the README with current v1.4 screenshots and made the homepage screenshot carousel interactive.
 - Added smooth slide motion to the homepage screenshot carousel and expanded the README legal notice.
 - Updated the Supported Sites page to mark YouTube playlists and channels as supported and YouTube Shorts as working on.
