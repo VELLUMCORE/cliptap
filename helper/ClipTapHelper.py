@@ -1755,11 +1755,11 @@ def build_download_command(job: DownloadJob) -> list[str]:
     download_media = payload.get("downloadMedia", "video_with_audio")
     target_suffix = DOWNLOAD_TARGET_SUFFIXES.get(payload.get("downloadTarget", "merged"), "")
     is_live_section = mode == "section" and (payload.get("isLiveDvr") or job.is_live)
-    if is_live_section:
-        command += ["--extractor-args", "youtube:player_client=ios,web"]
-        command += ["-f", yt_dlp_live_dvr_section_format_for(download_media)]
-    else:
-        command += ["-f", yt_dlp_format_for(quality, download_media)]
+    # Keep the normal YouTube DASH format selection for live DVR sections.
+    # Some DASH formats cannot be partially downloaded by yt-dlp itself, but
+    # they are still useful for the FFmpeg fallback because yt-dlp can expose
+    # their direct media URLs with -g.
+    command += ["-f", yt_dlp_format_for(quality, download_media)]
     if download_media == "audio":
         command += ["-x", "--audio-format", "mp3"]
     elif download_media == "video_with_audio":
@@ -2128,6 +2128,234 @@ def prepare_metadata(job: DownloadJob):
 
 
 
+
+def section_output_path_for_extension(job: DownloadJob, extension: str) -> Path:
+    payload = job.payload
+    title = safe_filename(job.title, "cliptap")
+    start = seconds_to_clock(payload["start"]).replace(":", "-")
+    end = seconds_to_clock(payload["end"]).replace(":", "-")
+    target_suffix = DOWNLOAD_TARGET_SUFFIXES.get(payload.get("downloadTarget", "merged"), "")
+    if not extension.startswith("."):
+        extension = f".{extension}"
+    return unique_path(OUTPUT_DIR / f"{title} [{job.id}] {start}-{end}{target_suffix}{extension}")
+
+
+def summarize_external_process_failure(lines: list[str], code: int, tool_name: str) -> str:
+    clean_lines = [line.strip() for line in lines if line and line.strip()]
+    priority = []
+    for line in clean_lines:
+        lowered = line.lower()
+        if "error:" in lowered or "warning:" in lowered or "invalid" in lowered or "failed" in lowered:
+            priority.append(line)
+    if priority:
+        return f"{tool_name} exited with code {code}. {priority[-1]}"
+    tail = [line for line in clean_lines if not line.startswith("[debug]")][-4:]
+    if tail:
+        return f"{tool_name} exited with code {code}. " + " | ".join(tail)
+    return f"{tool_name} exited with code {code}."
+
+
+def extract_live_dvr_direct_urls(job: DownloadJob) -> list[str]:
+    yt_dlp_cmd, _ = find_yt_dlp()
+    if not yt_dlp_cmd:
+        raise ClipTapError("yt-dlp is not installed.")
+
+    payload = job.payload
+    command = list(yt_dlp_cmd) + [
+        "--no-playlist",
+        "--no-warnings",
+        "--live-from-start",
+        "-g",
+        "-f", yt_dlp_format_for(payload.get("quality", "best"), payload.get("downloadMedia", "video_with_audio")),
+    ]
+    if payload.get("cookieBrowser"):
+        command += ["--cookies-from-browser", payload["cookieBrowser"]]
+    command.append(payload["url"])
+
+    update_job(job, status="Resolving live stream URLs...", phase="metadata", downloaded="yt-dlp -g fallback")
+    result = subprocess.run(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+        creationflags=CREATE_NO_WINDOW,
+        check=False,
+    )
+    output_lines = (result.stdout or "").splitlines() + (result.stderr or "").splitlines()
+    if result.returncode != 0:
+        raise ClipTapError(summarize_external_process_failure(output_lines, result.returncode, "yt-dlp URL extraction"))
+
+    urls = [line.strip() for line in (result.stdout or "").splitlines() if line.strip().startswith(("http://", "https://"))]
+    if not urls:
+        message = " | ".join(line.strip() for line in output_lines[-4:] if line.strip())
+        raise ClipTapError(f"yt-dlp did not return direct media URLs. {message}".strip())
+    return urls
+
+
+def build_live_dvr_ffmpeg_fallback_command(job: DownloadJob, urls: list[str], output_file: Path) -> list[str]:
+    ffmpeg_path, _ = find_ffmpeg()
+    if not ffmpeg_path:
+        raise ClipTapError("FFmpeg is not installed.")
+
+    payload = job.payload
+    download_media = payload.get("downloadMedia", "video_with_audio")
+    start_time = float(payload.get("downloadStart", payload["start"]))
+    duration = max(0.1, float(payload.get("downloadEnd", payload["end"])) - start_time)
+
+    command = [str(ffmpeg_path), "-hide_banner", "-y"]
+    for url in urls:
+        command += ["-ss", seconds_to_clock(start_time), "-i", url]
+    command += ["-t", seconds_to_clock(duration), "-progress", "pipe:1", "-nostats"]
+
+    if download_media == "audio":
+        command += ["-vn", "-map", "0:a:0?", "-c:a", "libmp3lame", "-q:a", "2"]
+    elif download_media == "video_only":
+        command += ["-map", "0:v:0?", "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-movflags", "+faststart"]
+    else:
+        if len(urls) >= 2:
+            command += ["-map", "0:v:0?", "-map", "1:a:0?"]
+        else:
+            command += ["-map", "0:v:0?", "-map", "0:a:0?"]
+        command += [
+            "-c:v", "libx264",
+            "-preset", "veryfast",
+            "-crf", "18",
+            "-c:a", "aac",
+            "-b:a", "192k",
+            "-movflags", "+faststart",
+        ]
+
+    command.append(str(output_file))
+    return command
+
+
+def run_live_dvr_section_download(job: DownloadJob):
+    section_start = float(job.payload["start"])
+    section_end = float(job.payload["end"])
+    section_duration = max(0.1, section_end - section_start)
+    recent_output: list[str] = []
+
+    def remember(line: str):
+        if line and line.strip():
+            recent_output.append(line.strip())
+            del recent_output[:-60]
+
+    ffmpeg_out_time_re = re.compile(r"\bout_time=(\d+:\d+:\d+(?:\.\d+)?)")
+    ffmpeg_out_time_raw_re = re.compile(r"\bout_time_(?:ms|us)=(\d+)")
+    ffmpeg_time_re = re.compile(r"\btime=(\d+:\d+:\d+(?:\.\d+)?)")
+    percent_re = re.compile(r"\[download\]\s+(\d+(?:\.\d+)?)%")
+
+    def elapsed_from_ffmpeg_line(line: str) -> float | None:
+        raw_match = ffmpeg_out_time_raw_re.search(line)
+        out_time_match = ffmpeg_out_time_re.search(line)
+        time_match = ffmpeg_time_re.search(line)
+        if raw_match:
+            raw_time = float(raw_match.group(1))
+            elapsed = raw_time / 1_000_000.0
+            if elapsed < 0.01 and raw_time > 0:
+                elapsed = raw_time / 1000.0
+            return elapsed
+        if out_time_match:
+            return clock_to_seconds(out_time_match.group(1))
+        if time_match:
+            return clock_to_seconds(time_match.group(1))
+        return None
+
+    def update_from_ffmpeg_line(line: str):
+        elapsed = elapsed_from_ffmpeg_line(line)
+        if elapsed is None:
+            return
+        progress = max(1.0, min(99.0, (elapsed / section_duration) * 100.0))
+        update_job(job, status="Cutting live DVR section...", phase="processing", progress=progress)
+
+    def run_yt_dlp_section_attempt() -> bool:
+        command = build_download_command(job)
+        section_arg = "<missing>"
+        format_arg = "<default>"
+        try:
+            section_index = command.index("--download-sections")
+            section_arg = command[section_index + 1]
+        except Exception:
+            pass
+        try:
+            format_index = command.index("-f")
+            format_arg = command[format_index + 1]
+        except Exception:
+            pass
+        update_job(
+            job,
+            status="Downloading live DVR section...",
+            phase="downloading",
+            progress=1.0,
+            downloaded=f"yt-dlp section {section_arg} · format {format_arg}",
+        )
+        job.process = popen_text(command, OUTPUT_DIR)
+        for line in iter_process_records(job.process, job.cancel_event):
+            if job.cancel_event.is_set():
+                raise CancelledError()
+            remember(line)
+            match = percent_re.search(line)
+            if match:
+                update_job(job, progress=max(1.0, min(99.0, float(match.group(1)))), status="Downloading live DVR section...")
+            elapsed = elapsed_from_ffmpeg_line(line)
+            if elapsed is not None:
+                progress = max(1.0, min(99.0, (elapsed / section_duration) * 100.0))
+                update_job(job, progress=progress, status="Downloading live DVR section...")
+        code = job.process.wait()
+        if job.cancel_event.is_set():
+            raise CancelledError()
+        if code == 0:
+            update_job(job, status="Finished", phase="finished", progress=100.0)
+            return True
+        failure = summarize_process_failure(recent_output, code)
+        update_job(job, status="Falling back to FFmpeg...", phase="processing", progress=1.0, downloaded=failure)
+        return False
+
+    try:
+        update_job(
+            job,
+            status="Live DVR section detected",
+            phase="downloading",
+            progress=1.0,
+            downloaded=f"UI {seconds_to_clock(section_start)} → {seconds_to_clock(section_end)}",
+        )
+        if run_yt_dlp_section_attempt():
+            return
+
+        urls = extract_live_dvr_direct_urls(job)
+        extension = ".mp3" if media_is_audio_only(job.payload) else ".mp4"
+        output_file = section_output_path_for_extension(job, extension)
+        update_job(
+            job,
+            status="Cutting live DVR section...",
+            phase="processing",
+            progress=1.0,
+            downloaded=f"FFmpeg fallback · {len(urls)} direct URL{'s' if len(urls) != 1 else ''}",
+        )
+        command = build_live_dvr_ffmpeg_fallback_command(job, urls, output_file)
+        job.process = popen_text(command, OUTPUT_DIR)
+        recent_output.clear()
+        for line in iter_process_records(job.process, job.cancel_event):
+            if job.cancel_event.is_set():
+                raise CancelledError()
+            remember(line)
+            update_from_ffmpeg_line(line)
+        code = job.process.wait()
+        if job.cancel_event.is_set():
+            raise CancelledError()
+        if code != 0:
+            raise ClipTapError(summarize_external_process_failure(recent_output, code, "FFmpeg fallback"))
+        update_job(job, status="Finished", phase="finished", progress=100.0, downloaded=str(output_file))
+    finally:
+        if job.process and job.process.poll() is None:
+            try:
+                job.process.kill()
+            except Exception:
+                pass
+
 def run_section_download(job: DownloadJob):
     payload = job.payload
     temp_dir = TEMP_ROOT / "section" / job.id
@@ -2229,11 +2457,14 @@ def run_section_download(job: DownloadJob):
 def run_download(job: DownloadJob):
     try:
         prepare_metadata(job)
-        if job.payload["mode"] == "section" and not (job.payload.get("isLiveDvr") or job.is_live):
+        if job.payload["mode"] == "section" and job.payload.get("isLiveDvr"):
+            run_live_dvr_section_download(job)
+            return
+        if job.payload["mode"] == "section" and not job.is_live:
             run_section_download(job)
             return
 
-        if job.payload["mode"] == "section" and (job.payload.get("isLiveDvr") or job.is_live):
+        if job.payload["mode"] == "section" and job.is_live:
             status = "Downloading live DVR section..." if job.payload.get("isLiveDvr") else "Downloading live section..."
             phase = "downloading"
             ui_range = (
