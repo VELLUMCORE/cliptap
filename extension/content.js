@@ -905,10 +905,10 @@
     document.documentElement.appendChild(style);
   }
 
-  const PLAYER_TOOLBAR_ICON_VERSION = '1.4-18';
+  const PLAYER_TOOLBAR_ICON_VERSION = '1.4-19';
   const PLAYLIST_BUTTON_VERSION = '57';
-  const CHANNEL_BUTTON_VERSION = '1.4-18';
-  const SHORTS_BUTTON_VERSION = '1.4-18';
+  const CHANNEL_BUTTON_VERSION = '1.4-19';
+  const SHORTS_BUTTON_VERSION = '1.4-19';
   let cliptapToastTimer = 0;
 
   function ensureClipTapToast() {

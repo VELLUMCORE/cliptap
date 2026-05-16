@@ -3,8 +3,7 @@
 ## v1.4
 
 **ClipTap Helper**
-- Corrected live DVR section offsets so yt-dlp receives source-relative ranges instead of UI timeline ranges.
-- Fixed live DVR section downloads so selected ranges no longer hang while recording the live stream.
+- Fixed live DVR section downloads by preferring partial-downloadable HLS formats and surfacing yt-dlp failure details in the job error.
 - Added automatic update checks when the Helper manager starts and a clear shutdown message after stopping the Helper.
 - Replaced the Restart Helper hint with a Stop Helper button that shuts down the local manager.
 - Replaced the Auto-merge setting with independent output toggles that can download audio files, video-only files, merged video files, or any combination of them.

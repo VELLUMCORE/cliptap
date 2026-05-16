@@ -1569,6 +1569,33 @@ def yt_dlp_format_for(quality: str, download_media: str) -> str:
     return FORMAT_MAP.get(quality, FORMAT_MAP["best"])
 
 
+def yt_dlp_live_dvr_section_format_for(download_media: str) -> str:
+    # Many YouTube live DVR DASH formats, e.g. 299+140, cannot be used with
+    # --download-sections. Prefer HLS formats so FFmpeg can clip the selected
+    # range without following the live stream forever. Do not silently fall back
+    # to DASH here; a clear format error is better than a stuck download.
+    if download_media == "audio":
+        return "bestaudio[protocol=m3u8_native]/bestaudio[protocol=m3u8]/bestaudio[protocol*=m3u8]"
+    if download_media == "video_only":
+        return "bestvideo[protocol=m3u8_native]/bestvideo[protocol=m3u8]/bestvideo[protocol*=m3u8]"
+    return "best[protocol=m3u8_native]/best[protocol=m3u8]/best[protocol*=m3u8]"
+
+
+def summarize_process_failure(lines: list[str], code: int) -> str:
+    clean_lines = [line.strip() for line in lines if line and line.strip()]
+    priority = []
+    for line in clean_lines:
+        lowered = line.lower()
+        if "error:" in lowered or "warning:" in lowered or "cannot be partially downloaded" in lowered:
+            priority.append(line)
+    if priority:
+        return f"yt-dlp exited with code {code}. {priority[-1]}"
+    tail = [line for line in clean_lines if not line.startswith("[debug]")][-3:]
+    if tail:
+        return f"yt-dlp exited with code {code}. " + " | ".join(tail)
+    return f"yt-dlp exited with code {code}."
+
+
 def media_is_audio_only(payload: dict) -> bool:
     return payload.get("downloadMedia") == "audio"
 
@@ -1642,8 +1669,12 @@ def clean_payload(payload: dict) -> dict:
             if live_dvr_offset <= 0 and video_duration > 0 and timeline_duration > 0:
                 live_dvr_offset = max(0.0, video_duration - timeline_duration)
             cleaned["liveDvrOffset"] = live_dvr_offset
-            cleaned["downloadStart"] = start + live_dvr_offset
-            cleaned["downloadEnd"] = end + live_dvr_offset
+            # yt-dlp --download-sections with --live-from-start uses the same
+            # UI timeline range that YouTube shows for live DVR. Keep the
+            # requested section on that axis instead of adding the moving
+            # source offset.
+            cleaned["downloadStart"] = start
+            cleaned["downloadEnd"] = end
 
     return cleaned
 
@@ -1723,7 +1754,12 @@ def build_download_command(job: DownloadJob) -> list[str]:
 
     download_media = payload.get("downloadMedia", "video_with_audio")
     target_suffix = DOWNLOAD_TARGET_SUFFIXES.get(payload.get("downloadTarget", "merged"), "")
-    command += ["-f", yt_dlp_format_for(quality, download_media)]
+    is_live_section = mode == "section" and (payload.get("isLiveDvr") or job.is_live)
+    if is_live_section:
+        command += ["--extractor-args", "youtube:player_client=ios,web"]
+        command += ["-f", yt_dlp_live_dvr_section_format_for(download_media)]
+    else:
+        command += ["-f", yt_dlp_format_for(quality, download_media)]
     if download_media == "audio":
         command += ["-x", "--audio-format", "mp3"]
     elif download_media == "video_with_audio":
@@ -2226,16 +2262,22 @@ def run_download(job: DownloadJob):
         command = build_download_command(job)
         if job.payload["mode"] == "section" and job.payload.get("isLiveDvr"):
             section_arg = ""
+            format_arg = ""
             try:
                 section_index = command.index("--download-sections")
                 section_arg = command[section_index + 1]
             except Exception:
                 section_arg = "<missing>"
+            try:
+                format_index = command.index("-f")
+                format_arg = command[format_index + 1]
+            except Exception:
+                format_arg = "<default>"
             update_job(
                 job,
                 status="Downloading live DVR section...",
                 phase=phase,
-                downloaded=f"--download-sections {section_arg}",
+                downloaded=f"--download-sections {section_arg} · format {format_arg}",
             )
         job.process = popen_text(command, OUTPUT_DIR)
 
@@ -2246,6 +2288,7 @@ def run_download(job: DownloadJob):
         playlist_item_re = re.compile(r"Downloading item\s+(\d+)\s+of\s+(\d+)", re.IGNORECASE)
         playlist_item_index = 1
         playlist_item_total = 1
+        recent_output: list[str] = []
 
         ffmpeg_time_re = re.compile(r"\btime=(\d+:\d+:\d+(?:\.\d+)?)")
         ffmpeg_out_time_re = re.compile(r"\bout_time=(\d+:\d+:\d+(?:\.\d+)?)")
@@ -2272,6 +2315,10 @@ def run_download(job: DownloadJob):
         for line in iter_process_records(job.process, job.cancel_event):
             if job.cancel_event.is_set():
                 raise CancelledError()
+
+            if line and line.strip():
+                recent_output.append(line.strip())
+                del recent_output[:-40]
 
             changes = {}
 
@@ -2342,7 +2389,7 @@ def run_download(job: DownloadJob):
         if job.cancel_event.is_set():
             raise CancelledError()
         if code != 0:
-            raise ClipTapError(f"yt-dlp exited with code {code}.")
+            raise ClipTapError(summarize_process_failure(recent_output, code))
         update_job(job, status="Finished", phase="finished", progress=100.0)
     except CancelledError:
         update_job(job, status="Cancelled", phase="cancelled")
