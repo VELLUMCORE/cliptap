@@ -3,6 +3,7 @@
 ## v1.3
 
 **ClipTap Helper**
+- Added GitHub Releases update checking to the Helper manager.
 - Added YouTube playlist download mode in the helper queue using yt-dlp playlist handling.
 - Added per-job Cancel controls, working persistent History, real Clear Completed behavior, and updated the helper sidebar version to 1.3.
 - Removed misleading Stop controls because safe pause/resume support is not available for the current yt-dlp/FFmpeg subprocess workflow.

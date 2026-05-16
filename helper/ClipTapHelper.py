@@ -25,12 +25,16 @@ import webbrowser
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
 HOST = "127.0.0.1"
 PORT = 17723
 APP_NAME = "ClipTap Manager"
 APP_VERSION = "1.3"
+RELEASES_URL = "https://github.com/VELLUMCORE/cliptap/releases"
+LATEST_RELEASE_API = "https://api.github.com/repos/VELLUMCORE/cliptap/releases/latest"
 OUTPUT_DIR = Path.home() / "Downloads" / "ClipTap"
 TEMP_ROOT = Path(tempfile.gettempdir()) / "ClipTap"
 FROZEN = bool(getattr(sys, "frozen", False))
@@ -104,7 +108,7 @@ INDEX_HTML = r"""<!doctype html>
             <div class="tool-row"><span>yt-dlp</span><strong data-role="yt-state" class="pending">Checking</strong><em data-role="yt-desc">—</em><button id="installYtDlp" class="mini-button" type="button">Check Again</button></div>
             <div class="tool-row"><span>ffmpeg</span><strong data-role="ffmpeg-state" class="pending">Checking</strong><em data-role="ffmpeg-desc">—</em><button id="installFfmpeg" class="mini-button" type="button">Check Again</button></div>
             <div class="tool-row"><span>Python runtime</span><strong class="ok">Ready</strong><em data-role="python-version">Python</em><button id="refreshDeps" class="mini-button" type="button">Check Again</button></div>
-            <div class="tool-row"><span>Update check</span><strong class="warn">Manual</strong><em data-role="update-version">Local build</em><button id="openReleases" class="mini-button" type="button">Update</button></div>
+            <div class="tool-row"><span>Update check</span><strong data-role="update-state" class="pending">Ready</strong><em data-role="update-version">Not checked</em><button id="openReleases" class="mini-button" type="button">Check Update</button></div>
           </div>
         </article>
 
@@ -594,6 +598,7 @@ const logOutput = $('#logOutput');
 const seenJobStates = new Map();
 let logLines = [];
 let lastJobs = [];
+let lastUpdateCheck = null;
 
 function nowStamp() {
   const d = new Date();
@@ -657,6 +662,68 @@ function renderInstallTasks(installs = {}) {
   installLog.textContent = recent.log || '';
 }
 
+function setUpdateState(label, detail, className = 'pending', buttonText = 'Check Update') {
+  const state = document.querySelector('[data-role="update-state"]');
+  const desc = document.querySelector('[data-role="update-version"]');
+  const button = $('#openReleases');
+  if (state) {
+    state.textContent = label;
+    state.className = className;
+  }
+  if (desc) desc.textContent = detail;
+  if (button) button.textContent = buttonText;
+}
+
+function formatUpdateDetail(data) {
+  const latest = data.latestVersion || 'unknown';
+  if (data.publishedAt) {
+    return `Latest: ${latest} · ${String(data.publishedAt).slice(0, 10)}`;
+  }
+  return `Latest: ${latest}`;
+}
+
+async function checkUpdates() {
+  const button = $('#openReleases');
+  if (lastUpdateCheck?.releaseUrl && button?.dataset.action === 'open-release') {
+    window.open(lastUpdateCheck.releaseUrl, '_blank', 'noopener');
+    return;
+  }
+
+  try {
+    setUpdateState('Checking', 'GitHub Releases...', 'pending', 'Checking...');
+    const data = await api('/api/update-check');
+    lastUpdateCheck = data;
+
+    if (!data.ok) {
+      setUpdateState('Failed', data.error || 'Unable to check', 'bad', 'Check Again');
+      if (button) delete button.dataset.action;
+      addLog('error', data.error || 'Update check failed.');
+      return;
+    }
+
+    if (data.updateAvailable) {
+      setUpdateState('Available', formatUpdateDetail(data), 'warn', 'Open Release');
+      if (button) button.dataset.action = 'open-release';
+      addLog('info', `Update available: ${data.latestVersion}`);
+      return;
+    }
+
+    if (button) delete button.dataset.action;
+    if (data.isNewerLocalBuild) {
+      setUpdateState('Local build', formatUpdateDetail(data), 'ok', 'Check Again');
+      addLog('info', `Latest release: ${data.latestVersion}. You are running a newer local build.`);
+      return;
+    }
+
+    setUpdateState('Up to date', formatUpdateDetail(data), 'ok', 'Check Again');
+    addLog('info', `ClipTap is up to date: ${data.currentVersion}`);
+  } catch (error) {
+    if (button) delete button.dataset.action;
+    setUpdateState('Failed', error.message || 'Unable to check', 'bad', 'Check Again');
+    addLog('error', error.message || 'Update check failed.');
+  }
+}
+
 async function refreshStatus() {
   try {
     const data = await api('/api/status');
@@ -666,7 +733,7 @@ async function refreshStatus() {
     text('[data-role="output-dir"]', data.outputDir || 'Downloads');
     text('[data-role="app-version"]', data.appVersion || '—');
     text('[data-role="python-version"]', navigator.userAgentData?.platform || 'Ready');
-    text('[data-role="update-version"]', data.appVersion || 'Local build');
+    if (!lastUpdateCheck) text('[data-role="update-version"]', data.appVersion ? `Current: ${data.appVersion}` : 'Not checked');
     renderInstallTasks(data.installs);
   } catch (error) {
     text('[data-role="server-url"]', 'Offline');
@@ -854,7 +921,7 @@ $('#copyAddress')?.addEventListener('click', copyAddress);
 $('#copyAddressBottom')?.addEventListener('click', copyAddress);
 $('#restartHint')?.addEventListener('click', () => alert('Close and run ClipTapHelper.exe again to restart the helper.'));
 $('#moreMenu')?.addEventListener('click', () => alert('More actions will be added in a future build.'));
-$('#openReleases')?.addEventListener('click', () => addLog('info', 'Update check is manual in this local build.'));
+$('#openReleases')?.addEventListener('click', () => checkUpdates());
 $('#cancelAll')?.addEventListener('click', () => cancelAll().catch(error => alert(error.message)));
 document.addEventListener('click', (event) => {
   const cancelButton = event.target.closest('[data-cancel-job]');
@@ -865,7 +932,7 @@ document.addEventListener('click', (event) => {
 $('#clearCompleted')?.addEventListener('click', () => clearCompletedJobs().catch(error => alert(error.message)));
 $('#clearLogs')?.addEventListener('click', () => { logLines = []; renderLogs(); });
 $('#saveDefaults')?.addEventListener('click', saveDefaults);
-$('#checkUpdatesLink')?.addEventListener('click', () => addLog('info', 'Update check is manual in this local build.'));
+$('#checkUpdatesLink')?.addEventListener('click', () => checkUpdates());
 
 
 function pageFromUrl() {
@@ -1121,6 +1188,67 @@ def find_ffmpeg() -> tuple[Path | None, str]:
         return local, f"Local executable: {local}"
 
     return None, "Not installed"
+
+
+
+def version_tuple(value: str) -> tuple[int, int, int]:
+    raw = str(value or "").strip()
+    raw = re.sub(r"^[Vv]", "", raw)
+    raw = raw.split("-", 1)[0]
+    match = re.search(r"\d+(?:\.\d+){0,3}", raw)
+    if not match:
+        return (0, 0, 0)
+    parts = [int(part) for part in match.group(0).split(".")]
+    while len(parts) < 3:
+        parts.append(0)
+    return tuple(parts[:3])
+
+
+def check_for_updates() -> dict:
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": f"ClipTapManager/{APP_VERSION}",
+    }
+    request = Request(LATEST_RELEASE_API, headers=headers)
+    try:
+        with urlopen(request, timeout=8) as response:
+            release = json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        message = f"GitHub update check failed with HTTP {exc.code}."
+        if exc.code == 404:
+            message = "No public ClipTap release was found on GitHub."
+        elif exc.code == 403:
+            message = "GitHub update check is rate-limited or blocked. Try again later."
+        return {"ok": False, "error": message, "releaseUrl": RELEASES_URL}
+    except URLError as exc:
+        reason = getattr(exc, "reason", exc)
+        return {"ok": False, "error": f"Unable to reach GitHub Releases: {reason}", "releaseUrl": RELEASES_URL}
+    except TimeoutError:
+        return {"ok": False, "error": "GitHub update check timed out.", "releaseUrl": RELEASES_URL}
+    except Exception as exc:
+        return {"ok": False, "error": f"Unable to check for updates: {exc}", "releaseUrl": RELEASES_URL}
+
+    latest_version = str(release.get("tag_name") or release.get("name") or "").strip()
+    if not latest_version:
+        return {"ok": False, "error": "The latest GitHub release did not include a version tag.", "releaseUrl": RELEASES_URL}
+
+    current_parts = version_tuple(APP_VERSION)
+    latest_parts = version_tuple(latest_version)
+    release_url = str(release.get("html_url") or RELEASES_URL)
+    assets = release.get("assets") if isinstance(release.get("assets"), list) else []
+
+    return {
+        "ok": True,
+        "currentVersion": APP_VERSION,
+        "latestVersion": latest_version,
+        "latestName": release.get("name") or latest_version,
+        "releaseUrl": release_url,
+        "releasesUrl": RELEASES_URL,
+        "publishedAt": release.get("published_at"),
+        "updateAvailable": latest_parts > current_parts,
+        "isNewerLocalBuild": current_parts > latest_parts,
+        "assetNames": [str(asset.get("name")) for asset in assets if isinstance(asset, dict) and asset.get("name")],
+    }
 
 
 def dependency_status() -> dict:
@@ -1989,6 +2117,10 @@ class ClipTapHandler(BaseHTTPRequestHandler):
             with LOCK:
                 data["installs"] = {name: task.public() for name, task in INSTALLS.items()}
             json_response(self, data)
+            return
+
+        if path == "/api/update-check":
+            json_response(self, check_for_updates())
             return
 
         if path == "/api/jobs":
