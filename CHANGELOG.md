@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.4
+
+**ClipTap Helper**
+- Replaced the Auto-merge setting with download mode controls for audio-only, video-only, and video-with-audio downloads.
+
+**ClipTap**
+- No extension changes in this build.
+
 ## v1.3
 
 **ClipTap Helper**

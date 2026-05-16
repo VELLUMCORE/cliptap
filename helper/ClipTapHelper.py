@@ -32,7 +32,7 @@ from urllib.request import Request, urlopen
 HOST = "127.0.0.1"
 PORT = 17723
 APP_NAME = "ClipTap Manager"
-APP_VERSION = "1.3"
+APP_VERSION = "1.4"
 RELEASES_URL = "https://github.com/VELLUMCORE/cliptap/releases"
 LATEST_RELEASE_API = "https://api.github.com/repos/VELLUMCORE/cliptap/releases/latest"
 OUTPUT_DIR = Path.home() / "Downloads" / "ClipTap"
@@ -135,7 +135,14 @@ INDEX_HTML = r"""<!doctype html>
           <label class="field"><span>Preferred video format</span><select id="videoFormat"><option>mp4 (h264/aac)</option><option>webm (vp9/opus)</option><option>best available</option></select></label>
           <label class="field"><span>Preferred audio format</span><select id="audioFormat"><option>m4a (aac)</option><option>opus</option><option>best audio</option></select></label>
           <label class="field"><span>Cookies from browser</span><select id="cookieBrowser"><option>None</option><option>Chrome</option><option>Edge</option><option>Firefox</option></select></label>
-          <label class="check-line"><input id="autoMerge" type="checkbox" checked> <span>Auto-merge with ffmpeg</span></label>
+          <div class="field download-mode-field">
+            <span>Download mode</span>
+            <div class="download-mode-group" role="radiogroup" aria-label="Download mode">
+              <label class="mode-toggle"><input type="radio" name="downloadMedia" id="downloadAudio" value="audio"><span>download audio</span></label>
+              <label class="mode-toggle"><input type="radio" name="downloadMedia" id="downloadVideoOnly" value="video_only"><span>download video (no audio)</span></label>
+              <label class="mode-toggle"><input type="radio" name="downloadMedia" id="downloadVideoWithAudio" value="video_with_audio" checked><span>download video with audio</span></label>
+            </div>
+          </div>
           <button id="saveDefaults" class="button save" type="button">Save Settings</button>
         </article>
 
@@ -478,6 +485,29 @@ button, input, select { font: inherit; }
 }
 .field input:focus, .field select:focus { border-color: #5966ff; }
 .field-line { display: grid; grid-template-columns: 1fr 76px; gap: 8px; }
+.download-mode-field { margin-top: 15px; }
+.download-mode-group { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; min-width: 0; }
+.mode-toggle { position: relative; flex: 1 1 0; min-width: 0; }
+.mode-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.mode-toggle span {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 9px;
+  border: 1px solid #2a374c;
+  border-radius: 5px;
+  background: #101929;
+  color: #cfd8e8;
+  font-size: 11px;
+  font-weight: 760;
+  line-height: 1.15;
+  text-align: center;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.mode-toggle input:checked + span { border-color: #5966ff; background: rgba(89,102,255,.18); color: #f4f7ff; }
+.mode-toggle span:hover { background: #162236; border-color: #3a4860; }
 .check-line { display: flex; align-items: center; gap: 9px; margin-top: 15px; color: #cfd8e8; }
 .check-line input, .auto-scroll input { accent-color: var(--blue); }
 .logs-card { grid-column: 1 / -1; }
@@ -585,6 +615,8 @@ body[data-page="logs"] .logs-card pre {
   .main { padding: 12px 12px 16px; }
   .status-row, .tool-row { grid-template-columns: 1fr; gap: 5px; padding: 9px 0; }
   .section-head, .button-row, .head-actions { align-items: stretch; flex-direction: column; }
+  .download-mode-group { flex-wrap: wrap; }
+  .mode-toggle { flex-basis: 100%; }
   .field-line { grid-template-columns: 1fr; }
 }
 """
@@ -759,14 +791,21 @@ function formatDuration(job) {
 }
 
 function formatName(job) {
+  const media = job.payload?.downloadMedia || (job.payload?.quality === 'audio' ? 'audio' : 'video_with_audio');
+  const mediaLabels = {
+    audio: 'audio',
+    video_only: 'video only',
+    video_with_audio: 'video + audio',
+  };
   const quality = job.payload?.quality || 'best';
-  const labels = {
+  const qualityLabels = {
     best: 'best available',
-    '1080': 'mp4 (1080p)',
-    '720': 'mp4 (720p)',
+    '1080': 'up to 1080p',
+    '720': 'up to 720p',
     audio: 'audio (mp3)',
   };
-  return labels[quality] || quality;
+  if (media === 'audio') return 'audio (mp3)';
+  return `${mediaLabels[media] || media} · ${qualityLabels[quality] || quality}`;
 }
 
 function platform(job) {
@@ -888,7 +927,7 @@ function saveDefaults() {
     videoFormat: $('#videoFormat')?.value || '',
     audioFormat: $('#audioFormat')?.value || '',
     cookieBrowser: $('#cookieBrowser')?.value || '',
-    autoMerge: Boolean($('#autoMerge')?.checked),
+    downloadMedia: document.querySelector('input[name="downloadMedia"]:checked')?.value || 'video_with_audio',
   };
   localStorage.setItem('cliptap-manager-defaults', JSON.stringify(values));
   addLog('info', 'Download defaults saved locally.');
@@ -898,10 +937,19 @@ function loadDefaults() {
   try {
     const values = JSON.parse(localStorage.getItem('cliptap-manager-defaults') || '{}');
     for (const [key, value] of Object.entries(values)) {
+      if (key === 'downloadMedia') {
+        const selected = document.querySelector(`input[name="downloadMedia"][value="${CSS.escape(String(value))}"]`);
+        if (selected) selected.checked = true;
+        continue;
+      }
       const el = document.getElementById(key);
       if (!el) continue;
       if (el.type === 'checkbox') el.checked = Boolean(value);
       else el.value = value;
+    }
+    if (!document.querySelector('input[name="downloadMedia"]:checked')) {
+      const fallback = document.querySelector('input[name="downloadMedia"][value="video_with_audio"]');
+      if (fallback) fallback.checked = true;
     }
   } catch {}
 }
@@ -984,6 +1032,14 @@ FORMAT_MAP = {
     "720": "bv*[height<=720]+ba/b[height<=720]/b",
     "audio": "ba/b",
 }
+VIDEO_ONLY_FORMAT_MAP = {
+    "best": "bv*/bestvideo",
+    "1080": "bv*[height<=1080]/bestvideo[height<=1080]",
+    "720": "bv*[height<=720]/bestvideo[height<=720]",
+    "audio": "bv*/bestvideo",
+}
+AUDIO_ONLY_FORMAT = "ba/bestaudio/b"
+ALLOWED_DOWNLOAD_MEDIA = {"audio", "video_only", "video_with_audio"}
 
 ALLOWED_COOKIE_BROWSERS = {"", "edge", "chrome", "firefox"}
 ALLOWED_HOST_SUFFIXES = (
@@ -1303,6 +1359,31 @@ def is_allowed_url(url: str) -> bool:
     return any(host == suffix or host.endswith("." + suffix) for suffix in ALLOWED_HOST_SUFFIXES)
 
 
+def normalize_download_media(value: object, quality: str) -> str:
+    media = str(value or "").strip().lower().replace("-", "_")
+    if media in {"video", "merged", "default"}:
+        media = "video_with_audio"
+    if media not in ALLOWED_DOWNLOAD_MEDIA:
+        media = "audio" if quality == "audio" else "video_with_audio"
+    return media
+
+
+def yt_dlp_format_for(quality: str, download_media: str) -> str:
+    if download_media == "audio":
+        return AUDIO_ONLY_FORMAT
+    if download_media == "video_only":
+        return VIDEO_ONLY_FORMAT_MAP.get(quality, VIDEO_ONLY_FORMAT_MAP["best"])
+    return FORMAT_MAP.get(quality, FORMAT_MAP["best"])
+
+
+def media_is_audio_only(payload: dict) -> bool:
+    return payload.get("downloadMedia") == "audio"
+
+
+def media_is_video_only(payload: dict) -> bool:
+    return payload.get("downloadMedia") == "video_only"
+
+
 def clean_payload(payload: dict) -> dict:
     url = str(payload.get("url", "")).strip()
     if not is_allowed_url(url):
@@ -1315,6 +1396,9 @@ def clean_payload(payload: dict) -> dict:
     quality = str(payload.get("quality", "best"))
     if quality not in FORMAT_MAP:
         quality = "best"
+    download_media = normalize_download_media(payload.get("downloadMedia"), quality)
+    if download_media != "audio" and quality == "audio":
+        quality = "best"
 
     cookie_browser = str(payload.get("cookieBrowser", "")).strip().lower()
     if cookie_browser not in ALLOWED_COOKIE_BROWSERS:
@@ -1325,6 +1409,7 @@ def clean_payload(payload: dict) -> dict:
         "mode": mode,
         "title": str(payload.get("title", "")).strip(),
         "quality": quality,
+        "downloadMedia": download_media,
         "cookieBrowser": cookie_browser,
         "forceKeyframes": bool(payload.get("forceKeyframes")),
     }
@@ -1398,10 +1483,12 @@ def build_download_command(job: DownloadJob) -> list[str]:
     else:
         command.append("--no-playlist")
 
-    if quality == "audio":
-        command += ["-f", FORMAT_MAP[quality], "-x", "--audio-format", "mp3"]
-    else:
-        command += ["-f", FORMAT_MAP[quality], "--merge-output-format", "mp4"]
+    download_media = payload.get("downloadMedia", "video_with_audio")
+    command += ["-f", yt_dlp_format_for(quality, download_media)]
+    if download_media == "audio":
+        command += ["-x", "--audio-format", "mp3"]
+    elif download_media == "video_with_audio":
+        command += ["--merge-output-format", "mp4"]
 
     command += ["--ffmpeg-location", str(ffmpeg_path)]
 
@@ -1476,10 +1563,12 @@ def build_source_download_command(job: DownloadJob, temp_dir: Path) -> list[str]
         "--force-overwrites",
         "--paths", f"temp:{TEMP_ROOT}",
     ]
-    if quality == "audio":
-        command += ["-f", FORMAT_MAP[quality], "-x", "--audio-format", "mp3"]
-    else:
-        command += ["-f", FORMAT_MAP[quality], "--merge-output-format", "mp4"]
+    download_media = payload.get("downloadMedia", "video_with_audio")
+    command += ["-f", yt_dlp_format_for(quality, download_media)]
+    if download_media == "audio":
+        command += ["-x", "--audio-format", "mp3"]
+    elif download_media == "video_with_audio":
+        command += ["--merge-output-format", "mp4"]
     command += ["--ffmpeg-location", str(ffmpeg_path)]
     if payload.get("cookieBrowser"):
         command += ["--cookies-from-browser", payload["cookieBrowser"]]
@@ -1504,7 +1593,7 @@ def section_output_path(job: DownloadJob, source_file: Path) -> Path:
     title = safe_filename(job.title, "cliptap")
     start = seconds_to_clock(payload["start"]).replace(":", "-")
     end = seconds_to_clock(payload["end"]).replace(":", "-")
-    suffix = ".mp3" if payload.get("quality") == "audio" else ".mp4"
+    suffix = ".mp3" if media_is_audio_only(payload) else ".mp4"
     return unique_path(OUTPUT_DIR / f"{title} [{job.id}] {start}-{end}{suffix}")
 
 
@@ -1531,12 +1620,21 @@ def ffmpeg_trim_command(job: DownloadJob, source_file: Path, output_file: Path) 
         "-nostats",
     ]
 
-    if job.payload.get("quality") == "audio":
+    if media_is_audio_only(job.payload):
         command += [
             "-vn",
             "-map", "0:a:0?",
             "-c:a", "libmp3lame",
             "-q:a", "2",
+        ]
+    elif media_is_video_only(job.payload):
+        command += [
+            "-map", "0:v:0?",
+            "-an",
+            "-c:v", "libx264",
+            "-preset", "veryfast",
+            "-crf", "18",
+            "-movflags", "+faststart",
         ]
     else:
         command += [
