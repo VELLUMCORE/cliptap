@@ -226,9 +226,11 @@ The repository also includes a GitHub Actions workflow:
 
 ## Legal notice
 
-ClipTap is intended for lawful personal use, such as downloading content you own, content licensed for download, or content you have permission to save.
+ClipTap is an open-source utility intended for lawful personal use, such as downloading content you own, content licensed for download, or content you otherwise have permission to save.
 
-You are responsible for making sure your use of ClipTap complies with applicable laws, content licenses, and each platform's terms of service. ClipTap does not give you permission to download, copy, redistribute, or commercially use content owned by others.
+You are responsible for making sure your use of ClipTap complies with applicable laws, content licenses, and the terms of service of each platform. ClipTap does not give you permission to download, copy, redistribute, or commercially use content owned by others.
+
+Do not use ClipTap to infringe copyright, violate platform terms, or bypass access restrictions. The ClipTap project and its contributors are not responsible for misuse of this software or any consequences resulting from such misuse.
 
 ClipTap is not affiliated with YouTube, Google, or any other supported platform.
 

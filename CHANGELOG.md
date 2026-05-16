@@ -10,6 +10,7 @@
 
 **ClipTap**
 - Rebuilt the README with current v1.4 screenshots and made the homepage screenshot carousel interactive.
+- Added smooth slide motion to the homepage screenshot carousel and expanded the README legal notice.
 - Updated the Supported Sites page to mark YouTube playlists and channels as supported and YouTube Shorts as working on.
 
 ## v1.3
