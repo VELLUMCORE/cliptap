@@ -3,6 +3,7 @@
 ## v1.4
 
 **ClipTap Helper**
+- Replaced the Restart Helper hint with a Stop Helper button that shuts down the local manager.
 - Replaced the Auto-merge setting with independent output toggles that can download audio files, video-only files, merged video files, or any combination of them.
 - Removed the Save Settings button and made Helper defaults save automatically when changed.
 

@@ -98,7 +98,7 @@ INDEX_HTML = r"""<!doctype html>
           <div class="button-row">
             <button id="openOutput" class="button" type="button"><span class="button-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3.5 6.5h6l2 2h9v9.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><path d="M3.5 10h17"/></svg></span>Open Download Folder</button>
             <button id="copyAddressBottom" class="button" type="button"><span class="button-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 8h10v12H8z"/><path d="M6 16H4V4h10v2"/></svg></span>Copy Address</button>
-            <button id="restartHint" class="button" type="button"><span class="button-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg></span>Restart Helper</button>
+            <button id="stopHelper" class="button" type="button"><span class="button-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg></span>Stop Helper</button>
             <button id="moreMenu" class="button square" type="button" aria-label="More actions"><span class="button-icon dots" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18" cy="12" r="1.4"/></svg></span></button>
           </div>
         </article>
@@ -998,6 +998,12 @@ function copyAddress() {
   navigator.clipboard?.writeText(value).then(() => addLog('info', 'Local address copied.')).catch(() => addLog('error', 'Clipboard copy failed.'));
 }
 
+async function stopHelper() {
+  const confirmed = confirm('Stop ClipTap Helper? Active downloads may be interrupted.');
+  if (!confirmed) return;
+  await api('/api/shutdown', { method: 'POST' });
+}
+
 $('#installYtDlp')?.addEventListener('click', () => startInstall('yt-dlp').catch(error => alert(error.message)));
 $('#installFfmpeg')?.addEventListener('click', () => startInstall('ffmpeg').catch(error => alert(error.message)));
 $('#refreshDeps')?.addEventListener('click', () => refreshStatus().then(() => addLog('info', 'Dependency check refreshed.')));
@@ -1006,7 +1012,7 @@ $('#browseOutput')?.addEventListener('click', () => api('/api/open-output', { me
 $('#openLogs')?.addEventListener('click', () => api('/api/open-output', { method: 'POST' }).catch(error => alert(error.message)));
 $('#copyAddress')?.addEventListener('click', copyAddress);
 $('#copyAddressBottom')?.addEventListener('click', copyAddress);
-$('#restartHint')?.addEventListener('click', () => alert('Close and run ClipTapHelper.exe again to restart the helper.'));
+$('#stopHelper')?.addEventListener('click', () => stopHelper().catch(error => alert(error.message)));
 $('#moreMenu')?.addEventListener('click', () => alert('More actions will be added in a future build.'));
 $('#openReleases')?.addEventListener('click', () => checkUpdates());
 $('#cancelAll')?.addEventListener('click', () => cancelAll().catch(error => alert(error.message)));
@@ -2493,6 +2499,11 @@ class ClipTapHandler(BaseHTTPRequestHandler):
 
 def shutdown_server():
     time.sleep(0.2)
+    with LOCK:
+        jobs = list(JOBS.values())
+    for job in jobs:
+        if job.phase not in TERMINAL_PHASES:
+            job.cancel()
     if SERVER:
         SERVER.shutdown()
 
