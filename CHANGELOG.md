@@ -3,12 +3,13 @@
 ## v1.4
 
 **ClipTap Helper**
+- Added automatic update checks when the Helper manager starts and a clear shutdown message after stopping the Helper.
 - Replaced the Restart Helper hint with a Stop Helper button that shuts down the local manager.
 - Replaced the Auto-merge setting with independent output toggles that can download audio files, video-only files, merged video files, or any combination of them.
 - Removed the Save Settings button and made Helper defaults save automatically when changed.
 
 **ClipTap**
-- No extension changes in this build.
+- Updated the Supported Sites page to mark YouTube playlists and channels as supported and YouTube Shorts as working on.
 
 ## v1.3
 

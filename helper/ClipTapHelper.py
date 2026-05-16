@@ -585,6 +585,32 @@ body[data-page="logs"] .logs-card pre {
 .placeholder-panel p {
   margin: 0;
 }
+.shutdown-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background: var(--bg);
+}
+.shutdown-card {
+  width: min(520px, 100%);
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  text-align: center;
+}
+.shutdown-card h1 {
+  margin: 0 0 8px;
+  color: #f2f6ff;
+  font-size: 22px;
+}
+.shutdown-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
 
 @keyframes pulse { 0% { opacity: .65; } 50% { opacity: 1; } 100% { opacity: .65; } }
 @media (max-width: 1180px) {
@@ -632,6 +658,9 @@ let logLines = [];
 let lastJobs = [];
 let lastUpdateCheck = null;
 let saveDefaultsTimer = null;
+let statusRefreshTimer = null;
+let jobsRefreshTimer = null;
+let historyRefreshTimer = null;
 
 function nowStamp() {
   const d = new Date();
@@ -998,10 +1027,26 @@ function copyAddress() {
   navigator.clipboard?.writeText(value).then(() => addLog('info', 'Local address copied.')).catch(() => addLog('error', 'Clipboard copy failed.'));
 }
 
+function showStoppedMessage() {
+  [statusRefreshTimer, jobsRefreshTimer, historyRefreshTimer].forEach((timer) => {
+    if (timer) clearInterval(timer);
+  });
+  document.body.dataset.page = 'stopped';
+  document.body.innerHTML = `
+    <div class="shutdown-screen">
+      <section class="shutdown-card" role="status" aria-live="polite">
+        <h1>ClipTap Helper has stopped.</h1>
+        <p>You can now close this window.</p>
+      </section>
+    </div>
+  `;
+}
+
 async function stopHelper() {
   const confirmed = confirm('Stop ClipTap Helper? Active downloads may be interrupted.');
   if (!confirmed) return;
   await api('/api/shutdown', { method: 'POST' });
+  showStoppedMessage();
 }
 
 $('#installYtDlp')?.addEventListener('click', () => startInstall('yt-dlp').catch(error => alert(error.message)));
@@ -1077,9 +1122,10 @@ addLog('info', 'Extension requests will appear in the queue automatically.');
 refreshStatus();
 refreshJobs().catch(console.error);
 refreshHistory().catch(console.error);
-setInterval(refreshStatus, 2500);
-setInterval(() => refreshJobs().catch(console.error), 1000);
-setInterval(() => refreshHistory().catch(console.error), 2500);
+checkUpdates().catch(console.warn);
+statusRefreshTimer = setInterval(refreshStatus, 2500);
+jobsRefreshTimer = setInterval(() => refreshJobs().catch(console.error), 1000);
+historyRefreshTimer = setInterval(() => refreshHistory().catch(console.error), 2500);
 """
 
 FORMAT_MAP = {
