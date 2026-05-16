@@ -694,9 +694,9 @@
     document.documentElement.appendChild(style);
   }
 
-  const PLAYER_TOOLBAR_ICON_VERSION = '81';
+  const PLAYER_TOOLBAR_ICON_VERSION = '83';
   const PLAYLIST_BUTTON_VERSION = '57';
-  const CHANNEL_BUTTON_VERSION = '81';
+  const CHANNEL_BUTTON_VERSION = '83';
   let cliptapToastTimer = 0;
 
   function ensureClipTapToast() {
@@ -917,6 +917,25 @@
   function setPanelMessage(text) {
     const el = document.querySelector('#cliptap-player-panel [data-role="message"]');
     if (el) el.textContent = text;
+  }
+
+  function resetForNewVideoIfNeeded() {
+    const key = getVideoKey();
+    if (!key || state.lastVideoKey === key) return;
+
+    state.lastVideoKey = key;
+    state.start = null;
+    state.end = null;
+    state.panelOpen = false;
+    state.loopEnabled = false;
+    state.dragging = null;
+    stopLoopWatcher();
+  }
+
+  function togglePanel() {
+    resetForNewVideoIfNeeded();
+    state.panelOpen = !state.panelOpen;
+    render();
   }
 
   function setCurrentTime(seconds) {

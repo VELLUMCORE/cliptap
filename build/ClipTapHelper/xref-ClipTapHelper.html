@@ -189,7 +189,9 @@ imports:
  &#8226;   <a href="#time">time</a>
  &#8226;   <a href="#traceback">traceback</a>
  &#8226;   <a href="#types">types</a>
+ &#8226;   <a href="#urllib.error">urllib.error</a>
  &#8226;   <a href="#urllib.parse">urllib.parse</a>
+ &#8226;   <a href="#urllib.request">urllib.request</a>
  &#8226;   <a href="#uuid">uuid</a>
  &#8226;   <a href="#warnings">warnings</a>
  &#8226;   <a href="#weakref">weakref</a>
@@ -2477,8 +2479,6 @@ imported by:
  &#8226;   <a href="#setuptools.command.sdist">setuptools.command.sdist</a>
  &#8226;   <a href="#setuptools.compat.py311">setuptools.compat.py311</a>
  &#8226;   <a href="#setuptools.config._apply_pyprojecttoml">setuptools.config._apply_pyprojecttoml</a>
- &#8226;   <a href="#setuptools.config._validate_pyproject.error_reporting">setuptools.config._validate_pyproject.error_reporting</a>
- &#8226;   <a href="#setuptools.config._validate_pyproject.formats">setuptools.config._validate_pyproject.formats</a>
  &#8226;   <a href="#setuptools.config.expand">setuptools.config.expand</a>
  &#8226;   <a href="#setuptools.config.pyprojecttoml">setuptools.config.pyprojecttoml</a>
  &#8226;   <a href="#setuptools.config.setupcfg">setuptools.config.setupcfg</a>
@@ -6563,7 +6563,6 @@ imported by:
  &#8226;   <a href="#setuptools._vendor.packaging._manylinux">setuptools._vendor.packaging._manylinux</a>
  &#8226;   <a href="#setuptools._vendor.zipp._functools">setuptools._vendor.zipp._functools</a>
  &#8226;   <a href="#setuptools.command._requirestxt">setuptools.command._requirestxt</a>
- &#8226;   <a href="#setuptools.config._validate_pyproject.extra_validations">setuptools.config._validate_pyproject.extra_validations</a>
  &#8226;   <a href="#setuptools.config.setupcfg">setuptools.config.setupcfg</a>
  &#8226;   <a href="#shlex">shlex</a>
  &#8226;   <a href="#shutil">shutil</a>
@@ -12625,7 +12624,6 @@ imported by:
  &#8226;   <a href="#setuptools.command._requirestxt">setuptools.command._requirestxt</a>
  &#8226;   <a href="#setuptools.command.sdist">setuptools.command.sdist</a>
  &#8226;   <a href="#setuptools.config._apply_pyprojecttoml">setuptools.config._apply_pyprojecttoml</a>
- &#8226;   <a href="#setuptools.config._validate_pyproject.extra_validations">setuptools.config._validate_pyproject.extra_validations</a>
  &#8226;   <a href="#setuptools.config._validate_pyproject.formats">setuptools.config._validate_pyproject.formats</a>
  &#8226;   <a href="#setuptools.config.expand">setuptools.config.expand</a>
  &#8226;   <a href="#setuptools.discovery">setuptools.discovery</a>
@@ -13060,7 +13058,6 @@ imported by:
  &#8226;   <a href="#dataclasses">dataclasses</a>
  &#8226;   <a href="#inspect">inspect</a>
  &#8226;   <a href="#rlcompleter">rlcompleter</a>
- &#8226;   <a href="#setuptools.config._validate_pyproject.formats">setuptools.config._validate_pyproject.formats</a>
  &#8226;   <a href="#traceback">traceback</a>
  &#8226;   <a href="#typing_extensions">typing_extensions</a>
 
@@ -20120,8 +20117,7 @@ imported by:
   <a target="code" href="///C:/Users/byulger/AppData/Local/Python/pythoncore-3.14-64/Lib/site-packages/setuptools/config/_validate_pyproject/error_reporting.py" type="text/plain"><tt>setuptools.config._validate_pyproject.error_reporting</tt></a>
 <span class="moduletype">SourceModule</span>  <div class="import">
 imports:
-    <a href="#__future__">__future__</a>
- &#8226;   <a href="#contextlib">contextlib</a>
+    <a href="#contextlib">contextlib</a>
  &#8226;   <a href="#io">io</a>
  &#8226;   <a href="#json">json</a>
  &#8226;   <a href="#logging">logging</a>
@@ -20149,9 +20145,7 @@ imported by:
   <a target="code" href="///C:/Users/byulger/AppData/Local/Python/pythoncore-3.14-64/Lib/site-packages/setuptools/config/_validate_pyproject/extra_validations.py" type="text/plain"><tt>setuptools.config._validate_pyproject.extra_validations</tt></a>
 <span class="moduletype">SourceModule</span>  <div class="import">
 imports:
-    <a href="#collections">collections</a>
- &#8226;   <a href="#inspect">inspect</a>
- &#8226;   <a href="#itertools">itertools</a>
+    <a href="#inspect">inspect</a>
  &#8226;   <a href="#setuptools.config._validate_pyproject">setuptools.config._validate_pyproject</a>
  &#8226;   <a href="#setuptools.config._validate_pyproject.error_reporting">setuptools.config._validate_pyproject.error_reporting</a>
  &#8226;   <a href="#typing">typing</a>
@@ -20208,11 +20202,9 @@ imported by:
   <a target="code" href="///C:/Users/byulger/AppData/Local/Python/pythoncore-3.14-64/Lib/site-packages/setuptools/config/_validate_pyproject/formats.py" type="text/plain"><tt>setuptools.config._validate_pyproject.formats</tt></a>
 <span class="moduletype">SourceModule</span>  <div class="import">
 imports:
-    <a href="#__future__">__future__</a>
- &#8226;   <a href="#builtins">builtins</a>
+    <a href="#builtins">builtins</a>
  &#8226;   <a href="#email.message">email.message</a>
  &#8226;   <a href="#itertools">itertools</a>
- &#8226;   <a href="#keyword">keyword</a>
  &#8226;   <a href="#logging">logging</a>
  &#8226;   <a href="#os">os</a>
  &#8226;   <a href="#packaging">packaging</a>
@@ -23130,7 +23122,8 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#pathlib">pathlib</a>
+    <a href="#ClipTapHelper.py">ClipTapHelper.py</a>
+ &#8226;   <a href="#pathlib">pathlib</a>
  &#8226;   <a href="#urllib.request">urllib.request</a>
  &#8226;   <a href="#yt_dlp.compat._legacy">yt_dlp.compat._legacy</a>
  &#8226;   <a href="#yt_dlp.networking._urllib">yt_dlp.networking._urllib</a>
@@ -23417,7 +23410,8 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#PyInstaller.lib.modulegraph.modulegraph">PyInstaller.lib.modulegraph.modulegraph</a>
+    <a href="#ClipTapHelper.py">ClipTapHelper.py</a>
+ &#8226;   <a href="#PyInstaller.lib.modulegraph.modulegraph">PyInstaller.lib.modulegraph.modulegraph</a>
  &#8226;   <a href="#http.cookiejar">http.cookiejar</a>
  &#8226;   <a href="#pathlib">pathlib</a>
  &#8226;   <a href="#requests.compat">requests.compat</a>

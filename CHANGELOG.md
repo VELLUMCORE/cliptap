@@ -10,6 +10,7 @@
 - Fixed section downloads getting stuck at the metadata step by forcing YouTube metadata reads to target the current video instead of playlist context.
 
 **ClipTap**
+- Fixed the player toolbar button so clicking the ClipTap icon opens the ClipTap panel again.
 - Fixed the channel Download scope button so it closes an already-open YouTube native action menu before opening the ClipTap menu.
 - Matched the channel Download button trailing chevron to YouTube Subscribe button structure, made menu dismissal cleanup less intrusive to native menus, and restored player toolbar button mounting in the new controls layout.
 - Fixed the channel Download scope menu dismissal so clicking another YouTube control closes ClipTap without blocking the native menu, and widened the button spacing so the trailing chevron no longer overlaps the text.
