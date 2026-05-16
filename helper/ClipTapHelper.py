@@ -42,6 +42,7 @@ APP_DIR = Path(sys.executable).resolve().parent if FROZEN else Path(__file__).re
 LOCAL_BIN_DIR = APP_DIR / "bin"
 DATA_DIR = (Path(os.environ.get("APPDATA", str(Path.home()))) / "ClipTap") if os.name == "nt" else (Path.home() / ".cliptap" / "ClipTap")
 HISTORY_FILE = DATA_DIR / "download-history.json"
+SETTINGS_FILE = DATA_DIR / "settings.json"
 TERMINAL_PHASES = {"finished", "failed", "cancelled", "stopped"}
 
 INDEX_HTML = r"""<!doctype html>
@@ -136,11 +137,11 @@ INDEX_HTML = r"""<!doctype html>
           <label class="field"><span>Preferred audio format</span><select id="audioFormat"><option>m4a (aac)</option><option>opus</option><option>best audio</option></select></label>
           <label class="field"><span>Cookies from browser</span><select id="cookieBrowser"><option>None</option><option>Chrome</option><option>Edge</option><option>Firefox</option></select></label>
           <div class="field download-mode-field">
-            <span>Download mode</span>
-            <div class="download-mode-group" role="radiogroup" aria-label="Download mode">
-              <label class="mode-toggle"><input type="radio" name="downloadMedia" id="downloadAudio" value="audio"><span>download audio</span></label>
-              <label class="mode-toggle"><input type="radio" name="downloadMedia" id="downloadVideoOnly" value="video_only"><span>download video (no audio)</span></label>
-              <label class="mode-toggle"><input type="radio" name="downloadMedia" id="downloadVideoWithAudio" value="video_with_audio" checked><span>download video with audio</span></label>
+            <span>Download outputs</span>
+            <div class="download-mode-group" role="group" aria-label="Download outputs">
+              <label class="mode-toggle"><input type="checkbox" name="downloadTarget" id="downloadAudio" value="audio"><span>Audio file</span></label>
+              <label class="mode-toggle"><input type="checkbox" name="downloadTarget" id="downloadVideoOnly" value="video_only"><span>Video only</span></label>
+              <label class="mode-toggle"><input type="checkbox" name="downloadTarget" id="downloadMerged" value="merged" checked><span>Merged video</span></label>
             </div>
           </div>
           <button id="saveDefaults" class="button save" type="button">Save Settings</button>
@@ -790,12 +791,25 @@ function formatDuration(job) {
   return 'Full video';
 }
 
+function selectedDownloadTargets() {
+  return Array.from(document.querySelectorAll('input[name="downloadTarget"]:checked')).map((item) => item.value);
+}
+
+function ensureDownloadTargetSelection(changedInput = null) {
+  const checked = selectedDownloadTargets();
+  if (checked.length) return checked;
+  const fallback = changedInput || document.querySelector('input[name="downloadTarget"][value="merged"]') || document.querySelector('input[name="downloadTarget"]');
+  if (fallback) fallback.checked = true;
+  return selectedDownloadTargets();
+}
+
 function formatName(job) {
-  const media = job.payload?.downloadMedia || (job.payload?.quality === 'audio' ? 'audio' : 'video_with_audio');
-  const mediaLabels = {
-    audio: 'audio',
+  const target = job.payload?.downloadTarget || job.payload?.downloadTargets?.[0] || job.payload?.downloadMedia || (job.payload?.quality === 'audio' ? 'audio' : 'merged');
+  const targetLabels = {
+    audio: 'audio file',
     video_only: 'video only',
-    video_with_audio: 'video + audio',
+    video_with_audio: 'merged video',
+    merged: 'merged video',
   };
   const quality = job.payload?.quality || 'best';
   const qualityLabels = {
@@ -804,8 +818,8 @@ function formatName(job) {
     '720': 'up to 720p',
     audio: 'audio (mp3)',
   };
-  if (media === 'audio') return 'audio (mp3)';
-  return `${mediaLabels[media] || media} · ${qualityLabels[quality] || quality}`;
+  if (target === 'audio') return 'audio file (mp3)';
+  return `${targetLabels[target] || target} · ${qualityLabels[quality] || quality}`;
 }
 
 function platform(job) {
@@ -921,37 +935,56 @@ async function refreshHistory() {
   renderHistory(data.history || []);
 }
 
-function saveDefaults() {
+function applyDefaultValues(values = {}) {
+  for (const [key, value] of Object.entries(values)) {
+    if (key === 'downloadTargets') {
+      const targets = Array.isArray(value) && value.length ? value : ['merged'];
+      document.querySelectorAll('input[name="downloadTarget"]').forEach((item) => {
+        item.checked = targets.includes(item.value);
+      });
+      continue;
+    }
+    if (key === 'downloadMedia') {
+      const legacyTarget = value === 'video_with_audio' ? 'merged' : value;
+      document.querySelectorAll('input[name="downloadTarget"]').forEach((item) => {
+        item.checked = item.value === legacyTarget;
+      });
+      continue;
+    }
+    const el = document.getElementById(key);
+    if (!el) continue;
+    if (el.type === 'checkbox') el.checked = Boolean(value);
+    else el.value = value;
+  }
+  ensureDownloadTargetSelection();
+}
+
+async function saveDefaults() {
   const values = {
     filenameRule: $('#filenameRule')?.value || '',
     videoFormat: $('#videoFormat')?.value || '',
     audioFormat: $('#audioFormat')?.value || '',
     cookieBrowser: $('#cookieBrowser')?.value || '',
-    downloadMedia: document.querySelector('input[name="downloadMedia"]:checked')?.value || 'video_with_audio',
+    downloadTargets: ensureDownloadTargetSelection(),
   };
   localStorage.setItem('cliptap-manager-defaults', JSON.stringify(values));
-  addLog('info', 'Download defaults saved locally.');
+  await api('/api/settings', { method: 'POST', body: JSON.stringify(values) });
+  addLog('info', `Download defaults saved: ${values.downloadTargets.length} output${values.downloadTargets.length === 1 ? '' : 's'} selected.`);
 }
 
-function loadDefaults() {
+async function loadDefaults() {
   try {
-    const values = JSON.parse(localStorage.getItem('cliptap-manager-defaults') || '{}');
-    for (const [key, value] of Object.entries(values)) {
-      if (key === 'downloadMedia') {
-        const selected = document.querySelector(`input[name="downloadMedia"][value="${CSS.escape(String(value))}"]`);
-        if (selected) selected.checked = true;
-        continue;
-      }
-      const el = document.getElementById(key);
-      if (!el) continue;
-      if (el.type === 'checkbox') el.checked = Boolean(value);
-      else el.value = value;
-    }
-    if (!document.querySelector('input[name="downloadMedia"]:checked')) {
-      const fallback = document.querySelector('input[name="downloadMedia"][value="video_with_audio"]');
-      if (fallback) fallback.checked = true;
-    }
+    applyDefaultValues(JSON.parse(localStorage.getItem('cliptap-manager-defaults') || '{}'));
   } catch {}
+  try {
+    const data = await api('/api/settings');
+    if (data?.settings) {
+      applyDefaultValues(data.settings);
+      localStorage.setItem('cliptap-manager-defaults', JSON.stringify(data.settings));
+    }
+  } catch (error) {
+    addLog('warn', `Could not load saved helper defaults: ${error.message}`);
+  }
 }
 
 function copyAddress() {
@@ -979,7 +1012,10 @@ document.addEventListener('click', (event) => {
 });
 $('#clearCompleted')?.addEventListener('click', () => clearCompletedJobs().catch(error => alert(error.message)));
 $('#clearLogs')?.addEventListener('click', () => { logLines = []; renderLogs(); });
-$('#saveDefaults')?.addEventListener('click', saveDefaults);
+$('#saveDefaults')?.addEventListener('click', () => saveDefaults().catch(error => alert(error.message)));
+document.querySelectorAll('input[name="downloadTarget"]').forEach((item) => {
+  item.addEventListener('change', () => ensureDownloadTargetSelection(item));
+});
 $('#checkUpdatesLink')?.addEventListener('click', () => checkUpdates());
 
 
@@ -1039,7 +1075,20 @@ VIDEO_ONLY_FORMAT_MAP = {
     "audio": "bv*/bestvideo",
 }
 AUDIO_ONLY_FORMAT = "ba/bestaudio/b"
+ALLOWED_DOWNLOAD_TARGETS = ("audio", "video_only", "merged")
 ALLOWED_DOWNLOAD_MEDIA = {"audio", "video_only", "video_with_audio"}
+DOWNLOAD_TARGET_LABELS = {
+    "audio": "Audio file",
+    "video_only": "Video only",
+    "merged": "Merged video",
+}
+DOWNLOAD_TARGET_SUFFIXES = {
+    "audio": " [audio]",
+    "video_only": " [video-only]",
+    "merged": " [merged]",
+}
+DEFAULT_SETTINGS = {"downloadTargets": ["merged"]}
+SETTINGS = dict(DEFAULT_SETTINGS)
 
 ALLOWED_COOKIE_BROWSERS = {"", "edge", "chrome", "firefox"}
 ALLOWED_HOST_SUFFIXES = (
@@ -1359,6 +1408,23 @@ def is_allowed_url(url: str) -> bool:
     return any(host == suffix or host.endswith("." + suffix) for suffix in ALLOWED_HOST_SUFFIXES)
 
 
+def target_to_download_media(target: str) -> str:
+    if target == "audio":
+        return "audio"
+    if target == "video_only":
+        return "video_only"
+    return "video_with_audio"
+
+
+def media_to_download_target(media: str) -> str:
+    media = str(media or "").strip().lower().replace("-", "_")
+    if media == "audio":
+        return "audio"
+    if media == "video_only":
+        return "video_only"
+    return "merged"
+
+
 def normalize_download_media(value: object, quality: str) -> str:
     media = str(value or "").strip().lower().replace("-", "_")
     if media in {"video", "merged", "default"}:
@@ -1367,6 +1433,67 @@ def normalize_download_media(value: object, quality: str) -> str:
         media = "audio" if quality == "audio" else "video_with_audio"
     return media
 
+
+def normalize_download_targets(value: object = None, legacy_media: object = None, quality: str = "best", use_saved_defaults: bool = True) -> list[str]:
+    raw_items: list[object]
+    if isinstance(value, list):
+        raw_items = value
+    elif isinstance(value, str):
+        raw_items = [item.strip() for item in value.split(",")]
+    elif legacy_media not in {None, ""}:
+        raw_items = [media_to_download_target(str(legacy_media))]
+    elif quality == "audio":
+        raw_items = ["audio"]
+    elif use_saved_defaults:
+        with LOCK:
+            raw_items = list(SETTINGS.get("downloadTargets") or DEFAULT_SETTINGS["downloadTargets"])
+    else:
+        raw_items = list(DEFAULT_SETTINGS["downloadTargets"])
+
+    normalized: list[str] = []
+    for item in raw_items:
+        target = str(item or "").strip().lower().replace("-", "_")
+        if target in {"video", "video_with_audio", "default"}:
+            target = "merged"
+        if target in ALLOWED_DOWNLOAD_TARGETS and target not in normalized:
+            normalized.append(target)
+    return normalized or list(DEFAULT_SETTINGS["downloadTargets"])
+
+
+def normalize_settings(raw: dict) -> dict:
+    settings = dict(DEFAULT_SETTINGS)
+    targets = normalize_download_targets(raw.get("downloadTargets"), raw.get("downloadMedia"), "best", use_saved_defaults=False)
+    settings["downloadTargets"] = targets
+    for key in ("filenameRule", "videoFormat", "audioFormat", "cookieBrowser"):
+        if key in raw:
+            settings[key] = str(raw.get(key) or "")
+    return settings
+
+
+def load_settings():
+    global SETTINGS
+    try:
+        if SETTINGS_FILE.exists():
+            data = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                SETTINGS = normalize_settings(data)
+                return
+    except Exception:
+        pass
+    SETTINGS = dict(DEFAULT_SETTINGS)
+
+
+def save_settings(data: dict):
+    global SETTINGS
+    settings = normalize_settings(data)
+    with LOCK:
+        SETTINGS = settings
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        SETTINGS_FILE.write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+    return settings
 
 def yt_dlp_format_for(quality: str, download_media: str) -> str:
     if download_media == "audio":
@@ -1396,20 +1523,30 @@ def clean_payload(payload: dict) -> dict:
     quality = str(payload.get("quality", "best"))
     if quality not in FORMAT_MAP:
         quality = "best"
-    download_media = normalize_download_media(payload.get("downloadMedia"), quality)
-    if download_media != "audio" and quality == "audio":
+
+    has_explicit_targets = "downloadTargets" in payload or "downloadMedia" in payload
+    download_targets = normalize_download_targets(
+        payload.get("downloadTargets"),
+        payload.get("downloadMedia"),
+        quality,
+        use_saved_defaults=not has_explicit_targets,
+    )
+    if quality == "audio" and any(target != "audio" for target in download_targets):
         quality = "best"
 
     cookie_browser = str(payload.get("cookieBrowser", "")).strip().lower()
     if cookie_browser not in ALLOWED_COOKIE_BROWSERS:
         raise ValueError("Unsupported cookie browser value.")
 
+    first_target = download_targets[0]
     cleaned = {
         "url": url,
         "mode": mode,
         "title": str(payload.get("title", "")).strip(),
         "quality": quality,
-        "downloadMedia": download_media,
+        "downloadTarget": first_target,
+        "downloadTargets": download_targets,
+        "downloadMedia": target_to_download_media(first_target),
         "cookieBrowser": cookie_browser,
         "forceKeyframes": bool(payload.get("forceKeyframes")),
     }
@@ -1427,6 +1564,24 @@ def clean_payload(payload: dict) -> dict:
 
     return cleaned
 
+
+def expand_payload_targets(payload: dict) -> list[dict]:
+    targets = payload.get("downloadTargets") or [payload.get("downloadTarget") or "merged"]
+    expanded: list[dict] = []
+    for target in targets:
+        target = str(target or "").strip().lower().replace("-", "_")
+        if target in {"video", "video_with_audio", "default"}:
+            target = "merged"
+        if target not in ALLOWED_DOWNLOAD_TARGETS:
+            continue
+        item = dict(payload)
+        item["downloadTarget"] = target
+        item["downloadTargets"] = [target]
+        item["downloadMedia"] = target_to_download_media(target)
+        if item.get("quality") == "audio" and target != "audio":
+            item["quality"] = "best"
+        expanded.append(item)
+    return expanded or [payload]
 
 def popen_text(command: list[str], cwd: Path | None = None) -> subprocess.Popen:
     return subprocess.Popen(
@@ -1484,6 +1639,7 @@ def build_download_command(job: DownloadJob) -> list[str]:
         command.append("--no-playlist")
 
     download_media = payload.get("downloadMedia", "video_with_audio")
+    target_suffix = DOWNLOAD_TARGET_SUFFIXES.get(payload.get("downloadTarget", "merged"), "")
     command += ["-f", yt_dlp_format_for(quality, download_media)]
     if download_media == "audio":
         command += ["-x", "--audio-format", "mp3"]
@@ -1500,15 +1656,15 @@ def build_download_command(job: DownloadJob) -> list[str]:
         # instead of normal yt-dlp percentage lines, so ask FFmpeg to emit a
         # machine-readable progress stream that the manager can parse.
         command += ["--downloader-args", "ffmpeg:-progress pipe:1 -stats_period 0.5 -nostats"]
-        output_template = str(OUTPUT_DIR / "%(title).160s [%(id)s] %(section_start)s-%(section_end)s.%(ext)s")
+        output_template = str(OUTPUT_DIR / f"%(title).160s [%(id)s] %(section_start)s-%(section_end)s{target_suffix}.%(ext)s")
         if payload.get("forceKeyframes"):
             command.append("--force-keyframes-at-cuts")
     elif mode == "playlist":
-        output_template = str(OUTPUT_DIR / "%(playlist_title).160s" / "%(playlist_index)03d - %(title).160s [%(id)s].%(ext)s")
+        output_template = str(OUTPUT_DIR / "%(playlist_title).160s" / f"%(playlist_index)03d - %(title).160s [%(id)s]{target_suffix}.%(ext)s")
     elif mode == "channel":
-        output_template = str(OUTPUT_DIR / "%(uploader).160s" / "%(upload_date)s - %(title).160s [%(id)s].%(ext)s")
+        output_template = str(OUTPUT_DIR / "%(uploader).160s" / f"%(upload_date)s - %(title).160s [%(id)s]{target_suffix}.%(ext)s")
     else:
-        output_template = str(OUTPUT_DIR / "%(title).160s [%(id)s].%(ext)s")
+        output_template = str(OUTPUT_DIR / f"%(title).160s [%(id)s]{target_suffix}.%(ext)s")
         if job.is_live:
             command += ["--hls-use-mpegts"]
 
@@ -1593,8 +1749,9 @@ def section_output_path(job: DownloadJob, source_file: Path) -> Path:
     title = safe_filename(job.title, "cliptap")
     start = seconds_to_clock(payload["start"]).replace(":", "-")
     end = seconds_to_clock(payload["end"]).replace(":", "-")
-    suffix = ".mp3" if media_is_audio_only(payload) else ".mp4"
-    return unique_path(OUTPUT_DIR / f"{title} [{job.id}] {start}-{end}{suffix}")
+    extension = ".mp3" if media_is_audio_only(payload) else ".mp4"
+    target_suffix = DOWNLOAD_TARGET_SUFFIXES.get(payload.get("downloadTarget", "merged"), "")
+    return unique_path(OUTPUT_DIR / f"{title} [{job.id}] {start}-{end}{target_suffix}{extension}")
 
 
 def ffmpeg_trim_command(job: DownloadJob, source_file: Path, output_file: Path) -> list[str]:
@@ -2221,6 +2378,12 @@ class ClipTapHandler(BaseHTTPRequestHandler):
             json_response(self, check_for_updates())
             return
 
+        if path == "/api/settings":
+            with LOCK:
+                settings = dict(SETTINGS)
+            json_response(self, {"ok": True, "settings": settings})
+            return
+
         if path == "/api/jobs":
             with LOCK:
                 jobs = [job.public() for job in sorted(JOBS.values(), key=lambda item: item.created_at, reverse=True)]
@@ -2254,8 +2417,13 @@ class ClipTapHandler(BaseHTTPRequestHandler):
         try:
             if path == "/download":
                 payload = clean_payload(read_body(self))
-                job_id = create_job(payload)
-                json_response(self, {"ok": True, "jobId": job_id, "outputDir": str(OUTPUT_DIR)})
+                job_ids = [create_job(item) for item in expand_payload_targets(payload)]
+                json_response(self, {"ok": True, "jobId": job_ids[0], "jobIds": job_ids, "outputDir": str(OUTPUT_DIR)})
+                return
+
+            if path == "/api/settings":
+                settings = save_settings(read_body(self))
+                json_response(self, {"ok": True, "settings": settings})
                 return
 
             if path == "/api/install/yt-dlp":
@@ -2359,6 +2527,7 @@ def run_yt_dlp_cli(argv: list[str]) -> int:
 def main():
     global SERVER
     load_history()
+    load_settings()
 
     if "--run-yt-dlp" in sys.argv:
         idx = sys.argv.index("--run-yt-dlp")

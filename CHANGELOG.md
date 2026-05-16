@@ -3,7 +3,7 @@
 ## v1.4
 
 **ClipTap Helper**
-- Replaced the Auto-merge setting with download mode controls for audio-only, video-only, and video-with-audio downloads.
+- Replaced the Auto-merge setting with independent output toggles that can download audio files, video-only files, merged video files, or any combination of them.
 
 **ClipTap**
 - No extension changes in this build.
