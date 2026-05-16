@@ -144,7 +144,6 @@ INDEX_HTML = r"""<!doctype html>
               <label class="mode-toggle"><input type="checkbox" name="downloadTarget" id="downloadMerged" value="merged" checked><span>Merged video</span></label>
             </div>
           </div>
-          <button id="saveDefaults" class="button save" type="button">Save Settings</button>
         </article>
 
         <article class="card history-card" id="history" aria-label="Download history">
@@ -632,6 +631,7 @@ const seenJobStates = new Map();
 let logLines = [];
 let lastJobs = [];
 let lastUpdateCheck = null;
+let saveDefaultsTimer = null;
 
 function nowStamp() {
   const d = new Date();
@@ -969,7 +969,13 @@ async function saveDefaults() {
   };
   localStorage.setItem('cliptap-manager-defaults', JSON.stringify(values));
   await api('/api/settings', { method: 'POST', body: JSON.stringify(values) });
-  addLog('info', `Download defaults saved: ${values.downloadTargets.length} output${values.downloadTargets.length === 1 ? '' : 's'} selected.`);
+}
+
+function scheduleSaveDefaults() {
+  window.clearTimeout(saveDefaultsTimer);
+  saveDefaultsTimer = window.setTimeout(() => {
+    saveDefaults().catch((error) => console.warn('ClipTap defaults auto-save failed:', error));
+  }, 400);
 }
 
 async function loadDefaults() {
@@ -1012,9 +1018,17 @@ document.addEventListener('click', (event) => {
 });
 $('#clearCompleted')?.addEventListener('click', () => clearCompletedJobs().catch(error => alert(error.message)));
 $('#clearLogs')?.addEventListener('click', () => { logLines = []; renderLogs(); });
-$('#saveDefaults')?.addEventListener('click', () => saveDefaults().catch(error => alert(error.message)));
+['filenameRule', 'videoFormat', 'audioFormat', 'cookieBrowser'].forEach((id) => {
+  const item = document.getElementById(id);
+  if (!item) return;
+  const eventName = item.tagName === 'INPUT' ? 'input' : 'change';
+  item.addEventListener(eventName, scheduleSaveDefaults);
+});
 document.querySelectorAll('input[name="downloadTarget"]').forEach((item) => {
-  item.addEventListener('change', () => ensureDownloadTargetSelection(item));
+  item.addEventListener('change', () => {
+    ensureDownloadTargetSelection(item);
+    scheduleSaveDefaults();
+  });
 });
 $('#checkUpdatesLink')?.addEventListener('click', () => checkUpdates());
 

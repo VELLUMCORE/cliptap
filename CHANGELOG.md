@@ -4,6 +4,7 @@
 
 **ClipTap Helper**
 - Replaced the Auto-merge setting with independent output toggles that can download audio files, video-only files, merged video files, or any combination of them.
+- Removed the Save Settings button and made Helper defaults save automatically when changed.
 
 **ClipTap**
 - No extension changes in this build.
