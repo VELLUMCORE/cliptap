@@ -9,6 +9,13 @@
 - Fixed section downloads getting stuck at the metadata step by forcing YouTube metadata reads to target the current video instead of playlist context.
 
 **ClipTap**
+- Fixed the channel Download scope button so it closes an already-open YouTube native action menu before opening the ClipTap menu.
+- Matched the channel Download button trailing chevron to YouTube Subscribe button structure, made menu dismissal cleanup less intrusive to native menus, and restored player toolbar button mounting in the new controls layout.
+- Fixed the channel Download scope menu dismissal so clicking another YouTube control closes ClipTap without blocking the native menu, and widened the button spacing so the trailing chevron no longer overlaps the text.
+- Fixed the channel Download scope menu so the popup opens with visible native-style menu items and the trailing chevron no longer overlaps the button text.
+- Restored the channel page Download button mounting with visible new-header action detection and a dedicated channel-header observer.
+- Restored the channel page Download button on the new YouTube page header and moved its scope picker to a native YouTube-style popup sheet.
+- Added channel download options for whole channel, videos, shorts, and lives from the channel page Download menu.
 - Reworked player tooltip binding to capture YouTube's native tooltip event listeners from existing player controls and attach those same handlers to the ClipTap toolbar button.
 - Reworked player tooltip binding to search for an existing YouTube top-chrome tooltip manager instead of constructing a new P9F manager with the wrong internal API.
 - Created a ClipTap-specific YouTube native tooltip manager with the player P9F tooltip class, then registered the player toolbar button through the native tooltip registration function.

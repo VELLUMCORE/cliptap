@@ -35,7 +35,27 @@
   }
 
   function getRightControls() {
-    return document.querySelector('.ytp-right-controls');
+    return document.querySelector('.ytp-right-controls-left') ||
+      document.querySelector('.ytp-right-controls');
+  }
+
+  function getPlayerToolbarMountTarget() {
+    if (location.pathname !== '/watch') return null;
+
+    const player = getPlayer();
+    const leftControls = player?.querySelector?.('.ytp-right-controls-left') ||
+      document.querySelector('.ytp-right-controls-left');
+    if (leftControls) {
+      return { controls: leftControls, name: 'right-controls-left' };
+    }
+
+    const rightControls = player?.querySelector?.('.ytp-right-controls') ||
+      document.querySelector('.ytp-right-controls');
+    if (rightControls) {
+      return { controls: rightControls, name: 'right-controls' };
+    }
+
+    return null;
   }
 
   function getProgressBar() {
@@ -105,7 +125,39 @@
   }
 
   function getChannelUrl() {
-    return `${location.origin}${location.pathname}`;
+    return getChannelBaseUrl();
+  }
+
+  function getChannelBaseUrl() {
+    const parts = location.pathname.split('/').filter(Boolean);
+    if (!parts.length) return `${location.origin}${location.pathname}`;
+
+    const first = parts[0];
+    let baseParts = [];
+    if (first.startsWith('@')) {
+      baseParts = [first];
+    } else if (['channel', 'c', 'user'].includes(first) && parts[1]) {
+      baseParts = [first, parts[1]];
+    } else {
+      baseParts = [first];
+    }
+
+    return `${location.origin}/${baseParts.join('/')}`;
+  }
+
+  function getChannelDownloadTarget(kind = 'whole') {
+    const base = getChannelBaseUrl();
+    if (kind === 'videos') return `${base}/videos`;
+    if (kind === 'shorts') return `${base}/shorts`;
+    if (kind === 'lives') return `${base}/streams`;
+    return base;
+  }
+
+  function getChannelDownloadLabel(kind = 'whole') {
+    if (kind === 'videos') return 'videos';
+    if (kind === 'shorts') return 'shorts';
+    if (kind === 'lives') return 'lives';
+    return 'whole channel';
   }
 
   function getChannelTitle() {
@@ -574,6 +626,38 @@
         fill: #fff !important;
         stroke: none !important;
       }
+      .cliptap-channel-download-action {
+        display: inline-flex !important;
+        align-items: center !important;
+        position: relative !important;
+        overflow: visible !important;
+      }
+      .cliptap-channel-download-action > button {
+        min-width: 0 !important;
+      }
+      .cliptap-channel-download-action .cliptap-channel-download-chevron svg {
+        width: 24px !important;
+        height: 24px !important;
+      }
+      .cliptap-channel-download-popup tp-yt-iron-dropdown {
+        display: block !important;
+        visibility: visible !important;
+      }
+      .cliptap-channel-download-popup yt-sheet-view-model {
+        background: var(--yt-spec-menu-background, #282828) !important;
+        color: var(--yt-spec-text-primary, #fff) !important;
+        border-radius: 12px !important;
+        overflow: hidden !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, .34) !important;
+      }
+      .cliptap-channel-download-menu-item {
+        cursor: pointer !important;
+      }
+      .cliptap-channel-download-menu-item:hover,
+      .cliptap-channel-download-menu-item:focus-visible {
+        background: var(--yt-spec-badge-chip-background, rgba(255, 255, 255, .1)) !important;
+        outline: none !important;
+      }
       .cliptap-playlist-download-button.cliptap-sending,
       .cliptap-channel-download-action.cliptap-sending {
         opacity: .62 !important;
@@ -610,9 +694,9 @@
     document.documentElement.appendChild(style);
   }
 
-  const PLAYER_TOOLBAR_ICON_VERSION = '72';
+  const PLAYER_TOOLBAR_ICON_VERSION = '81';
   const PLAYLIST_BUTTON_VERSION = '57';
-  const CHANNEL_BUTTON_VERSION = '57';
+  const CHANNEL_BUTTON_VERSION = '81';
   let cliptapToastTimer = 0;
 
   function ensureClipTapToast() {
@@ -711,41 +795,48 @@
   }
 
   function ensureControlButton() {
-    const controls = getRightControls();
-    if (!controls) return;
+    const target = getPlayerToolbarMountTarget();
+    const existingButton = document.getElementById('cliptap-control-button');
 
-    let button = document.getElementById('cliptap-control-button');
+    if (!target) {
+      existingButton?.remove();
+      return;
+    }
+
+    const { controls, name } = target;
+    let button = existingButton;
     if (!button) {
       button = document.createElement('button');
       button.id = 'cliptap-control-button';
       button.className = 'ytp-button cliptap-control-button';
       button.type = 'button';
+      applyNativeTooltipAttributes(button, 'Download with ClipTap', 'cliptap-control-button');
+      button.setAttribute('data-title-no-tooltip', 'Download with ClipTap');
+      button.setAttribute('aria-label', 'Download with ClipTap');
+      button.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        togglePanel();
+      });
     }
-
-    applyNativeTooltipAttributes(button, 'Download with ClipTap', 'cliptap-control-button');
-    button.setAttribute('data-title-no-tooltip', 'Download with ClipTap');
-    button.removeAttribute('aria-describedby');
-    button.classList.add('ytp-button', 'cliptap-control-button');
-    bindClipTapPlayerTooltip(button);
 
     if (button.dataset.cliptapIconVersion !== PLAYER_TOOLBAR_ICON_VERSION) {
       button.innerHTML = getPlayerToolbarDownloadIcon();
       button.dataset.cliptapIconVersion = PLAYER_TOOLBAR_ICON_VERSION;
-    }
-
-    if (button.dataset.cliptapClickBound !== 'true') {
-      button.addEventListener('click', event => {
-        event.preventDefault();
-        event.stopPropagation();
-        state.panelOpen = !state.panelOpen;
-        render();
-      });
-      button.dataset.cliptapClickBound = 'true';
+      applyNativeTooltipAttributes(button, 'Download with ClipTap', 'cliptap-control-button');
+      button.setAttribute('data-title-no-tooltip', 'Download with ClipTap');
     }
 
     if (button.parentElement !== controls) {
-      controls.insertBefore(button, controls.firstElementChild);
+      const subtitlesButton = controls.querySelector('.ytp-subtitles-button');
+      if (subtitlesButton?.parentElement === controls) {
+        controls.insertBefore(button, subtitlesButton);
+      } else {
+        controls.insertBefore(button, controls.firstElementChild);
+      }
     }
+
+    button.dataset.cliptapPlayerMountedAt = name;
   }
 
   function ensurePanel() {
@@ -1166,13 +1257,15 @@
     }
   }
 
-  async function requestChannelDownload(button) {
+  async function requestChannelDownload(button, kind = 'whole') {
     if (!isChannelPageUrl()) return;
 
+    const label = getChannelDownloadLabel(kind);
+    const titleSuffix = kind === 'whole' ? '' : ` (${label})`;
     const payload = {
       mode: 'channel',
-      url: getChannelUrl(),
-      title: getChannelTitle(),
+      url: getChannelDownloadTarget(kind),
+      title: `${getChannelTitle()}${titleSuffix}`,
       quality: state.quality,
       cookieBrowser: state.cookieBrowser,
       forceKeyframes: false
@@ -1181,8 +1274,8 @@
     try {
       button?.classList.add('cliptap-sending');
       button?.setAttribute('aria-busy', 'true');
-      showClipTapToast('Sending channel download request to ClipTap...');
-      setPanelMessage('Sending channel download request...');
+      showClipTapToast(`Sending ${label} download request to ClipTap...`);
+      setPanelMessage(`Sending ${label} download request...`);
       const res = await fetch('http://127.0.0.1:17723/download', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1190,8 +1283,8 @@
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Request failed.');
-      showClipTapToast('Channel download request sent to ClipTap.', 'success');
-      setPanelMessage('Channel download started.');
+      showClipTapToast(`Channel ${label} download request sent to ClipTap.`, 'success');
+      setPanelMessage(`Channel ${label} download started.`);
     } catch (error) {
       showClipTapToast('ClipTap Helper is not running or the request failed.', 'error');
       setPanelMessage('The helper is off or an error occurred.');
@@ -1200,18 +1293,6 @@
       button?.classList.remove('cliptap-sending');
       button?.removeAttribute('aria-busy');
     }
-  }
-
-
-  function resetForNewVideoIfNeeded() {
-    const key = getVideoKey();
-    if (!key || key === state.lastVideoKey) return;
-    state.lastVideoKey = key;
-    state.start = null;
-    state.end = null;
-    state.panelOpen = false;
-    state.loopEnabled = false;
-    stopLoopWatcher();
   }
 
 
@@ -1574,18 +1655,302 @@
     return `<div aria-hidden="true" class="ytSpecButtonShapeNextIcon"><span class="ytIconWrapperHost" style="width: 24px; height: 24px;"><span class="yt-icon-shape ytSpecIconShapeHost"><div style="width: 100%; height: 100%; display: block; fill: currentcolor;"><svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" aria-hidden="true" style="pointer-events:none;display:inherit;width:100%;height:100%;"><path d="M12 2a1 1 0 00-1 1v11.586l-4.293-4.293a1 1 0 10-1.414 1.414L12 18.414l6.707-6.707a1 1 0 10-1.414-1.414L13 14.586V3a1 1 0 00-1-1Zm7 18H5a1 1 0 000 2h14a1 1 0 000-2Z"></path></svg></div></span></span></div>`;
   }
 
+
+  const CHANNEL_DOWNLOAD_OPTIONS = [
+    ['whole', 'Download whole channel'],
+    ['videos', 'Download videos'],
+    ['shorts', 'Download shorts'],
+    ['lives', 'Download lives']
+  ];
+
+  function getChannelDownloadMenuIcon() {
+    return `<div aria-hidden="true" class="ytListItemViewModelImageContainer ytListItemViewModelLeading"><span class="ytIconWrapperHost ytListItemViewModelAccessory ytListItemViewModelImage" role="img" aria-label="" aria-hidden="true"><span class="yt-icon-shape ytSpecIconShapeHost"><div style="width: 100%; height: 100%; display: block; fill: currentcolor;"><svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" aria-hidden="true" style="pointer-events:none;display:inherit;width:100%;height:100%;"><path d="M12 2a1 1 0 00-1 1v11.586l-4.293-4.293a1 1 0 10-1.414 1.414L12 18.414l6.707-6.707a1 1 0 10-1.414-1.414L13 14.586V3a1 1 0 00-1-1Zm7 18H5a1 1 0 000 2h14a1 1 0 000-2Z"></path></svg></div></span></span></div>`;
+  }
+
+  let channelDismissController = null;
+
+  function clearChannelDismissListeners() {
+    channelDismissController?.abort?.();
+    channelDismissController = null;
+  }
+
+  function startChannelDownloadMenuDismissal(wrapper) {
+    clearChannelDismissListeners();
+    if (!wrapper) return;
+
+    channelDismissController = new AbortController();
+    const { signal } = channelDismissController;
+
+    document.addEventListener('pointerdown', event => {
+      if (event.target?.closest?.('.cliptap-channel-download-action, .cliptap-channel-download-popup')) return;
+      closeChannelDownloadMenus();
+    }, { capture: true, signal });
+
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape') return;
+      closeChannelDownloadMenus();
+    }, { capture: true, signal });
+
+    window.addEventListener('yt-navigate-start', () => closeChannelDownloadMenus(), { capture: true, signal });
+    window.addEventListener('resize', () => closeChannelDownloadMenus(), { capture: true, signal });
+    window.addEventListener('scroll', () => closeChannelDownloadMenus(), { capture: true, signal });
+  }
+
+  function closeChannelDownloadMenus(except = null) {
+    document.querySelectorAll('.cliptap-channel-download-popup').forEach(popup => {
+      if (popup === except) return;
+      popup.querySelectorAll('tp-yt-iron-dropdown').forEach(dropdown => {
+        try { dropdown.opened = false; } catch {}
+        try { dropdown.close?.(); } catch {}
+        dropdown.removeAttribute('opened');
+        dropdown.setAttribute('aria-hidden', 'true');
+        dropdown.style.display = 'none';
+      });
+      popup.remove();
+    });
+    document.querySelectorAll('.cliptap-channel-download-action [aria-expanded="true"]').forEach(button => {
+      button.setAttribute('aria-expanded', 'false');
+    });
+    document.querySelectorAll('.cliptap-channel-download-action[data-cliptap-channel-menu-open="true"]').forEach(wrapper => {
+      wrapper.dataset.cliptapChannelMenuOpen = 'false';
+    });
+    if (!except) clearChannelDismissListeners();
+  }
+
+  function dispatchNativeMenuEscape(target) {
+    try {
+      target.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'Escape',
+        code: 'Escape',
+        keyCode: 27,
+        which: 27,
+        bubbles: true,
+        cancelable: true,
+        composed: true
+      }));
+    } catch {}
+  }
+
+  function closeOpenYouTubeNativeActionMenus() {
+    dispatchNativeMenuEscape(document);
+    dispatchNativeMenuEscape(window);
+
+    document.querySelectorAll('tp-yt-iron-dropdown[opened], tp-yt-iron-dropdown[aria-hidden="false"]').forEach(dropdown => {
+      if (dropdown.closest('.cliptap-channel-download-popup, .cliptap-channel-download-action')) return;
+      try { dropdown.opened = false; } catch {}
+      try { dropdown.close?.(); } catch {}
+      dropdown.removeAttribute('opened');
+      dropdown.setAttribute('aria-hidden', 'true');
+      dropdown.style.display = 'none';
+    });
+
+    document.querySelectorAll('.ytFlexibleActionsViewModelAction [aria-expanded="true"], yt-flexible-actions-view-model [aria-expanded="true"]').forEach(button => {
+      if (button.closest('.cliptap-channel-download-action, .cliptap-channel-download-popup')) return;
+      button.setAttribute('aria-expanded', 'false');
+    });
+  }
+
+  function getChannelDownloadPopup(wrapper) {
+    return document.querySelector(`.cliptap-channel-download-popup[data-cliptap-owner="${wrapper.dataset.cliptapChannelMenuOwner || ''}"]`);
+  }
+
+  function makeChannelDownloadMenuItem(kind, label, wrapper) {
+    const item = document.createElement('yt-list-item-view-model');
+    item.className = 'ytListItemViewModelHost cliptap-channel-download-menu-item';
+    item.setAttribute('role', 'menuitem');
+    item.setAttribute('tabindex', '0');
+    item.dataset.cliptapChannelDownloadKind = kind;
+    item.innerHTML = `<div class="ytListItemViewModelLayoutWrapper ytListItemViewModelContainer ytListItemViewModelCompact ytListItemViewModelTappable ytListItemViewModelInPopup ytListItemViewModelNoTrailingText"><div class="ytListItemViewModelMainContainer">${getChannelDownloadMenuIcon()}<button type="button" class="ytButtonOrAnchorHost ytButtonOrAnchorButton ytListItemViewModelButtonOrAnchor"><div class="ytListItemViewModelTextWrapper"><div class="ytListItemViewModelTitleWrapper"><span class="ytAttributedStringHost ytListItemViewModelTitle ytAttributedStringWhiteSpacePreWrap" role="text">${label}</span></div></div></button></div></div>`;
+
+    const activate = event => {
+      event.preventDefault();
+      event.stopPropagation();
+      closeChannelDownloadMenus();
+      requestChannelDownload(wrapper, kind);
+    };
+    item.addEventListener('click', activate, true);
+    item.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      activate(event);
+    }, true);
+    return item;
+  }
+
+  function buildChannelDownloadMenuSheet(wrapper) {
+    const sheet = document.createElement('yt-sheet-view-model');
+    sheet.className = 'ytSheetViewModelHost ytSheetViewModelContextual cliptap-channel-download-sheet';
+    sheet.setAttribute('slot', 'dropdown-content');
+    sheet.setAttribute('tabindex', '-1');
+    sheet.style.outline = 'none';
+    sheet.style.boxSizing = 'border-box';
+    sheet.style.maxWidth = '280px';
+
+    const layout = document.createElement('yt-contextual-sheet-layout');
+    layout.className = 'ytContextualSheetLayoutHost';
+    layout.innerHTML = '<div class="ytContextualSheetLayoutHeaderContainer"></div>';
+
+    const content = document.createElement('div');
+    content.className = 'ytContextualSheetLayoutContentContainer';
+    const list = document.createElement('yt-list-view-model');
+    list.className = 'ytListViewModelHost';
+    list.setAttribute('role', 'menu');
+
+    CHANNEL_DOWNLOAD_OPTIONS.forEach(([kind, label]) => {
+      list.appendChild(makeChannelDownloadMenuItem(kind, label, wrapper));
+    });
+
+    content.appendChild(list);
+    layout.appendChild(content);
+    sheet.appendChild(layout);
+    return sheet;
+  }
+
+  function ensureChannelDownloadPopupContent(dropdown, wrapper) {
+    let contentWrapper = dropdown.querySelector(':scope > #contentWrapper');
+    if (!contentWrapper) {
+      contentWrapper = document.createElement('div');
+      contentWrapper.id = 'contentWrapper';
+      contentWrapper.className = 'style-scope tp-yt-iron-dropdown';
+      dropdown.appendChild(contentWrapper);
+    }
+
+    if (!contentWrapper.querySelector('yt-list-item-view-model')) {
+      contentWrapper.replaceChildren(buildChannelDownloadMenuSheet(wrapper));
+    }
+    return contentWrapper;
+  }
+
+  function openChannelDownloadDropdown(dropdown) {
+    dropdown.style.display = 'block';
+    dropdown.style.visibility = 'visible';
+    dropdown.removeAttribute('aria-hidden');
+    dropdown.setAttribute('aria-hidden', 'false');
+    dropdown.setAttribute('opened', '');
+    try { dropdown.opened = true; } catch {}
+    try { dropdown.open(); } catch {}
+  }
+
+  function createChannelDownloadPopup(wrapper) {
+    const owner = wrapper.dataset.cliptapChannelMenuOwner || `cliptap-channel-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    wrapper.dataset.cliptapChannelMenuOwner = owner;
+
+    const popup = document.createElement('div');
+    popup.className = 'style-scope ytd-app cliptap-channel-download-popup';
+    popup.dataset.cliptapOwner = owner;
+
+    const dropdown = document.createElement('tp-yt-iron-dropdown');
+    dropdown.className = 'style-scope ytd-popup-container';
+    dropdown.setAttribute('horizontal-align', 'auto');
+    dropdown.setAttribute('vertical-align', 'top');
+    dropdown.setAttribute('aria-disabled', 'false');
+    dropdown.setAttribute('prevent-autonav', 'true');
+    dropdown.style.outline = 'none';
+    dropdown.style.maxWidth = '320px';
+    dropdown.style.position = 'fixed';
+    dropdown.style.zIndex = '2202';
+
+    ensureChannelDownloadPopupContent(dropdown, wrapper);
+    popup.appendChild(dropdown);
+
+    const host = document.querySelector('ytd-app') || document.body || document.documentElement;
+    host.appendChild(popup);
+    ensureChannelDownloadPopupContent(dropdown, wrapper);
+    positionChannelDownloadPopup(wrapper, dropdown);
+    openChannelDownloadDropdown(dropdown);
+
+    requestAnimationFrame(() => {
+      if (!popup.isConnected) return;
+      ensureChannelDownloadPopupContent(dropdown, wrapper);
+      positionChannelDownloadPopup(wrapper, dropdown);
+      openChannelDownloadDropdown(dropdown);
+    });
+
+    return popup;
+  }
+
+  function positionChannelDownloadPopup(wrapper, dropdown) {
+    const trigger = wrapper.querySelector('button, a, div[role="button"]') || wrapper;
+    const sheet = dropdown.querySelector('yt-sheet-view-model');
+    const rect = trigger.getBoundingClientRect();
+    const width = Math.min(280, Math.max(236, Math.round(rect.width + 96)));
+    if (sheet) sheet.style.width = `${width}px`;
+    const left = Math.max(8, Math.min(window.innerWidth - width - 8, Math.round(rect.left)));
+    const top = Math.max(8, Math.min(window.innerHeight - 8, Math.round(rect.bottom + 8)));
+    dropdown.style.left = `${left}px`;
+    dropdown.style.top = `${top}px`;
+  }
+
+  function toggleChannelDownloadMenu(wrapper) {
+    const trigger = wrapper.querySelector('button, a, div[role="button"]') || wrapper;
+    const existing = getChannelDownloadPopup(wrapper);
+    if (existing) {
+      closeChannelDownloadMenus();
+      return;
+    }
+
+    closeOpenYouTubeNativeActionMenus();
+    closeChannelDownloadMenus();
+    let popup = null;
+    try {
+      popup = createChannelDownloadPopup(wrapper);
+      const dropdown = popup.querySelector('tp-yt-iron-dropdown');
+      const firstItem = popup.querySelector('[role="menuitem"]');
+      if (!dropdown || !firstItem) throw new Error('channel-menu-content-missing');
+      trigger.setAttribute('aria-expanded', 'true');
+      wrapper.dataset.cliptapChannelMenuOpen = 'true';
+      startChannelDownloadMenuDismissal(wrapper);
+      window.setTimeout(() => popup?.querySelector('[role="menuitem"]')?.focus(), 0);
+    } catch (error) {
+      popup?.remove();
+      wrapper.dataset.cliptapChannelMenuOpen = 'false';
+      wrapper.dataset.cliptapChannelMenuError = String(error?.message || error || 'menu-open-failed');
+      trigger.setAttribute('aria-expanded', 'false');
+      showClipTapFeedback('Could not open ClipTap channel menu.', true);
+    }
+  }
+
+  function bindChannelDownloadMenuDismissal() {
+    // Dismissal is attached only while the ClipTap channel menu is open.
+    // Permanent document click handlers can block YouTube native action menus after ClipTap closes.
+  }
+
+  function getVisibleRect(element) {
+    if (!element?.getBoundingClientRect) return null;
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 ? rect : null;
+  }
+
+  function hasChannelSubscribeControl(element) {
+    if (!element) return false;
+    if (element.querySelector?.('yt-subscribe-button-view-model, ytd-subscribe-button-renderer')) return true;
+    return /\bsubscribed?\b/i.test(actionText(element));
+  }
+
   function findChannelActionsContainer() {
     const selectors = [
+      'yt-page-header-renderer yt-flexible-actions-view-model.ytPageHeaderViewModelFlexibleActions',
+      'yt-page-header-renderer .ytPageHeaderViewModelFlexibleActions',
+      'ytd-tabbed-page-header yt-flexible-actions-view-model.ytPageHeaderViewModelFlexibleActions',
+      'ytd-tabbed-page-header .ytPageHeaderViewModelFlexibleActions',
       'yt-flexible-actions-view-model.ytPageHeaderViewModelFlexibleActions',
-      'yt-page-header-view-model yt-flexible-actions-view-model',
-      'ytd-channel-header-renderer yt-flexible-actions-view-model',
-      'ytd-c4-tabbed-header-renderer yt-flexible-actions-view-model'
+      '.ytFlexibleActionsViewModelHost.ytPageHeaderViewModelFlexibleActions',
+      'yt-page-header-renderer yt-flexible-actions-view-model',
+      'ytd-tabbed-page-header yt-flexible-actions-view-model'
     ];
+
+    const candidates = [];
     for (const selector of selectors) {
-      const element = document.querySelector(selector);
-      if (element?.querySelector?.('.ytFlexibleActionsViewModelAction, button, a')) return element;
+      document.querySelectorAll(selector).forEach(element => {
+        if (!candidates.includes(element)) candidates.push(element);
+      });
     }
-    return null;
+
+    const visible = candidates.filter(element => getVisibleRect(element));
+    return visible.find(hasChannelSubscribeControl) ||
+      visible.find(element => element.querySelector?.('.ytFlexibleActionsViewModelAction, button, a')) ||
+      candidates.find(hasChannelSubscribeControl) ||
+      candidates.find(element => element.querySelector?.('.ytFlexibleActionsViewModelAction, button, a')) ||
+      null;
   }
 
   function getChannelActionTemplate(container) {
@@ -1597,105 +1962,83 @@
     return preferred || null;
   }
 
-  function makeChannelDownloadButtonElement(template = null) {
-    const wrapper = template?.cloneNode?.(true) || document.createElement('div');
+  function makeChannelDownloadButtonElement() {
+    const wrapper = document.createElement('div');
     wrapper.className = 'ytFlexibleActionsViewModelAction cliptap-channel-download-action';
+    wrapper.dataset.cliptapChannelMountedAt = 'visible-flexible-actions';
 
-    wrapper.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
-    wrapper.querySelectorAll('tp-yt-paper-tooltip').forEach(el => el.remove());
-    wrapper.querySelectorAll('yt-animated-action, .ytAnimatedActionHost, .ytAnimatedActionLottie, lottie-component').forEach(el => {
-      if (!el.closest('.cliptap-channel-download-action')) return;
-    });
-
-    let clickable = wrapper.querySelector('button, a, div[role="button"]');
-    if (!clickable || clickable.closest('yt-subscribe-button-view-model')) {
-      wrapper.textContent = '';
-      const host = document.createElement('button-view-model');
-      host.className = 'ytSpecButtonViewModelHost';
-      clickable = document.createElement('button');
-      clickable.className = 'ytSpecButtonShapeNextHost ytSpecButtonShapeNextTonal ytSpecButtonShapeNextMono ytSpecButtonShapeNextSizeM ytSpecButtonShapeNextIconLeading ytSpecButtonShapeNextEnableBackdropFilterExperiment';
-      host.appendChild(clickable);
-      wrapper.appendChild(host);
-    }
-
-    if (clickable.tagName.toLowerCase() === 'a') {
-      clickable.removeAttribute('href');
-      clickable.setAttribute('role', 'button');
-      clickable.setAttribute('tabindex', '0');
-    } else if (clickable.tagName.toLowerCase() === 'button') {
-      clickable.type = 'button';
-    } else {
-      clickable.setAttribute('role', 'button');
-      clickable.setAttribute('tabindex', '0');
-    }
-
-    clickable.className = 'ytSpecButtonShapeNextHost ytSpecButtonShapeNextTonal ytSpecButtonShapeNextMono ytSpecButtonShapeNextSizeM ytSpecButtonShapeNextIconLeading ytSpecButtonShapeNextEnableBackdropFilterExperiment';
+    const clickable = document.createElement('button');
+    clickable.type = 'button';
+    clickable.className = 'ytSpecButtonShapeNextHost ytSpecButtonShapeNextTonal ytSpecButtonShapeNextMono ytSpecButtonShapeNextSizeM ytSpecButtonShapeNextIconLeadingTrailing ytSpecButtonShapeNextDisableTextEllipsis ytSpecButtonShapeNextEnableBackdropFilterExperiment';
     clickable.title = '';
     clickable.setAttribute('aria-label', 'Download channel with ClipTap');
-    clickable.removeAttribute('data-tooltip-text');
-    clickable.removeAttribute('data-tooltip-title');
-    clickable.removeAttribute('data-cliptap-tooltip-text');
-    clickable.removeAttribute('data-cliptap-tooltip-placement');
-    clickable.removeAttribute('data-cliptap-tooltip-bound');
+    clickable.setAttribute('aria-haspopup', 'menu');
+    clickable.setAttribute('aria-expanded', 'false');
     clickable.setAttribute('aria-disabled', 'false');
-    clickable.removeAttribute('disabled');
-    clickable.removeAttribute('href');
+    clickable.innerHTML = `${getChannelDownloadIcon()}<div class="ytSpecButtonShapeNextButtonTextContent"><span class="ytAttributedStringHost ytAttributedStringWhiteSpaceNoWrap" role="text">Download</span></div><div aria-hidden="true" class="ytSpecButtonShapeNextSecondaryIcon cliptap-channel-download-chevron"><span class="ytIconWrapperHost" style="width: 24px; height: 24px;"><span class="yt-icon-shape ytSpecIconShapeHost"><div style="width: 100%; height: 100%; display: block; fill: currentcolor;"><svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" aria-hidden="true" style="pointer-events:none;display:inherit;width:100%;height:100%;"><path d="M18.707 8.793a1 1 0 00-1.414 0L12 14.086 6.707 8.793a1 1 0 10-1.414 1.414L12 16.914l6.707-6.707a1 1 0 000-1.414Z"></path></svg></div></span></span></div><yt-touch-feedback-shape aria-hidden="true" class="ytSpecTouchFeedbackShapeHost ytSpecTouchFeedbackShapeTouchResponse"><div class="ytSpecTouchFeedbackShapeStroke"></div><div class="ytSpecTouchFeedbackShapeFill"></div></yt-touch-feedback-shape>`;
 
-    clickable.innerHTML = `${getChannelDownloadIcon()}<div class="ytSpecButtonShapeNextButtonTextContent">Download</div><yt-touch-feedback-shape aria-hidden="true" class="ytSpecTouchFeedbackShapeHost ytSpecTouchFeedbackShapeTouchResponse"><div class="ytSpecTouchFeedbackShapeStroke"></div><div class="ytSpecTouchFeedbackShapeFill"></div></yt-touch-feedback-shape>`;
-
+    wrapper.appendChild(clickable);
     wrapper.title = '';
     wrapper.setAttribute('aria-label', 'Download channel with ClipTap');
-    wrapper.removeAttribute('data-tooltip-text');
-    wrapper.removeAttribute('data-tooltip-title');
-    wrapper.removeAttribute('data-cliptap-tooltip-text');
-    wrapper.removeAttribute('data-cliptap-tooltip-placement');
-    wrapper.removeAttribute('data-cliptap-tooltip-bound');
     wrapper.dataset.cliptapChannelVersion = CHANNEL_BUTTON_VERSION;
+    wrapper.dataset.cliptapChannelMountedAt = 'visible-flexible-actions';
 
-    if (wrapper.dataset.cliptapChannelBound !== CHANNEL_BUTTON_VERSION) {
-      wrapper.addEventListener('click', event => {
-        event.preventDefault();
-        event.stopPropagation();
-        requestChannelDownload(wrapper);
-      }, true);
-      wrapper.addEventListener('keydown', event => {
-        if (event.key !== 'Enter' && event.key !== ' ') return;
-        event.preventDefault();
-        event.stopPropagation();
-        requestChannelDownload(wrapper);
-      }, true);
-      wrapper.dataset.cliptapChannelBound = CHANNEL_BUTTON_VERSION;
-    }
+    wrapper.addEventListener('pointerdown', event => {
+      if (event.button !== undefined && event.button !== 0) return;
+      if (getChannelDownloadPopup(wrapper)) return;
+      closeOpenYouTubeNativeActionMenus();
+    }, true);
+    wrapper.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleChannelDownloadMenu(wrapper);
+    }, true);
+    wrapper.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'ArrowDown') return;
+      event.preventDefault();
+      event.stopPropagation();
+      toggleChannelDownloadMenu(wrapper);
+    }, true);
+    wrapper.dataset.cliptapChannelBound = CHANNEL_BUTTON_VERSION;
 
     return wrapper;
   }
 
   function mountChannelDownloadButton() {
+    bindChannelDownloadMenuDismissal();
     const mountedButtons = [...document.querySelectorAll('.cliptap-channel-download-action')];
     if (!isChannelPageUrl()) {
       mountedButtons.forEach(el => el.remove());
-      return;
+      return false;
     }
 
     const container = findChannelActionsContainer();
-    if (!container) return;
+    if (!container) {
+      document.documentElement.dataset.cliptapChannelMountStatus = 'container-missing';
+      return false;
+    }
 
+    document.documentElement.dataset.cliptapChannelMountStatus = 'container-found';
     let button = mountedButtons.find(el => el.parentElement === container && el.dataset.cliptapChannelVersion === CHANNEL_BUTTON_VERSION) || null;
     mountedButtons.filter(el => el !== button).forEach(el => el.remove());
 
     if (!button) {
-      button = makeChannelDownloadButtonElement(getChannelActionTemplate(container));
+      button = makeChannelDownloadButtonElement();
     }
 
-    if (button.parentElement !== container || button.nextElementSibling) {
+    if (button.parentElement !== container) {
+      container.appendChild(button);
+    } else if (button.nextElementSibling) {
       container.appendChild(button);
     }
 
     button.dataset.cliptapChannelVersion = CHANNEL_BUTTON_VERSION;
+    button.dataset.cliptapChannelMountedAt = 'visible-flexible-actions';
+    document.documentElement.dataset.cliptapChannelMountStatus = 'mounted';
+    return true;
   }
 
   function mountPlaylistDownloadButtons() {
-    mountChannelDownloadButton();
     mountPlaylistPageButton();
     mountWatchPlaylistButton();
   }
@@ -1763,16 +2106,49 @@
     button.classList.toggle('cliptap-active', state.panelOpen || state.start != null || state.end != null || state.loopEnabled);
   }
 
+  let playerToolbarMountWatcherStarted = false;
+
+  function startPlayerToolbarMountWatcher() {
+    if (playerToolbarMountWatcherStarted) return;
+    playerToolbarMountWatcherStarted = true;
+
+    const mount = () => {
+      if (location.pathname !== '/watch') return;
+      try {
+        ensureStyle();
+        ensureControlButton();
+        renderButton();
+      } catch (error) {
+        console.warn('[ClipTap] player toolbar mount failed', error);
+      }
+    };
+
+    ['yt-navigate-finish', 'ytd-navigate-finish', 'yt-page-data-updated'].forEach(name => {
+      window.addEventListener(name, mount, true);
+    });
+    window.addEventListener('popstate', mount, true);
+    window.addEventListener('hashchange', mount, true);
+
+    [0, 80, 200, 500, 1000, 1800, 3000].forEach(delay => {
+      window.setTimeout(mount, delay);
+    });
+    window.setInterval(mount, 900);
+  }
+
   function render() {
-    resetForNewVideoIfNeeded();
-    ensureStyle();
-    ensureControlButton();
-    ensurePanel();
-    ensureProgressOverlay();
-    mountPlaylistDownloadButtons();
-    renderButton();
-    renderPanel();
-    renderProgressOverlay();
+    const safe = fn => {
+      try { fn(); } catch (error) { console.warn('[ClipTap] render step failed', error); }
+    };
+    safe(resetForNewVideoIfNeeded);
+    safe(ensureStyle);
+    safe(mountChannelDownloadButton);
+    safe(ensureControlButton);
+    safe(ensurePanel);
+    safe(ensureProgressOverlay);
+    safe(mountPlaylistDownloadButtons);
+    safe(renderButton);
+    safe(renderPanel);
+    safe(renderProgressOverlay);
   }
 
   function loadOptions() {
@@ -1822,7 +2198,32 @@
     }, delay);
   }
 
+  function startChannelMountWatcher() {
+    if (document.documentElement.dataset.cliptapChannelMountWatcher === CHANNEL_BUTTON_VERSION) return;
+    document.documentElement.dataset.cliptapChannelMountWatcher = CHANNEL_BUTTON_VERSION;
+
+    const tryMount = () => {
+      if (!isChannelPageUrl()) return;
+      mountChannelDownloadButton();
+    };
+
+    const observer = new MutationObserver(() => {
+      if (!isChannelPageUrl()) return;
+      window.clearTimeout(startChannelMountWatcher.timer);
+      startChannelMountWatcher.timer = window.setTimeout(tryMount, 80);
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+
+    let attempts = 0;
+    const interval = window.setInterval(() => {
+      attempts += 1;
+      if (mountChannelDownloadButton() || attempts > 80) window.clearInterval(interval);
+    }, 250);
+  }
+
   loadOptions();
+  startChannelMountWatcher();
+  startPlayerToolbarMountWatcher();
   scheduleRender();
 
   // YouTube mutates a huge amount of DOM while loading/playing.
@@ -1836,6 +2237,6 @@
   window.addEventListener('hashchange', scheduleRender, true);
 
   const observer = new MutationObserver(scheduleRender);
-  observer.observe(document.documentElement, { childList: true });
+  observer.observe(document.documentElement, { childList: true, subtree: true });
   setInterval(scheduleRender, 1500);
 })();
