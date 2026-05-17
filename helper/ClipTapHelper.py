@@ -9,6 +9,7 @@ When packaged with PyInstaller, it becomes a one-file Windows helper executable.
 from __future__ import annotations
 
 import argparse
+import datetime
 import importlib.util
 import json
 import os
@@ -2316,6 +2317,7 @@ def resolve_live_dvr_stream_info(job: DownloadJob) -> dict:
         "urls": [url],
         "format": format_id,
         "headers": headers,
+        "release_timestamp": info.get("release_timestamp") or info.get("timestamp"),
         "details": details,
     }
 
@@ -2348,6 +2350,19 @@ def parse_extinf_duration(tag: str) -> float:
         return 0.0
 
 
+def parse_hls_program_date_time(tag: str) -> float | None:
+    try:
+        value = tag.split(":", 1)[1].strip()
+        if value.endswith("Z"):
+            value = value[:-1] + "+00:00"
+        parsed = datetime.datetime.fromisoformat(value)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=datetime.timezone.utc)
+        return parsed.timestamp()
+    except Exception:
+        return None
+
+
 def parse_hls_media_segments(playlist_text: str, playlist_url: str) -> tuple[list[dict], list[str], float]:
     lines = [line.strip() for line in playlist_text.splitlines() if line.strip()]
     if not any(line.startswith("#EXTM3U") for line in lines[:3]):
@@ -2369,6 +2384,7 @@ def parse_hls_media_segments(playlist_text: str, playlist_url: str) -> tuple[lis
     segments: list[dict] = []
     seen_segment = False
     current_duration = 0.0
+    current_program_date_time: float | None = None
     max_duration = 0.0
 
     for line in lines:
@@ -2384,6 +2400,11 @@ def parse_hls_media_segments(playlist_text: str, playlist_url: str) -> tuple[lis
                 current_duration = parse_extinf_duration(line)
                 max_duration = max(max_duration, current_duration)
                 pending_tags.append(line)
+            elif line.startswith("#EXT-X-PROGRAM-DATE-TIME"):
+                current_program_date_time = parse_hls_program_date_time(line)
+                pending_tags.append(line)
+            elif line.startswith("#EXT-X-DISCONTINUITY"):
+                pending_tags.append(line)
             elif seen_segment:
                 pending_tags.append(line)
             else:
@@ -2397,9 +2418,11 @@ def parse_hls_media_segments(playlist_text: str, playlist_url: str) -> tuple[lis
             "uri": uri,
             "duration": current_duration,
             "tags": list(pending_tags),
+            "program_date_time": current_program_date_time,
         })
         pending_tags.clear()
         current_duration = 0.0
+        current_program_date_time = None
         seen_segment = True
 
     if not segments:
@@ -2447,9 +2470,31 @@ def build_live_dvr_local_hls_playlist(job: DownloadJob, stream_info: dict) -> di
     except (TypeError, ValueError):
         timeline_duration = 0.0
 
-    hls_window_start = 0.0
+    elapsed_correction = max(0.0, time.time() - float(job.created_at or time.time()))
+    adjusted_timeline_duration = timeline_duration + elapsed_correction if timeline_duration > 0 else 0.0
+    raw_hls_window_start = 0.0
     if timeline_duration > 0 and total_duration > 0 and timeline_duration > total_duration:
-        hls_window_start = max(0.0, timeline_duration - total_duration)
+        raw_hls_window_start = max(0.0, timeline_duration - total_duration)
+
+    hls_window_start = raw_hls_window_start
+    hls_window_source = "timeline-duration"
+    release_timestamp = None
+    try:
+        release_timestamp = float(stream_info.get("release_timestamp") or 0.0)
+    except (TypeError, ValueError):
+        release_timestamp = None
+    first_program_date_time = None
+    if segments:
+        try:
+            first_program_date_time = float(segments[0].get("program_date_time") or 0.0)
+        except (TypeError, ValueError):
+            first_program_date_time = None
+    if release_timestamp and first_program_date_time and first_program_date_time > release_timestamp:
+        hls_window_start = max(0.0, first_program_date_time - release_timestamp)
+        hls_window_source = "program-date-time"
+    elif adjusted_timeline_duration > 0 and total_duration > 0 and adjusted_timeline_duration > total_duration:
+        hls_window_start = max(0.0, adjusted_timeline_duration - total_duration)
+        hls_window_source = "elapsed-adjusted-timeline"
 
     mapped_start_time = ui_start_time - hls_window_start
     mapped_end_time = ui_end_time - hls_window_start
@@ -2529,8 +2574,14 @@ def build_live_dvr_local_hls_playlist(job: DownloadJob, stream_info: dict) -> di
         f"{str(stream_info.get('details') or '').strip()}\n"
         f"UI selected range: {seconds_to_clock(ui_start_time)}-{seconds_to_clock(ui_end_time)}\n"
         f"UI timeline duration: {seconds_to_clock(timeline_duration)}\n"
+        f"Live DVR elapsed correction: {seconds_to_clock(elapsed_correction)}\n"
+        f"Adjusted UI timeline duration: {seconds_to_clock(adjusted_timeline_duration)}\n"
         f"HLS playlist duration: {seconds_to_clock(total_duration)}\n"
+        f"Unadjusted HLS window start: {seconds_to_clock(raw_hls_window_start)}\n"
         f"Computed HLS window start: {seconds_to_clock(hls_window_start)}\n"
+        f"HLS window source: {hls_window_source}\n"
+        f"First segment program date time: {first_program_date_time or ''}\n"
+        f"Livestream release timestamp: {release_timestamp or ''}\n"
         f"Playlist-relative mapped range: {seconds_to_clock(mapped_start_time)}-{seconds_to_clock(mapped_end_time)}\n"
         f"Clipped playlist range: {seconds_to_clock(clipped_start_time)}-{seconds_to_clock(clipped_end_time)}\n"
         f"HLS segment count: {len(segments)}\n"
