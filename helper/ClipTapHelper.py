@@ -2425,33 +2425,78 @@ def build_live_dvr_local_hls_playlist(job: DownloadJob, stream_info: dict) -> di
     playlist_text = fetch_text_url(source_url, headers)
     segments, global_tags, max_segment_duration = parse_hls_media_segments(playlist_text, source_url)
 
-    start_time = float(job.payload.get("downloadStart", job.payload["start"]))
-    end_time = float(job.payload.get("downloadEnd", job.payload["end"]))
-    duration = max(0.1, end_time - start_time)
+    ui_start_time = float(job.payload.get("downloadStart", job.payload["start"]))
+    ui_end_time = float(job.payload.get("downloadEnd", job.payload["end"]))
 
+    # YouTube's live DVR HLS playlist is a rolling window. Its first segment is
+    # often not the start of the livestream, while ClipTap's UI times are based
+    # on the YouTube player timeline. Map the UI time into playlist-relative
+    # time before selecting segments.
+    segment_windows: list[tuple[int, float, float, dict]] = []
     cumulative = 0.0
-    selected: list[tuple[int, float, float, dict]] = []
     for index, segment in enumerate(segments):
         seg_start = cumulative
         seg_end = seg_start + float(segment.get("duration") or 0.0)
         cumulative = seg_end
-        if seg_end <= start_time:
-            continue
-        if seg_start >= end_time:
-            break
-        selected.append((index, seg_start, seg_end, segment))
+        segment_windows.append((index, seg_start, seg_end, segment))
 
     total_duration = cumulative
-    if not selected:
+    timeline_duration = 0.0
+    try:
+        timeline_duration = float(job.payload.get("timelineDuration") or 0.0)
+    except (TypeError, ValueError):
+        timeline_duration = 0.0
+
+    hls_window_start = 0.0
+    if timeline_duration > 0 and total_duration > 0 and timeline_duration > total_duration:
+        hls_window_start = max(0.0, timeline_duration - total_duration)
+
+    mapped_start_time = ui_start_time - hls_window_start
+    mapped_end_time = ui_end_time - hls_window_start
+
+    tolerance = max(5.0, max_segment_duration * 2.0)
+    if mapped_end_time <= -tolerance or mapped_start_time >= total_duration + tolerance:
         raise ClipTapError(
             f"Selected live DVR range is outside the available HLS DVR window. "
-            f"range={seconds_to_clock(start_time)}-{seconds_to_clock(end_time)}, "
+            f"range={seconds_to_clock(ui_start_time)}-{seconds_to_clock(ui_end_time)}, "
+            f"windowStart={seconds_to_clock(hls_window_start)}, "
+            f"mappedRange={seconds_to_clock(mapped_start_time)}-{seconds_to_clock(mapped_end_time)}, "
+            f"playlistDuration={seconds_to_clock(total_duration)}"
+        )
+
+    clipped_start_time = max(0.0, mapped_start_time)
+    clipped_end_time = min(total_duration, mapped_end_time)
+    if clipped_end_time <= clipped_start_time:
+        raise ClipTapError(
+            f"Selected live DVR range is outside the available HLS DVR window after mapping. "
+            f"range={seconds_to_clock(ui_start_time)}-{seconds_to_clock(ui_end_time)}, "
+            f"windowStart={seconds_to_clock(hls_window_start)}, "
+            f"mappedRange={seconds_to_clock(mapped_start_time)}-{seconds_to_clock(mapped_end_time)}, "
+            f"playlistDuration={seconds_to_clock(total_duration)}"
+        )
+
+    selected: list[tuple[int, float, float, dict]] = []
+    for item in segment_windows:
+        index, seg_start, seg_end, segment = item
+        if seg_end <= clipped_start_time:
+            continue
+        if seg_start >= clipped_end_time:
+            break
+        selected.append(item)
+
+    if not selected:
+        raise ClipTapError(
+            f"Selected live DVR range mapped to no HLS segments. "
+            f"range={seconds_to_clock(ui_start_time)}-{seconds_to_clock(ui_end_time)}, "
+            f"windowStart={seconds_to_clock(hls_window_start)}, "
+            f"mappedRange={seconds_to_clock(mapped_start_time)}-{seconds_to_clock(mapped_end_time)}, "
             f"playlistDuration={seconds_to_clock(total_duration)}"
         )
 
     first_index, first_start, _, _ = selected[0]
     last_index = selected[-1][0]
-    local_start_offset = max(0.0, start_time - first_start)
+    local_start_offset = max(0.0, clipped_start_time - first_start)
+    duration = max(0.1, clipped_end_time - clipped_start_time)
 
     temp_dir = TEMP_ROOT / "section" / job.id
     temp_dir.mkdir(parents=True, exist_ok=True)
@@ -2461,6 +2506,7 @@ def build_live_dvr_local_hls_playlist(job: DownloadJob, stream_info: dict) -> di
     output_lines = [
         "#EXTM3U",
         "#EXT-X-VERSION:3",
+        "#EXT-X-PLAYLIST-TYPE:VOD",
         f"#EXT-X-TARGETDURATION:{target_duration}",
         "#EXT-X-MEDIA-SEQUENCE:0",
     ]
@@ -2481,11 +2527,20 @@ def build_live_dvr_local_hls_playlist(job: DownloadJob, stream_info: dict) -> di
 
     details = (
         f"{str(stream_info.get('details') or '').strip()}\n"
+        f"UI selected range: {seconds_to_clock(ui_start_time)}-{seconds_to_clock(ui_end_time)}\n"
+        f"UI timeline duration: {seconds_to_clock(timeline_duration)}\n"
         f"HLS playlist duration: {seconds_to_clock(total_duration)}\n"
+        f"Computed HLS window start: {seconds_to_clock(hls_window_start)}\n"
+        f"Playlist-relative mapped range: {seconds_to_clock(mapped_start_time)}-{seconds_to_clock(mapped_end_time)}\n"
+        f"Clipped playlist range: {seconds_to_clock(clipped_start_time)}-{seconds_to_clock(clipped_end_time)}\n"
         f"HLS segment count: {len(segments)}\n"
         f"Selected segment indexes: {first_index}-{last_index}\n"
         f"Local start offset: {seconds_to_clock(local_start_offset)}\n"
-        f"Local playlist: {local_playlist}"
+        f"Local playlist: {local_playlist}\n"
+        f"Local playlist type: VOD\n"
+        f"Media sequence reset: 0\n"
+        f"live_start_index: 0\n"
+        f"Local playlist input: remote HTTP input options disabled"
     ).strip()
     update_job(
         job,
@@ -2523,12 +2578,13 @@ def build_live_dvr_ffmpeg_fallback_command(job: DownloadJob, stream_info: dict, 
     if not urls:
         raise ClipTapError("No live DVR stream URL was resolved.")
 
-    input_options = [
+    remote_input_options = [
         "-rw_timeout", "15000000",
         "-reconnect", "1",
         "-reconnect_streamed", "1",
         "-reconnect_delay_max", "5",
     ]
+    local_playlist_input_options: list[str] = []
     headers = stream_info.get("headers") if isinstance(stream_info.get("headers"), dict) else {}
     header_options: list[str] = []
     if headers:
@@ -2541,8 +2597,8 @@ def build_live_dvr_ffmpeg_fallback_command(job: DownloadJob, stream_info: dict, 
     command = [str(ffmpeg_path), "-hide_banner", "-y"]
 
     if kind == "separate" and len(urls) >= 2:
-        command += input_options + header_options + ["-ss", seconds_to_clock(start_time), "-i", urls[0]]
-        command += input_options + header_options + ["-ss", seconds_to_clock(start_time), "-i", urls[1]]
+        command += remote_input_options + header_options + ["-ss", seconds_to_clock(start_time), "-i", urls[0]]
+        command += remote_input_options + header_options + ["-ss", seconds_to_clock(start_time), "-i", urls[1]]
         input_count = 2
     elif kind == "hls_local":
         # The local playlist contains only the HLS segments intersecting the
@@ -2555,16 +2611,22 @@ def build_live_dvr_ffmpeg_fallback_command(job: DownloadJob, stream_info: dict, 
             "-protocol_whitelist", "file,http,https,tcp,tls,crypto",
             "-allowed_extensions", "ALL",
         ]
-        command += input_options + header_options + ["-i", urls[0]]
+        # The input is a local finite playlist. FFmpeg's HTTP-only input
+        # options (-headers, -reconnect, -rw_timeout, etc.) are valid when the
+        # input itself is remote, but attaching them to a local .m3u8 makes
+        # FFmpeg fail with errors such as "Option headers not found". Keep only
+        # protocol/extension allowances so the local playlist can reference
+        # YouTube's HTTPS media segments.
+        command += local_playlist_input_options + ["-live_start_index", "0", "-i", urls[0]]
         command += ["-ss", seconds_to_clock(local_offset)]
         input_count = 1
     else:
         if kind == "hls":
             # Kept as a safety fallback only. The normal live DVR path builds a
             # finite local HLS playlist before calling FFmpeg.
-            command += input_options + header_options + ["-live_start_index", "0", "-ss", seconds_to_clock(start_time), "-i", urls[0]]
+            command += remote_input_options + header_options + ["-live_start_index", "0", "-ss", seconds_to_clock(start_time), "-i", urls[0]]
         else:
-            command += input_options + header_options + ["-ss", seconds_to_clock(start_time), "-i", urls[0]]
+            command += remote_input_options + header_options + ["-ss", seconds_to_clock(start_time), "-i", urls[0]]
         input_count = 1
 
     command += [

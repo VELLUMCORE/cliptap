@@ -3,6 +3,10 @@
 ## v1.4
 
 **ClipTap Helper**
+- Fixed live DVR local HLS playlists so selected segments are written as finite VOD playlists with reset media sequence and FFmpeg starts from the first selected segment.
+- Fixed live DVR local HLS segment playlist downloads failing because HTTP header options were still applied to the local `.m3u8` input.
+- Fixed live DVR HLS segment selection by mapping YouTube UI timeline ranges into the rolling HLS DVR playlist window before cutting.
+- Fixed live DVR local HLS segment playlist downloads failing because remote reconnect options were applied to the local `.m3u8` input.
 - Fixed live DVR section clips starting from the wrong point by parsing the selected HLS playlist into a finite local segment playlist before FFmpeg trimming.
 - Fixed live DVR fallback to select concrete HLS playlist URLs from yt-dlp metadata, avoid DASH manifests when HLS is available, and expose FFmpeg command details in job JSON.
 - Fixed live DVR section fallback to prefer the concrete HLS playlist format URL from yt-dlp metadata before trying DASH manifests.
