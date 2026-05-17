@@ -1210,6 +1210,7 @@ class DownloadJob:
     eta: str = ""
     downloaded: str = ""
     error: str = ""
+    details: str = ""
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
     process: subprocess.Popen | None = field(default=None, repr=False, compare=False)
@@ -1232,6 +1233,7 @@ class DownloadJob:
             "eta": self.eta,
             "downloaded": self.downloaded,
             "error": self.error,
+            "details": self.details,
             "createdAt": self.created_at,
             "updatedAt": self.updated_at,
             "finishedAt": format_history_time(self.updated_at) if self.phase in TERMINAL_PHASES else "",
@@ -2171,207 +2173,150 @@ def summarize_external_process_failure(lines: list[str], code: int, tool_name: s
     return f"{tool_name} exited with code {code}."
 
 
+def stream_url_kind(url: str) -> str:
+    lowered = str(url or "").lower()
+    if "hls_playlist" in lowered or ".m3u8" in lowered or "playlist/index.m3u8" in lowered:
+        return "hls"
+    if "/manifest/dash/" in lowered or ".mpd" in lowered:
+        return "dash"
+    return "direct"
+
+
+def command_preview(command: list[str], limit: int = 1400) -> str:
+    def compact(part: str) -> str:
+        text = str(part)
+        if text.startswith(("http://", "https://")):
+            kind = stream_url_kind(text)
+            return f"<{kind}_url>"
+        if len(text) > 180:
+            return text[:90] + "…" + text[-45:]
+        return text
+    preview = " ".join(compact(part) for part in command)
+    return preview[:limit]
+
+
 def resolve_live_dvr_stream_info(job: DownloadJob) -> dict:
     yt_dlp_cmd, _ = find_yt_dlp()
     if not yt_dlp_cmd:
         raise ClipTapError("yt-dlp is not installed.")
 
     payload = job.payload
-    download_media = payload.get("downloadMedia", "video_with_audio")
-    attempts = [
-        yt_dlp_live_dvr_hls_format_for(download_media),
-        "best[protocol*=m3u8]/best[protocol=m3u8_native]/best",
-        yt_dlp_format_for(payload.get("quality", "best"), download_media),
-        "bestvideo*+bestaudio/best",
-    ]
-    seen_formats: set[str] = set()
-    last_error = ""
-    best_non_hls: dict | None = None
-
-    def unique_urls(urls: list[str]) -> list[str]:
-        unique: list[str] = []
-        seen: set[str] = set()
-        for url in urls:
-            if url in seen:
-                continue
-            seen.add(url)
-            unique.append(url)
-        return unique
-
-    def is_hls_url(url: str) -> bool:
-        lowered = str(url or "").lower()
-        return "hls_playlist" in lowered or ".m3u8" in lowered or "playlist/index.m3u8" in lowered
+    quality = str(payload.get("quality") or "best")
 
     def is_hls_format(format_info: dict) -> bool:
         if not isinstance(format_info, dict):
             return False
         protocol = str(format_info.get("protocol") or "").lower()
         url = str(format_info.get("url") or "")
-        return "m3u8" in protocol or is_hls_url(url)
+        return ("m3u8" in protocol or stream_url_kind(url) == "hls") and bool(url)
 
-    def hls_format_score(format_info: dict) -> tuple[float, float, float, str]:
+    def numeric(format_info: dict, key: str) -> float:
         try:
-            height = float(format_info.get("height") or 0)
+            return float(format_info.get(key) or 0)
         except (TypeError, ValueError):
-            height = 0.0
-        try:
-            fps = float(format_info.get("fps") or 0)
-        except (TypeError, ValueError):
-            fps = 0.0
-        try:
-            tbr = float(format_info.get("tbr") or 0)
-        except (TypeError, ValueError):
-            tbr = 0.0
-        return (height, fps, tbr, str(format_info.get("format_id") or ""))
+            return 0.0
 
-    def hls_info_from_json(info: dict, format_selector: str) -> dict | None:
-        candidates: list[dict] = []
-        for key in ("requested_downloads", "formats"):
-            values = info.get(key) if isinstance(info, dict) else None
-            if not isinstance(values, list):
-                continue
-            for format_info in values:
-                if not isinstance(format_info, dict) or not is_hls_format(format_info):
-                    continue
-                # For YouTube live DVR, HLS formats are usually combined A/V
-                # streams. They are still valid sources for audio-only and
-                # video-only outputs because FFmpeg maps the requested stream.
-                if not format_info.get("url"):
-                    continue
+    def target_height() -> float | None:
+        if quality == "1080":
+            return 1080.0
+        if quality == "720":
+            return 720.0
+        return None
+
+    def hls_format_score(format_info: dict) -> tuple[float, float, float, float, str]:
+        height = numeric(format_info, "height")
+        fps = numeric(format_info, "fps")
+        tbr = numeric(format_info, "tbr")
+        width = numeric(format_info, "width")
+        max_height = target_height()
+        if max_height and height > max_height:
+            # Keep higher-than-requested formats as a last resort, not first choice.
+            height_score = -height
+        else:
+            height_score = height
+        return (height_score, fps, tbr, width, str(format_info.get("format_id") or ""))
+
+    command = list(yt_dlp_cmd) + [
+        "--no-playlist",
+        "--no-warnings",
+        "-J",
+        "--skip-download",
+    ]
+    if payload.get("cookieBrowser"):
+        command += ["--cookies-from-browser", payload["cookieBrowser"]]
+    command.append(payload["url"])
+
+    update_job(
+        job,
+        status="Resolving live DVR HLS URL...",
+        phase="metadata",
+        downloaded="yt-dlp JSON metadata · selecting concrete HLS format",
+        details=f"Metadata command: {command_preview(command)}",
+    )
+    result = subprocess.run(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+        creationflags=CREATE_NO_WINDOW,
+        check=False,
+    )
+    output_lines = (result.stdout or "").splitlines() + (result.stderr or "").splitlines()
+    if result.returncode != 0:
+        raise ClipTapError(summarize_external_process_failure(output_lines, result.returncode, "yt-dlp metadata extraction"))
+
+    try:
+        info = json.loads(result.stdout or "{}")
+    except json.JSONDecodeError:
+        raise ClipTapError("yt-dlp returned invalid JSON while resolving live DVR HLS formats.")
+
+    candidates: list[dict] = []
+    for key in ("requested_downloads", "formats"):
+        values = info.get(key)
+        if not isinstance(values, list):
+            continue
+        for format_info in values:
+            if is_hls_format(format_info):
                 candidates.append(format_info)
-        if not candidates:
-            return None
-        best = max(candidates, key=hls_format_score)
-        # Important: use the concrete hls_playlist format URL, not manifest_url.
-        # manifest_url often points at the variant playlist and older fallback
-        # code could accidentally drift into a DASH manifest path.
-        return {
-            "kind": "hls",
-            "urls": [str(best.get("url"))],
-            "format": str(best.get("format_id") or format_selector),
-            "headers": best.get("http_headers") if isinstance(best.get("http_headers"), dict) else {},
-        }
 
-    def classify_non_hls(urls: list[str], format_selector: str) -> dict:
-        unique = unique_urls(urls)
-        dash_like = any(("/manifest/dash/" in url.lower()) or (".mpd" in url.lower()) for url in unique)
-        if dash_like:
-            # YouTube live DVR frequently returns the same DASH manifest once for
-            # video and once for audio. Feeding it as a single input lets FFmpeg
-            # choose the streams from that manifest instead of opening the same
-            # live input twice and waiting forever.
-            manifest_url = next((url for url in unique if "/manifest/dash/" in url.lower() or ".mpd" in url.lower()), unique[0])
-            return {"kind": "dash", "urls": [manifest_url], "format": format_selector}
-        if len(unique) >= 2:
-            return {"kind": "separate", "urls": unique[:2], "format": format_selector}
-        return {"kind": "direct", "urls": unique[:1], "format": format_selector}
+    if not candidates:
+        format_count = len(info.get("formats") or []) if isinstance(info.get("formats"), list) else 0
+        raise ClipTapError(f"No concrete HLS playlist URL was found in yt-dlp metadata. formats={format_count}")
 
-    # Prefer JSON inspection before `yt-dlp -g`. On YouTube live DVR, `-g` can
-    # return a DASH manifest even when the selected playable format is HLS. The
-    # JSON contains the exact per-format `url`; choose the best m3u8 format from
-    # there and pass that concrete playlist URL to FFmpeg.
-    for format_selector in attempts[:2]:
-        if format_selector in seen_formats:
-            continue
-        seen_formats.add(format_selector)
-        command = list(yt_dlp_cmd) + [
-            "--no-playlist",
-            "--no-warnings",
-            "--live-from-start",
-            "-J",
-            "--skip-download",
-            "-f", format_selector,
-        ]
-        if payload.get("cookieBrowser"):
-            command += ["--cookies-from-browser", payload["cookieBrowser"]]
-        command.append(payload["url"])
-        update_job(
-            job,
-            status="Resolving live DVR HLS URL...",
-            phase="metadata",
-            downloaded=f"yt-dlp -J · format {format_selector}",
-        )
-        result = subprocess.run(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=120,
-            creationflags=CREATE_NO_WINDOW,
-            check=False,
-        )
-        output_lines = (result.stdout or "").splitlines() + (result.stderr or "").splitlines()
-        if result.returncode != 0:
-            last_error = summarize_external_process_failure(output_lines, result.returncode, "yt-dlp metadata extraction")
-            continue
-        try:
-            info = json.loads(result.stdout or "{}")
-        except json.JSONDecodeError:
-            last_error = "yt-dlp returned invalid JSON while resolving live DVR HLS formats."
-            continue
-        hls_info = hls_info_from_json(info, format_selector)
-        if hls_info:
-            return hls_info
-        last_error = "yt-dlp metadata did not include an HLS playlist URL."
+    best = max(candidates, key=hls_format_score)
+    url = str(best.get("url") or "")
+    headers = best.get("http_headers") if isinstance(best.get("http_headers"), dict) else {}
+    format_id = str(best.get("format_id") or "hls")
+    width = int(numeric(best, "width"))
+    height = int(numeric(best, "height"))
+    fps = numeric(best, "fps")
+    protocol = str(best.get("protocol") or "")
+    input_kind = stream_url_kind(url)
+    if input_kind != "hls":
+        raise ClipTapError(f"Selected live DVR URL was not HLS ({input_kind}). Refusing DASH fallback for this stream.")
 
-    for format_selector in attempts:
-        if format_selector in seen_formats:
-            continue
-        seen_formats.add(format_selector)
-        command = list(yt_dlp_cmd) + [
-            "--no-playlist",
-            "--no-warnings",
-            "--live-from-start",
-            "-g",
-            "-f", format_selector,
-        ]
-        if payload.get("cookieBrowser"):
-            command += ["--cookies-from-browser", payload["cookieBrowser"]]
-        command.append(payload["url"])
-
-        update_job(
-            job,
-            status="Resolving live DVR stream URLs...",
-            phase="metadata",
-            downloaded=f"yt-dlp -g · format {format_selector}",
-        )
-        result = subprocess.run(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=120,
-            creationflags=CREATE_NO_WINDOW,
-            check=False,
-        )
-        output_lines = (result.stdout or "").splitlines() + (result.stderr or "").splitlines()
-        if result.returncode != 0:
-            last_error = summarize_external_process_failure(output_lines, result.returncode, "yt-dlp URL extraction")
-            continue
-
-        urls = [line.strip() for line in (result.stdout or "").splitlines() if line.strip().startswith(("http://", "https://"))]
-        if not urls:
-            last_error = "yt-dlp did not return direct media URLs."
-            continue
-
-        for url in urls:
-            if is_hls_url(url):
-                return {"kind": "hls", "urls": [url], "format": format_selector}
-
-        info = classify_non_hls(urls, format_selector)
-        if info.get("urls"):
-            # Keep looking for HLS first, but remember the best DASH/direct URL
-            # set so HLS-less live DVR streams can still be processed.
-            best_non_hls = info
-            last_error = "yt-dlp returned no HLS playlist URL; using DASH/direct FFmpeg fallback."
-
-    if best_non_hls:
-        return best_non_hls
-    raise ClipTapError(last_error or "Could not resolve a live DVR stream URL.")
+    details = (
+        f"Selected live DVR format: {format_id} {protocol} {width}x{height} {fps:g}fps\n"
+        f"FFmpeg input: {input_kind} playlist URL from format.url\n"
+        f"URL marker: {'hls_playlist' if 'hls_playlist' in url.lower() else 'm3u8'}"
+    )
+    update_job(
+        job,
+        status="Resolved live DVR HLS URL",
+        phase="metadata",
+        downloaded=f"HLS format {format_id} · {width}x{height} {fps:g}fps",
+        details=details,
+    )
+    return {
+        "kind": "hls",
+        "urls": [url],
+        "format": format_id,
+        "headers": headers,
+        "details": details,
+    }
 
 
 def build_live_dvr_ffmpeg_fallback_command(job: DownloadJob, stream_info: dict, output_file: Path) -> list[str]:
@@ -2410,10 +2355,13 @@ def build_live_dvr_ffmpeg_fallback_command(job: DownloadJob, stream_info: dict, 
         command += input_options + header_options + ["-ss", seconds_to_clock(start_time), "-i", urls[1]]
         input_count = 2
     else:
-        # HLS, DASH manifests, and single direct URLs are all treated as one
-        # input. This avoids the v1.4-20 issue where the same DASH manifest was
-        # opened twice and FFmpeg never reached the requested output range.
-        command += input_options + header_options + ["-ss", seconds_to_clock(start_time), "-i", urls[0]]
+        if kind == "hls":
+            # YouTube live DVR HLS playlists expose the full DVR window. Start
+            # from the earliest available segment so -ss is applied against the
+            # same timeline that the YouTube player shows.
+            command += input_options + header_options + ["-live_start_index", "0", "-ss", seconds_to_clock(start_time), "-i", urls[0]]
+        else:
+            command += input_options + header_options + ["-ss", seconds_to_clock(start_time), "-i", urls[0]]
         input_count = 1
 
     command += [
@@ -2577,14 +2525,20 @@ def run_live_dvr_section_download(job: DownloadJob):
         output_file = section_output_path_for_extension(job, extension)
         fallback_kind = str(stream_info.get("kind") or "direct").upper()
         fallback_format = str(stream_info.get("format") or "<unknown>")
+        command = build_live_dvr_ffmpeg_fallback_command(job, stream_info, output_file)
+        stream_details = str(stream_info.get("details") or "").strip()
+        fallback_details = (
+            f"{stream_details}\n"
+            f"FFmpeg command preview: {command_preview(command)}"
+        ).strip()
         update_job(
             job,
             status="Cutting live DVR section...",
             phase="processing",
             progress=1.0,
             downloaded=f"FFmpeg {fallback_kind} range fallback · format {fallback_format}",
+            details=fallback_details,
         )
-        command = build_live_dvr_ffmpeg_fallback_command(job, stream_info, output_file)
         job.process = popen_text(command, OUTPUT_DIR)
         recent_output.clear()
         last_output_at = time.time()
@@ -2593,11 +2547,12 @@ def run_live_dvr_section_download(job: DownloadJob):
         def fallback_idle_check():
             nonlocal last_output_at, last_progress_at
             now = time.time()
-            if now - last_progress_at > 45:
+            if now - last_progress_at > 90:
                 kill_job_process(job)
-                raise ClipTapError("FFmpeg fallback made no progress for 45 seconds. The live DVR stream may not support range cutting.")
+                tail = " | ".join(recent_output[-8:]) if recent_output else "no FFmpeg output received"
+                raise ClipTapError(f"FFmpeg fallback made no progress for 90 seconds. {tail}")
             if now - last_output_at > 15:
-                update_job(job, status="Cutting live DVR section...", phase="processing", progress=max(1.0, job.progress), downloaded=f"FFmpeg {fallback_kind} range fallback · waiting for stream data")
+                update_job(job, status="Cutting live DVR section...", phase="processing", progress=max(1.0, job.progress), downloaded=f"FFmpeg {fallback_kind} range fallback · waiting for stream data", details=fallback_details)
                 last_output_at = now
 
         for line in iter_process_records(job.process, job.cancel_event, fallback_idle_check):
@@ -2613,7 +2568,9 @@ def run_live_dvr_section_download(job: DownloadJob):
         if job.cancel_event.is_set():
             raise CancelledError()
         if code != 0:
-            raise ClipTapError(summarize_external_process_failure(recent_output, code, "FFmpeg fallback"))
+            failure = summarize_external_process_failure(recent_output, code, "FFmpeg fallback")
+            update_job(job, details=(fallback_details + "\nFFmpeg output tail: " + " | ".join(recent_output[-12:])).strip())
+            raise ClipTapError(failure)
         update_job(job, status="Finished", phase="finished", progress=100.0, downloaded=str(output_file))
     finally:
         kill_job_process(job)

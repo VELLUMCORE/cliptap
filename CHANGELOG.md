@@ -3,6 +3,7 @@
 ## v1.4
 
 **ClipTap Helper**
+- Fixed live DVR fallback to select concrete HLS playlist URLs from yt-dlp metadata, avoid DASH manifests when HLS is available, and expose FFmpeg command details in job JSON.
 - Fixed live DVR section fallback to prefer the concrete HLS playlist format URL from yt-dlp metadata before trying DASH manifests.
 - Added a DASH/direct FFmpeg fallback for live DVR sections when yt-dlp exposes separate media or DASH manifest URLs without an HLS playlist.
 - Reworked live DVR FFmpeg fallback to cut from a single HLS range input and fail clearly if FFmpeg makes no progress.
