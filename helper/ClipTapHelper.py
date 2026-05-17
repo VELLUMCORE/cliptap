@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
 HOST = "127.0.0.1"
@@ -1941,6 +1941,7 @@ def ffmpeg_trim_command(job: DownloadJob, source_file: Path, output_file: Path) 
             "-crf", "18",
             "-c:a", "aac",
             "-b:a", "192k",
+            "-avoid_negative_ts", "make_zero",
             "-movflags", "+faststart",
         ]
 
@@ -2319,6 +2320,195 @@ def resolve_live_dvr_stream_info(job: DownloadJob) -> dict:
     }
 
 
+def fetch_text_url(url: str, headers: dict | None = None, timeout: int = 45) -> str:
+    request_headers = {}
+    for key, value in (headers or {}).items():
+        if key and value and key.lower() not in {"accept-encoding", "content-length", "host"}:
+            request_headers[str(key)] = str(value)
+    request = Request(url, headers=request_headers)
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            raw = response.read()
+    except (HTTPError, URLError, TimeoutError) as exc:
+        raise ClipTapError(f"Failed to fetch live DVR HLS playlist: {exc}") from exc
+    return raw.decode("utf-8", errors="replace")
+
+
+def resolve_m3u8_tag_uris(tag: str, base_url: str) -> str:
+    def replace_uri(match: re.Match) -> str:
+        return f'URI="{urljoin(base_url, match.group(1))}"'
+    return re.sub(r'URI="([^"]+)"', replace_uri, tag)
+
+
+def parse_extinf_duration(tag: str) -> float:
+    try:
+        value = tag.split(":", 1)[1].split(",", 1)[0].strip()
+        return max(0.0, float(value))
+    except Exception:
+        return 0.0
+
+
+def parse_hls_media_segments(playlist_text: str, playlist_url: str) -> tuple[list[dict], list[str], float]:
+    lines = [line.strip() for line in playlist_text.splitlines() if line.strip()]
+    if not any(line.startswith("#EXTM3U") for line in lines[:3]):
+        raise ClipTapError("The resolved live DVR HLS response is not an M3U8 playlist.")
+
+    # A variant playlist points at another media playlist. The selected yt-dlp
+    # format should already be a media playlist, but handle this defensively.
+    for index, line in enumerate(lines):
+        if line.startswith("#EXT-X-STREAM-INF"):
+            for next_line in lines[index + 1:]:
+                if next_line and not next_line.startswith("#"):
+                    return parse_hls_media_segments(
+                        fetch_text_url(urljoin(playlist_url, next_line)),
+                        urljoin(playlist_url, next_line),
+                    )
+
+    global_tags: list[str] = []
+    pending_tags: list[str] = []
+    segments: list[dict] = []
+    seen_segment = False
+    current_duration = 0.0
+    max_duration = 0.0
+
+    for line in lines:
+        if line.startswith("#"):
+            if line.startswith("#EXTM3U"):
+                continue
+            if line.startswith("#EXT-X-TARGETDURATION") or line.startswith("#EXT-X-MEDIA-SEQUENCE"):
+                continue
+            if line.startswith("#EXT-X-ENDLIST"):
+                continue
+            line = resolve_m3u8_tag_uris(line, playlist_url)
+            if line.startswith("#EXTINF"):
+                current_duration = parse_extinf_duration(line)
+                max_duration = max(max_duration, current_duration)
+                pending_tags.append(line)
+            elif seen_segment:
+                pending_tags.append(line)
+            else:
+                # Preserve tags that can affect segment decoding, such as
+                # EXT-X-MAP, EXT-X-KEY, EXT-X-DISCONTINUITY-SEQUENCE, etc.
+                global_tags.append(line)
+            continue
+
+        uri = urljoin(playlist_url, line)
+        segments.append({
+            "uri": uri,
+            "duration": current_duration,
+            "tags": list(pending_tags),
+        })
+        pending_tags.clear()
+        current_duration = 0.0
+        seen_segment = True
+
+    if not segments:
+        raise ClipTapError("The live DVR HLS playlist did not contain media segments.")
+    return segments, global_tags, max_duration
+
+
+def build_live_dvr_local_hls_playlist(job: DownloadJob, stream_info: dict) -> dict:
+    urls = list(stream_info.get("urls") or [])
+    if not urls:
+        raise ClipTapError("No live DVR HLS URL is available for segment selection.")
+
+    source_url = str(urls[0])
+    headers = stream_info.get("headers") if isinstance(stream_info.get("headers"), dict) else {}
+    update_job(
+        job,
+        status="Reading live DVR HLS playlist...",
+        phase="processing",
+        progress=max(1.0, job.progress),
+        downloaded="Parsing HLS segments",
+        details=str(stream_info.get("details") or ""),
+    )
+    playlist_text = fetch_text_url(source_url, headers)
+    segments, global_tags, max_segment_duration = parse_hls_media_segments(playlist_text, source_url)
+
+    start_time = float(job.payload.get("downloadStart", job.payload["start"]))
+    end_time = float(job.payload.get("downloadEnd", job.payload["end"]))
+    duration = max(0.1, end_time - start_time)
+
+    cumulative = 0.0
+    selected: list[tuple[int, float, float, dict]] = []
+    for index, segment in enumerate(segments):
+        seg_start = cumulative
+        seg_end = seg_start + float(segment.get("duration") or 0.0)
+        cumulative = seg_end
+        if seg_end <= start_time:
+            continue
+        if seg_start >= end_time:
+            break
+        selected.append((index, seg_start, seg_end, segment))
+
+    total_duration = cumulative
+    if not selected:
+        raise ClipTapError(
+            f"Selected live DVR range is outside the available HLS DVR window. "
+            f"range={seconds_to_clock(start_time)}-{seconds_to_clock(end_time)}, "
+            f"playlistDuration={seconds_to_clock(total_duration)}"
+        )
+
+    first_index, first_start, _, _ = selected[0]
+    last_index = selected[-1][0]
+    local_start_offset = max(0.0, start_time - first_start)
+
+    temp_dir = TEMP_ROOT / "section" / job.id
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    local_playlist = temp_dir / "live-dvr-section.m3u8"
+
+    target_duration = max(1, int(max_segment_duration + 0.999))
+    output_lines = [
+        "#EXTM3U",
+        "#EXT-X-VERSION:3",
+        f"#EXT-X-TARGETDURATION:{target_duration}",
+        "#EXT-X-MEDIA-SEQUENCE:0",
+    ]
+    for tag in global_tags:
+        if tag and not tag.startswith(("#EXT-X-PLAYLIST-TYPE", "#EXT-X-ALLOW-CACHE")):
+            output_lines.append(tag)
+
+    for _, _, _, segment in selected:
+        tags = segment.get("tags") or []
+        has_extinf = any(str(tag).startswith("#EXTINF") for tag in tags)
+        for tag in tags:
+            output_lines.append(str(tag))
+        if not has_extinf:
+            output_lines.append(f"#EXTINF:{float(segment.get('duration') or 0.0):.6f},")
+        output_lines.append(str(segment.get("uri") or ""))
+    output_lines.append("#EXT-X-ENDLIST")
+    local_playlist.write_text("\n".join(output_lines) + "\n", encoding="utf-8")
+
+    details = (
+        f"{str(stream_info.get('details') or '').strip()}\n"
+        f"HLS playlist duration: {seconds_to_clock(total_duration)}\n"
+        f"HLS segment count: {len(segments)}\n"
+        f"Selected segment indexes: {first_index}-{last_index}\n"
+        f"Local start offset: {seconds_to_clock(local_start_offset)}\n"
+        f"Local playlist: {local_playlist}"
+    ).strip()
+    update_job(
+        job,
+        status="Prepared live DVR segment playlist",
+        phase="processing",
+        progress=max(1.0, job.progress),
+        downloaded=f"HLS segments {first_index}-{last_index} · trim {seconds_to_clock(local_start_offset)}",
+        details=details,
+    )
+    result = dict(stream_info)
+    result.update({
+        "kind": "hls_local",
+        "urls": [str(local_playlist)],
+        "headers": headers,
+        "local_start_offset": local_start_offset,
+        "duration": duration,
+        "details": details,
+        "segment_count": len(selected),
+        "segment_range": f"{first_index}-{last_index}",
+    })
+    return result
+
+
 def build_live_dvr_ffmpeg_fallback_command(job: DownloadJob, stream_info: dict, output_file: Path) -> list[str]:
     ffmpeg_path, _ = find_ffmpeg()
     if not ffmpeg_path:
@@ -2354,11 +2544,24 @@ def build_live_dvr_ffmpeg_fallback_command(job: DownloadJob, stream_info: dict, 
         command += input_options + header_options + ["-ss", seconds_to_clock(start_time), "-i", urls[0]]
         command += input_options + header_options + ["-ss", seconds_to_clock(start_time), "-i", urls[1]]
         input_count = 2
+    elif kind == "hls_local":
+        # The local playlist contains only the HLS segments intersecting the
+        # selected range. FFmpeg only needs to trim within the first selected
+        # segment, so avoid seeking through the original live playlist.
+        local_offset = float(stream_info.get("local_start_offset") or 0.0)
+        duration = max(0.1, float(stream_info.get("duration") or duration))
+        command += [
+            "-fflags", "+genpts",
+            "-protocol_whitelist", "file,http,https,tcp,tls,crypto",
+            "-allowed_extensions", "ALL",
+        ]
+        command += input_options + header_options + ["-i", urls[0]]
+        command += ["-ss", seconds_to_clock(local_offset)]
+        input_count = 1
     else:
         if kind == "hls":
-            # YouTube live DVR HLS playlists expose the full DVR window. Start
-            # from the earliest available segment so -ss is applied against the
-            # same timeline that the YouTube player shows.
+            # Kept as a safety fallback only. The normal live DVR path builds a
+            # finite local HLS playlist before calling FFmpeg.
             command += input_options + header_options + ["-live_start_index", "0", "-ss", seconds_to_clock(start_time), "-i", urls[0]]
         else:
             command += input_options + header_options + ["-ss", seconds_to_clock(start_time), "-i", urls[0]]
@@ -2380,6 +2583,7 @@ def build_live_dvr_ffmpeg_fallback_command(job: DownloadJob, stream_info: dict, 
             "-c:v", "libx264",
             "-preset", "veryfast",
             "-crf", "18",
+            "-avoid_negative_ts", "make_zero",
             "-movflags", "+faststart",
         ]
     elif input_count >= 2:
@@ -2391,6 +2595,7 @@ def build_live_dvr_ffmpeg_fallback_command(job: DownloadJob, stream_info: dict, 
             "-crf", "18",
             "-c:a", "aac",
             "-b:a", "192k",
+            "-avoid_negative_ts", "make_zero",
             "-movflags", "+faststart",
         ]
     else:
@@ -2402,6 +2607,7 @@ def build_live_dvr_ffmpeg_fallback_command(job: DownloadJob, stream_info: dict, 
             "-crf", "18",
             "-c:a", "aac",
             "-b:a", "192k",
+            "-avoid_negative_ts", "make_zero",
             "-movflags", "+faststart",
         ]
 
@@ -2521,6 +2727,8 @@ def run_live_dvr_section_download(job: DownloadJob):
             return
 
         stream_info = resolve_live_dvr_stream_info(job)
+        if str(stream_info.get("kind") or "") == "hls":
+            stream_info = build_live_dvr_local_hls_playlist(job, stream_info)
         extension = ".mp3" if media_is_audio_only(job.payload) else ".mp4"
         output_file = section_output_path_for_extension(job, extension)
         fallback_kind = str(stream_info.get("kind") or "direct").upper()
