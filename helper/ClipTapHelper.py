@@ -2198,6 +2198,60 @@ def resolve_live_dvr_stream_info(job: DownloadJob) -> dict:
             unique.append(url)
         return unique
 
+    def is_hls_url(url: str) -> bool:
+        lowered = str(url or "").lower()
+        return "hls_playlist" in lowered or ".m3u8" in lowered or "playlist/index.m3u8" in lowered
+
+    def is_hls_format(format_info: dict) -> bool:
+        if not isinstance(format_info, dict):
+            return False
+        protocol = str(format_info.get("protocol") or "").lower()
+        url = str(format_info.get("url") or "")
+        return "m3u8" in protocol or is_hls_url(url)
+
+    def hls_format_score(format_info: dict) -> tuple[float, float, float, str]:
+        try:
+            height = float(format_info.get("height") or 0)
+        except (TypeError, ValueError):
+            height = 0.0
+        try:
+            fps = float(format_info.get("fps") or 0)
+        except (TypeError, ValueError):
+            fps = 0.0
+        try:
+            tbr = float(format_info.get("tbr") or 0)
+        except (TypeError, ValueError):
+            tbr = 0.0
+        return (height, fps, tbr, str(format_info.get("format_id") or ""))
+
+    def hls_info_from_json(info: dict, format_selector: str) -> dict | None:
+        candidates: list[dict] = []
+        for key in ("requested_downloads", "formats"):
+            values = info.get(key) if isinstance(info, dict) else None
+            if not isinstance(values, list):
+                continue
+            for format_info in values:
+                if not isinstance(format_info, dict) or not is_hls_format(format_info):
+                    continue
+                # For YouTube live DVR, HLS formats are usually combined A/V
+                # streams. They are still valid sources for audio-only and
+                # video-only outputs because FFmpeg maps the requested stream.
+                if not format_info.get("url"):
+                    continue
+                candidates.append(format_info)
+        if not candidates:
+            return None
+        best = max(candidates, key=hls_format_score)
+        # Important: use the concrete hls_playlist format URL, not manifest_url.
+        # manifest_url often points at the variant playlist and older fallback
+        # code could accidentally drift into a DASH manifest path.
+        return {
+            "kind": "hls",
+            "urls": [str(best.get("url"))],
+            "format": str(best.get("format_id") or format_selector),
+            "headers": best.get("http_headers") if isinstance(best.get("http_headers"), dict) else {},
+        }
+
     def classify_non_hls(urls: list[str], format_selector: str) -> dict:
         unique = unique_urls(urls)
         dash_like = any(("/manifest/dash/" in url.lower()) or (".mpd" in url.lower()) for url in unique)
@@ -2211,6 +2265,56 @@ def resolve_live_dvr_stream_info(job: DownloadJob) -> dict:
         if len(unique) >= 2:
             return {"kind": "separate", "urls": unique[:2], "format": format_selector}
         return {"kind": "direct", "urls": unique[:1], "format": format_selector}
+
+    # Prefer JSON inspection before `yt-dlp -g`. On YouTube live DVR, `-g` can
+    # return a DASH manifest even when the selected playable format is HLS. The
+    # JSON contains the exact per-format `url`; choose the best m3u8 format from
+    # there and pass that concrete playlist URL to FFmpeg.
+    for format_selector in attempts[:2]:
+        if format_selector in seen_formats:
+            continue
+        seen_formats.add(format_selector)
+        command = list(yt_dlp_cmd) + [
+            "--no-playlist",
+            "--no-warnings",
+            "--live-from-start",
+            "-J",
+            "--skip-download",
+            "-f", format_selector,
+        ]
+        if payload.get("cookieBrowser"):
+            command += ["--cookies-from-browser", payload["cookieBrowser"]]
+        command.append(payload["url"])
+        update_job(
+            job,
+            status="Resolving live DVR HLS URL...",
+            phase="metadata",
+            downloaded=f"yt-dlp -J · format {format_selector}",
+        )
+        result = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=120,
+            creationflags=CREATE_NO_WINDOW,
+            check=False,
+        )
+        output_lines = (result.stdout or "").splitlines() + (result.stderr or "").splitlines()
+        if result.returncode != 0:
+            last_error = summarize_external_process_failure(output_lines, result.returncode, "yt-dlp metadata extraction")
+            continue
+        try:
+            info = json.loads(result.stdout or "{}")
+        except json.JSONDecodeError:
+            last_error = "yt-dlp returned invalid JSON while resolving live DVR HLS formats."
+            continue
+        hls_info = hls_info_from_json(info, format_selector)
+        if hls_info:
+            return hls_info
+        last_error = "yt-dlp metadata did not include an HLS playlist URL."
 
     for format_selector in attempts:
         if format_selector in seen_formats:
@@ -2255,8 +2359,7 @@ def resolve_live_dvr_stream_info(job: DownloadJob) -> dict:
             continue
 
         for url in urls:
-            lowered = url.lower()
-            if "hls_playlist" in lowered or ".m3u8" in lowered or "playlist/index.m3u8" in lowered:
+            if is_hls_url(url):
                 return {"kind": "hls", "urls": [url], "format": format_selector}
 
         info = classify_non_hls(urls, format_selector)
@@ -2291,17 +2394,26 @@ def build_live_dvr_ffmpeg_fallback_command(job: DownloadJob, stream_info: dict, 
         "-reconnect_streamed", "1",
         "-reconnect_delay_max", "5",
     ]
+    headers = stream_info.get("headers") if isinstance(stream_info.get("headers"), dict) else {}
+    header_options: list[str] = []
+    if headers:
+        header_lines = []
+        for key, value in headers.items():
+            if key and value:
+                header_lines.append(f"{key}: {value}")
+        if header_lines:
+            header_options = ["-headers", "\r\n".join(header_lines) + "\r\n"]
     command = [str(ffmpeg_path), "-hide_banner", "-y"]
 
     if kind == "separate" and len(urls) >= 2:
-        command += input_options + ["-ss", seconds_to_clock(start_time), "-i", urls[0]]
-        command += input_options + ["-ss", seconds_to_clock(start_time), "-i", urls[1]]
+        command += input_options + header_options + ["-ss", seconds_to_clock(start_time), "-i", urls[0]]
+        command += input_options + header_options + ["-ss", seconds_to_clock(start_time), "-i", urls[1]]
         input_count = 2
     else:
         # HLS, DASH manifests, and single direct URLs are all treated as one
         # input. This avoids the v1.4-20 issue where the same DASH manifest was
         # opened twice and FFmpeg never reached the requested output range.
-        command += input_options + ["-ss", seconds_to_clock(start_time), "-i", urls[0]]
+        command += input_options + header_options + ["-ss", seconds_to_clock(start_time), "-i", urls[0]]
         input_count = 1
 
     command += [
