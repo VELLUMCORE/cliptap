@@ -1248,6 +1248,15 @@ class DownloadJob:
         if self.process and self.process.poll() is None:
             try:
                 self.process.terminate()
+                try:
+                    self.process.wait(timeout=3)
+                    return
+                except subprocess.TimeoutExpired:
+                    pass
+            except Exception:
+                pass
+            try:
+                self.process.kill()
             except Exception:
                 pass
 
@@ -1570,15 +1579,19 @@ def yt_dlp_format_for(quality: str, download_media: str) -> str:
 
 
 def yt_dlp_live_dvr_section_format_for(download_media: str) -> str:
-    # Many YouTube live DVR DASH formats, e.g. 299+140, cannot be used with
-    # --download-sections. Prefer HLS formats so FFmpeg can clip the selected
-    # range without following the live stream forever. Do not silently fall back
-    # to DASH here; a clear format error is better than a stuck download.
+    # Keep the first yt-dlp attempt on the normal format selection. YouTube live
+    # DVR often exposes DASH formats that yt-dlp can inspect, but some of them
+    # cannot be used with --download-sections. If that happens, the helper falls
+    # back to a separate FFmpeg HLS range cut.
+    return yt_dlp_format_for("best", download_media)
+
+
+def yt_dlp_live_dvr_hls_format_for(download_media: str) -> str:
     if download_media == "audio":
-        return "bestaudio[protocol=m3u8_native]/bestaudio[protocol=m3u8]/bestaudio[protocol*=m3u8]"
+        return "bestaudio[protocol*=m3u8]/bestaudio[protocol=m3u8_native]/bestaudio/best"
     if download_media == "video_only":
-        return "bestvideo[protocol=m3u8_native]/bestvideo[protocol=m3u8]/bestvideo[protocol*=m3u8]"
-    return "best[protocol=m3u8_native]/best[protocol=m3u8]/best[protocol*=m3u8]"
+        return "bestvideo[protocol*=m3u8]/bestvideo[protocol=m3u8_native]/bestvideo/best"
+    return "best[protocol*=m3u8]/best[protocol=m3u8_native]/best"
 
 
 def summarize_process_failure(lines: list[str], code: int) -> str:
@@ -1759,7 +1772,8 @@ def build_download_command(job: DownloadJob) -> list[str]:
     # Some DASH formats cannot be partially downloaded by yt-dlp itself, but
     # they are still useful for the FFmpeg fallback because yt-dlp can expose
     # their direct media URLs with -g.
-    command += ["-f", yt_dlp_format_for(quality, download_media)]
+    format_selector = yt_dlp_live_dvr_section_format_for(download_media) if is_live_section else yt_dlp_format_for(quality, download_media)
+    command += ["-f", format_selector]
     if download_media == "audio":
         command += ["-x", "--audio-format", "mp3"]
     elif download_media == "video_with_audio":
@@ -2036,7 +2050,7 @@ def clock_to_seconds(value: str) -> float:
         return 0.0
 
 
-def iter_process_records(process: subprocess.Popen, cancel_event: threading.Event):
+def iter_process_records(process: subprocess.Popen, cancel_event: threading.Event, idle_callback=None):
     """Yield process output records split by either newlines or carriage returns.
 
     ffmpeg often updates progress using carriage returns instead of full lines.
@@ -2067,6 +2081,8 @@ def iter_process_records(process: subprocess.Popen, cancel_event: threading.Even
         try:
             chunk = output_queue.get(timeout=0.15)
         except queue.Empty:
+            if idle_callback is not None:
+                idle_callback()
             if reader_done and process.poll() is not None:
                 break
             continue
@@ -2155,47 +2171,77 @@ def summarize_external_process_failure(lines: list[str], code: int, tool_name: s
     return f"{tool_name} exited with code {code}."
 
 
-def extract_live_dvr_direct_urls(job: DownloadJob) -> list[str]:
+def extract_live_dvr_hls_url(job: DownloadJob) -> str:
     yt_dlp_cmd, _ = find_yt_dlp()
     if not yt_dlp_cmd:
         raise ClipTapError("yt-dlp is not installed.")
 
     payload = job.payload
-    command = list(yt_dlp_cmd) + [
-        "--no-playlist",
-        "--no-warnings",
-        "--live-from-start",
-        "-g",
-        "-f", yt_dlp_format_for(payload.get("quality", "best"), payload.get("downloadMedia", "video_with_audio")),
+    download_media = payload.get("downloadMedia", "video_with_audio")
+    attempts = [
+        yt_dlp_live_dvr_hls_format_for(download_media),
+        "best[protocol*=m3u8]/best[protocol=m3u8_native]/best",
+        yt_dlp_format_for(payload.get("quality", "best"), download_media),
     ]
-    if payload.get("cookieBrowser"):
-        command += ["--cookies-from-browser", payload["cookieBrowser"]]
-    command.append(payload["url"])
+    seen_formats: set[str] = set()
+    last_error = ""
 
-    update_job(job, status="Resolving live stream URLs...", phase="metadata", downloaded="yt-dlp -g fallback")
-    result = subprocess.run(
-        command,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=120,
-        creationflags=CREATE_NO_WINDOW,
-        check=False,
-    )
-    output_lines = (result.stdout or "").splitlines() + (result.stderr or "").splitlines()
-    if result.returncode != 0:
-        raise ClipTapError(summarize_external_process_failure(output_lines, result.returncode, "yt-dlp URL extraction"))
+    for format_selector in attempts:
+        if format_selector in seen_formats:
+            continue
+        seen_formats.add(format_selector)
+        command = list(yt_dlp_cmd) + [
+            "--no-playlist",
+            "--no-warnings",
+            "--live-from-start",
+            "-g",
+            "-f", format_selector,
+        ]
+        if payload.get("cookieBrowser"):
+            command += ["--cookies-from-browser", payload["cookieBrowser"]]
+        command.append(payload["url"])
 
-    urls = [line.strip() for line in (result.stdout or "").splitlines() if line.strip().startswith(("http://", "https://"))]
-    if not urls:
-        message = " | ".join(line.strip() for line in output_lines[-4:] if line.strip())
-        raise ClipTapError(f"yt-dlp did not return direct media URLs. {message}".strip())
-    return urls
+        update_job(
+            job,
+            status="Resolving live DVR HLS URL...",
+            phase="metadata",
+            downloaded=f"yt-dlp -g · format {format_selector}",
+        )
+        result = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=120,
+            creationflags=CREATE_NO_WINDOW,
+            check=False,
+        )
+        output_lines = (result.stdout or "").splitlines() + (result.stderr or "").splitlines()
+        if result.returncode != 0:
+            last_error = summarize_external_process_failure(output_lines, result.returncode, "yt-dlp URL extraction")
+            continue
+
+        urls = [line.strip() for line in (result.stdout or "").splitlines() if line.strip().startswith(("http://", "https://"))]
+        if not urls:
+            last_error = "yt-dlp did not return direct media URLs."
+            continue
+
+        for url in urls:
+            lowered = url.lower()
+            if "hls_playlist" in lowered or ".m3u8" in lowered or "playlist/index.m3u8" in lowered:
+                return url
+        # A single non-HLS manifest can still be useful for the final fallback,
+        # but prefer it only if no HLS URL was exposed at all.
+        if len(urls) == 1:
+            return urls[0]
+        last_error = "yt-dlp returned separate media URLs but no HLS playlist URL."
+
+    raise ClipTapError(last_error or "Could not resolve a live DVR stream URL.")
 
 
-def build_live_dvr_ffmpeg_fallback_command(job: DownloadJob, urls: list[str], output_file: Path) -> list[str]:
+def build_live_dvr_ffmpeg_fallback_command(job: DownloadJob, stream_url: str, output_file: Path) -> list[str]:
     ffmpeg_path, _ = find_ffmpeg()
     if not ffmpeg_path:
         raise ClipTapError("FFmpeg is not installed.")
@@ -2205,21 +2251,37 @@ def build_live_dvr_ffmpeg_fallback_command(job: DownloadJob, urls: list[str], ou
     start_time = float(payload.get("downloadStart", payload["start"]))
     duration = max(0.1, float(payload.get("downloadEnd", payload["end"])) - start_time)
 
-    command = [str(ffmpeg_path), "-hide_banner", "-y"]
-    for url in urls:
-        command += ["-ss", seconds_to_clock(start_time), "-i", url]
-    command += ["-t", seconds_to_clock(duration), "-progress", "pipe:1", "-nostats"]
+    command = [
+        str(ffmpeg_path),
+        "-hide_banner",
+        "-y",
+        "-rw_timeout", "15000000",
+        "-reconnect", "1",
+        "-reconnect_streamed", "1",
+        "-reconnect_delay_max", "5",
+        "-ss", seconds_to_clock(start_time),
+        "-i", stream_url,
+        "-t", seconds_to_clock(duration),
+        "-progress", "pipe:1",
+        "-stats_period", "0.5",
+        "-nostats",
+    ]
 
     if download_media == "audio":
         command += ["-vn", "-map", "0:a:0?", "-c:a", "libmp3lame", "-q:a", "2"]
     elif download_media == "video_only":
-        command += ["-map", "0:v:0?", "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-movflags", "+faststart"]
-    else:
-        if len(urls) >= 2:
-            command += ["-map", "0:v:0?", "-map", "1:a:0?"]
-        else:
-            command += ["-map", "0:v:0?", "-map", "0:a:0?"]
         command += [
+            "-map", "0:v:0?",
+            "-an",
+            "-c:v", "libx264",
+            "-preset", "veryfast",
+            "-crf", "18",
+            "-movflags", "+faststart",
+        ]
+    else:
+        command += [
+            "-map", "0:v:0?",
+            "-map", "0:a:0?",
             "-c:v", "libx264",
             "-preset", "veryfast",
             "-crf", "18",
@@ -2231,6 +2293,24 @@ def build_live_dvr_ffmpeg_fallback_command(job: DownloadJob, urls: list[str], ou
     command.append(str(output_file))
     return command
 
+
+def kill_job_process(job: DownloadJob):
+    process = job.process
+    if not process or process.poll() is not None:
+        return
+    try:
+        process.terminate()
+        try:
+            process.wait(timeout=3)
+            return
+        except subprocess.TimeoutExpired:
+            pass
+    except Exception:
+        pass
+    try:
+        process.kill()
+    except Exception:
+        pass
 
 def run_live_dvr_section_download(job: DownloadJob):
     section_start = float(job.payload["start"])
@@ -2325,7 +2405,7 @@ def run_live_dvr_section_download(job: DownloadJob):
         if run_yt_dlp_section_attempt():
             return
 
-        urls = extract_live_dvr_direct_urls(job)
+        stream_url = extract_live_dvr_hls_url(job)
         extension = ".mp3" if media_is_audio_only(job.payload) else ".mp4"
         output_file = section_output_path_for_extension(job, extension)
         update_job(
@@ -2333,16 +2413,33 @@ def run_live_dvr_section_download(job: DownloadJob):
             status="Cutting live DVR section...",
             phase="processing",
             progress=1.0,
-            downloaded=f"FFmpeg fallback · {len(urls)} direct URL{'s' if len(urls) != 1 else ''}",
+            downloaded="FFmpeg HLS range fallback",
         )
-        command = build_live_dvr_ffmpeg_fallback_command(job, urls, output_file)
+        command = build_live_dvr_ffmpeg_fallback_command(job, stream_url, output_file)
         job.process = popen_text(command, OUTPUT_DIR)
         recent_output.clear()
-        for line in iter_process_records(job.process, job.cancel_event):
+        last_output_at = time.time()
+        last_progress_at = time.time()
+
+        def fallback_idle_check():
+            nonlocal last_output_at, last_progress_at
+            now = time.time()
+            if now - last_progress_at > 45:
+                kill_job_process(job)
+                raise ClipTapError("FFmpeg fallback made no progress for 45 seconds. The live DVR stream may not support range cutting.")
+            if now - last_output_at > 15:
+                update_job(job, status="Cutting live DVR section...", phase="processing", progress=max(1.0, job.progress), downloaded="FFmpeg HLS range fallback · waiting for stream data")
+                last_output_at = now
+
+        for line in iter_process_records(job.process, job.cancel_event, fallback_idle_check):
             if job.cancel_event.is_set():
                 raise CancelledError()
+            last_output_at = time.time()
             remember(line)
+            before = job.progress
             update_from_ffmpeg_line(line)
+            if job.progress > before:
+                last_progress_at = time.time()
         code = job.process.wait()
         if job.cancel_event.is_set():
             raise CancelledError()
@@ -2350,11 +2447,7 @@ def run_live_dvr_section_download(job: DownloadJob):
             raise ClipTapError(summarize_external_process_failure(recent_output, code, "FFmpeg fallback"))
         update_job(job, status="Finished", phase="finished", progress=100.0, downloaded=str(output_file))
     finally:
-        if job.process and job.process.poll() is None:
-            try:
-                job.process.kill()
-            except Exception:
-                pass
+        kill_job_process(job)
 
 def run_section_download(job: DownloadJob):
     payload = job.payload

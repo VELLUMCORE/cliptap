@@ -3,6 +3,7 @@
 ## v1.4
 
 **ClipTap Helper**
+- Reworked live DVR FFmpeg fallback to cut from a single HLS range input and fail clearly if FFmpeg makes no progress.
 - Added an FFmpeg direct-stream fallback for live DVR section downloads when yt-dlp cannot partially download the selected DASH format.
 - Fixed live DVR section downloads by preferring partial-downloadable HLS formats and surfacing yt-dlp failure details in the job error.
 - Added automatic update checks when the Helper manager starts and a clear shutdown message after stopping the Helper.
