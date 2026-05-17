@@ -3,6 +3,7 @@
 ## v1.4
 
 **ClipTap Helper**
+- Added a DASH/direct FFmpeg fallback for live DVR sections when yt-dlp exposes separate media or DASH manifest URLs without an HLS playlist.
 - Reworked live DVR FFmpeg fallback to cut from a single HLS range input and fail clearly if FFmpeg makes no progress.
 - Added an FFmpeg direct-stream fallback for live DVR section downloads when yt-dlp cannot partially download the selected DASH format.
 - Fixed live DVR section downloads by preferring partial-downloadable HLS formats and surfacing yt-dlp failure details in the job error.
