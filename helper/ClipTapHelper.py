@@ -2496,6 +2496,18 @@ def build_live_dvr_local_hls_playlist(job: DownloadJob, stream_info: dict) -> di
         hls_window_start = max(0.0, adjusted_timeline_duration - total_duration)
         hls_window_source = "elapsed-adjusted-timeline"
 
+    # YouTube live DVR HLS media playlists can be a few segments behind the
+    # player timeline even when PROGRAM-DATE-TIME is available. In practice the
+    # selected section can start several seconds late because the playlist
+    # window start is under-estimated. Apply a small segment-based correction to
+    # move the mapped range back toward the user's selected player time without
+    # affecting the section duration.
+    pre_segment_hls_window_start = hls_window_start
+    segment_timing_correction = 0.0
+    if hls_window_start > 0 and total_duration > 0 and max_segment_duration > 0:
+        segment_timing_correction = min(6.0, max_segment_duration * 6.0)
+        hls_window_start = max(0.0, hls_window_start + segment_timing_correction)
+
     mapped_start_time = ui_start_time - hls_window_start
     mapped_end_time = ui_end_time - hls_window_start
 
@@ -2578,7 +2590,10 @@ def build_live_dvr_local_hls_playlist(job: DownloadJob, stream_info: dict) -> di
         f"Adjusted UI timeline duration: {seconds_to_clock(adjusted_timeline_duration)}\n"
         f"HLS playlist duration: {seconds_to_clock(total_duration)}\n"
         f"Unadjusted HLS window start: {seconds_to_clock(raw_hls_window_start)}\n"
+        f"Pre-correction HLS window start: {seconds_to_clock(pre_segment_hls_window_start)}\n"
+        f"Live DVR segment timing correction: {seconds_to_clock(segment_timing_correction)}\n"
         f"Computed HLS window start: {seconds_to_clock(hls_window_start)}\n"
+        f"Corrected playlist-relative mapped range: {seconds_to_clock(mapped_start_time)}-{seconds_to_clock(mapped_end_time)}\n"
         f"HLS window source: {hls_window_source}\n"
         f"First segment program date time: {first_program_date_time or ''}\n"
         f"Livestream release timestamp: {release_timestamp or ''}\n"
