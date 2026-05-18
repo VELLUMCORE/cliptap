@@ -2552,7 +2552,26 @@ def build_live_dvr_local_hls_playlist(job: DownloadJob, stream_info: dict) -> di
 
     first_index, first_start, _, _ = selected[0]
     last_index = selected[-1][0]
-    local_start_offset = max(0.0, clipped_start_time - first_start)
+
+    # Include one segment before the selected range when possible. This gives
+    # FFmpeg enough decode preroll so trimming at the user's requested time is
+    # less likely to start a fraction of a second late around HLS segment/keyframe
+    # boundaries. The output duration remains the exact requested section length;
+    # only the finite local playlist gains an extra leading segment.
+    playlist_segments = list(selected)
+    playlist_first_index = first_index
+    playlist_first_start = first_start
+    preroll_index: int | None = None
+    preroll_duration = 0.0
+    if first_index > 0:
+        preroll_item = segment_windows[first_index - 1]
+        preroll_index, preroll_start, preroll_end, _ = preroll_item
+        playlist_segments.insert(0, preroll_item)
+        playlist_first_index = preroll_index
+        playlist_first_start = preroll_start
+        preroll_duration = max(0.0, preroll_end - preroll_start)
+
+    local_start_offset = max(0.0, clipped_start_time - playlist_first_start)
     duration = max(0.1, clipped_end_time - clipped_start_time)
 
     temp_dir = TEMP_ROOT / "section" / job.id
@@ -2571,7 +2590,7 @@ def build_live_dvr_local_hls_playlist(job: DownloadJob, stream_info: dict) -> di
         if tag and not tag.startswith(("#EXT-X-PLAYLIST-TYPE", "#EXT-X-ALLOW-CACHE")):
             output_lines.append(tag)
 
-    for _, _, _, segment in selected:
+    for _, _, _, segment in playlist_segments:
         tags = segment.get("tags") or []
         has_extinf = any(str(tag).startswith("#EXTINF") for tag in tags)
         for tag in tags:
@@ -2601,6 +2620,9 @@ def build_live_dvr_local_hls_playlist(job: DownloadJob, stream_info: dict) -> di
         f"Clipped playlist range: {seconds_to_clock(clipped_start_time)}-{seconds_to_clock(clipped_end_time)}\n"
         f"HLS segment count: {len(segments)}\n"
         f"Selected segment indexes: {first_index}-{last_index}\n"
+        f"Preroll segment index: {preroll_index if preroll_index is not None else ''}\n"
+        f"Preroll duration: {seconds_to_clock(preroll_duration)}\n"
+        f"Local playlist segment indexes: {playlist_first_index}-{last_index}\n"
         f"Local start offset: {seconds_to_clock(local_start_offset)}\n"
         f"Local playlist: {local_playlist}\n"
         f"Local playlist type: VOD\n"
@@ -2613,7 +2635,7 @@ def build_live_dvr_local_hls_playlist(job: DownloadJob, stream_info: dict) -> di
         status="Prepared live DVR segment playlist",
         phase="processing",
         progress=max(1.0, job.progress),
-        downloaded=f"HLS segments {first_index}-{last_index} · trim {seconds_to_clock(local_start_offset)}",
+        downloaded=f"HLS segments {playlist_first_index}-{last_index} · trim {seconds_to_clock(local_start_offset)}",
         details=details,
     )
     result = dict(stream_info)
@@ -2624,8 +2646,11 @@ def build_live_dvr_local_hls_playlist(job: DownloadJob, stream_info: dict) -> di
         "local_start_offset": local_start_offset,
         "duration": duration,
         "details": details,
-        "segment_count": len(selected),
-        "segment_range": f"{first_index}-{last_index}",
+        "segment_count": len(playlist_segments),
+        "segment_range": f"{playlist_first_index}-{last_index}",
+        "selected_segment_range": f"{first_index}-{last_index}",
+        "preroll_segment_index": preroll_index,
+        "preroll_duration": preroll_duration,
     })
     return result
 
