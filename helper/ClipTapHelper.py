@@ -45,7 +45,8 @@ DATA_DIR = (Path(os.environ.get("APPDATA", str(Path.home()))) / "ClipTap") if os
 HISTORY_FILE = DATA_DIR / "download-history.json"
 SETTINGS_FILE = DATA_DIR / "settings.json"
 TERMINAL_PHASES = {"finished", "failed", "cancelled", "stopped"}
-LIVE_DVR_FINE_TRIM_CORRECTION_SECONDS = 0.75
+LIVE_DVR_FINE_TRIM_CORRECTION_SECONDS = 2.5
+LIVE_DVR_PREROLL_SEGMENT_COUNT = 3
 
 INDEX_HTML = r"""<!doctype html>
 <html lang="en">
@@ -2554,23 +2555,24 @@ def build_live_dvr_local_hls_playlist(job: DownloadJob, stream_info: dict) -> di
     first_index, first_start, _, _ = selected[0]
     last_index = selected[-1][0]
 
-    # Include one segment before the selected range when possible. This gives
+    # Include several segments before the selected range when possible. This gives
     # FFmpeg enough decode preroll so trimming at the user's requested time is
-    # less likely to start a fraction of a second late around HLS segment/keyframe
-    # boundaries. The output duration remains the exact requested section length;
-    # only the finite local playlist gains an extra leading segment.
+    # less likely to start late around HLS segment/keyframe boundaries. The output
+    # duration remains the exact requested section length; only the finite local
+    # playlist gains extra leading segments.
     playlist_segments = list(selected)
     playlist_first_index = first_index
     playlist_first_start = first_start
-    preroll_index: int | None = None
+    preroll_indexes: list[int] = []
     preroll_duration = 0.0
-    if first_index > 0:
-        preroll_item = segment_windows[first_index - 1]
-        preroll_index, preroll_start, preroll_end, _ = preroll_item
-        playlist_segments.insert(0, preroll_item)
-        playlist_first_index = preroll_index
-        playlist_first_start = preroll_start
-        preroll_duration = max(0.0, preroll_end - preroll_start)
+    preroll_count = min(LIVE_DVR_PREROLL_SEGMENT_COUNT, first_index)
+    if preroll_count > 0:
+        preroll_items = segment_windows[first_index - preroll_count:first_index]
+        playlist_segments = list(preroll_items) + playlist_segments
+        playlist_first_index = preroll_items[0][0]
+        playlist_first_start = preroll_items[0][1]
+        preroll_indexes = [item[0] for item in preroll_items]
+        preroll_duration = sum(max(0.0, item[2] - item[1]) for item in preroll_items)
 
     pre_fine_local_start_offset = max(0.0, clipped_start_time - playlist_first_start)
     fine_trim_correction = min(LIVE_DVR_FINE_TRIM_CORRECTION_SECONDS, pre_fine_local_start_offset)
@@ -2623,8 +2625,9 @@ def build_live_dvr_local_hls_playlist(job: DownloadJob, stream_info: dict) -> di
         f"Clipped playlist range: {seconds_to_clock(clipped_start_time)}-{seconds_to_clock(clipped_end_time)}\n"
         f"HLS segment count: {len(segments)}\n"
         f"Selected segment indexes: {first_index}-{last_index}\n"
-        f"Preroll segment index: {preroll_index if preroll_index is not None else ''}\n"
-        f"Preroll duration: {seconds_to_clock(preroll_duration)}\n"
+        f"Preroll segment count: {len(preroll_indexes)}\n"
+        f"Preroll segment indexes: {','.join(str(index) for index in preroll_indexes)}\n"
+        f"Total preroll duration: {seconds_to_clock(preroll_duration)}\n"
         f"Local playlist segment indexes: {playlist_first_index}-{last_index}\n"
         f"Pre-fine local start offset: {seconds_to_clock(pre_fine_local_start_offset)}\n"
         f"Live DVR fine trim correction: {seconds_to_clock(fine_trim_correction)}\n"
@@ -2655,7 +2658,8 @@ def build_live_dvr_local_hls_playlist(job: DownloadJob, stream_info: dict) -> di
         "segment_count": len(playlist_segments),
         "segment_range": f"{playlist_first_index}-{last_index}",
         "selected_segment_range": f"{first_index}-{last_index}",
-        "preroll_segment_index": preroll_index,
+        "preroll_segment_indexes": preroll_indexes,
+        "preroll_segment_count": len(preroll_indexes),
         "preroll_duration": preroll_duration,
         "pre_fine_local_start_offset": pre_fine_local_start_offset,
         "fine_trim_correction": fine_trim_correction,
