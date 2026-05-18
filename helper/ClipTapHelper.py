@@ -45,6 +45,7 @@ DATA_DIR = (Path(os.environ.get("APPDATA", str(Path.home()))) / "ClipTap") if os
 HISTORY_FILE = DATA_DIR / "download-history.json"
 SETTINGS_FILE = DATA_DIR / "settings.json"
 TERMINAL_PHASES = {"finished", "failed", "cancelled", "stopped"}
+LIVE_DVR_FINE_TRIM_CORRECTION_SECONDS = 0.75
 
 INDEX_HTML = r"""<!doctype html>
 <html lang="en">
@@ -2571,7 +2572,9 @@ def build_live_dvr_local_hls_playlist(job: DownloadJob, stream_info: dict) -> di
         playlist_first_start = preroll_start
         preroll_duration = max(0.0, preroll_end - preroll_start)
 
-    local_start_offset = max(0.0, clipped_start_time - playlist_first_start)
+    pre_fine_local_start_offset = max(0.0, clipped_start_time - playlist_first_start)
+    fine_trim_correction = min(LIVE_DVR_FINE_TRIM_CORRECTION_SECONDS, pre_fine_local_start_offset)
+    local_start_offset = max(0.0, pre_fine_local_start_offset - fine_trim_correction)
     duration = max(0.1, clipped_end_time - clipped_start_time)
 
     temp_dir = TEMP_ROOT / "section" / job.id
@@ -2623,6 +2626,9 @@ def build_live_dvr_local_hls_playlist(job: DownloadJob, stream_info: dict) -> di
         f"Preroll segment index: {preroll_index if preroll_index is not None else ''}\n"
         f"Preroll duration: {seconds_to_clock(preroll_duration)}\n"
         f"Local playlist segment indexes: {playlist_first_index}-{last_index}\n"
+        f"Pre-fine local start offset: {seconds_to_clock(pre_fine_local_start_offset)}\n"
+        f"Live DVR fine trim correction: {seconds_to_clock(fine_trim_correction)}\n"
+        f"Corrected local start offset: {seconds_to_clock(local_start_offset)}\n"
         f"Local start offset: {seconds_to_clock(local_start_offset)}\n"
         f"Local playlist: {local_playlist}\n"
         f"Local playlist type: VOD\n"
@@ -2651,6 +2657,8 @@ def build_live_dvr_local_hls_playlist(job: DownloadJob, stream_info: dict) -> di
         "selected_segment_range": f"{first_index}-{last_index}",
         "preroll_segment_index": preroll_index,
         "preroll_duration": preroll_duration,
+        "pre_fine_local_start_offset": pre_fine_local_start_offset,
+        "fine_trim_correction": fine_trim_correction,
     })
     return result
 

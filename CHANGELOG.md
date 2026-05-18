@@ -3,6 +3,7 @@
 ## v1.4
 
 **ClipTap Helper**
+- Improved live DVR section trim accuracy with a small fine correction to the local HLS start offset after preroll segment selection.
 - Improved live DVR section accuracy by including one preroll segment before the selected HLS segment range for cleaner FFmpeg trimming near segment boundaries.
 - Improved live DVR section alignment with a small segment timing correction when mapping YouTube player timeline ranges into HLS playlist windows.
 - Improved live DVR section accuracy by adjusting HLS window mapping for Helper processing time and program-date-time metadata when available.
