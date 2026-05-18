@@ -46,6 +46,8 @@ HISTORY_FILE = DATA_DIR / "download-history.json"
 SETTINGS_FILE = DATA_DIR / "settings.json"
 TERMINAL_PHASES = {"finished", "failed", "cancelled", "stopped"}
 LIVE_DVR_FINE_TRIM_CORRECTION_SECONDS = 2.5
+LIVE_DVR_START_PADDING_SECONDS = 0.15
+LIVE_DVR_END_PADDING_SECONDS = 0.15
 LIVE_DVR_PREROLL_SEGMENT_COUNT = 3
 
 INDEX_HTML = r"""<!doctype html>
@@ -2576,8 +2578,12 @@ def build_live_dvr_local_hls_playlist(job: DownloadJob, stream_info: dict) -> di
 
     pre_fine_local_start_offset = max(0.0, clipped_start_time - playlist_first_start)
     fine_trim_correction = min(LIVE_DVR_FINE_TRIM_CORRECTION_SECONDS, pre_fine_local_start_offset)
-    local_start_offset = max(0.0, pre_fine_local_start_offset - fine_trim_correction)
-    duration = max(0.1, clipped_end_time - clipped_start_time)
+    corrected_local_start_offset = max(0.0, pre_fine_local_start_offset - fine_trim_correction)
+    start_padding = min(LIVE_DVR_START_PADDING_SECONDS, corrected_local_start_offset)
+    end_padding = max(0.0, LIVE_DVR_END_PADDING_SECONDS)
+    local_start_offset = max(0.0, corrected_local_start_offset - start_padding)
+    requested_duration = max(0.1, clipped_end_time - clipped_start_time)
+    duration = max(0.1, requested_duration + start_padding + end_padding)
 
     temp_dir = TEMP_ROOT / "section" / job.id
     temp_dir.mkdir(parents=True, exist_ok=True)
@@ -2631,7 +2637,11 @@ def build_live_dvr_local_hls_playlist(job: DownloadJob, stream_info: dict) -> di
         f"Local playlist segment indexes: {playlist_first_index}-{last_index}\n"
         f"Pre-fine local start offset: {seconds_to_clock(pre_fine_local_start_offset)}\n"
         f"Live DVR fine trim correction: {seconds_to_clock(fine_trim_correction)}\n"
-        f"Corrected local start offset: {seconds_to_clock(local_start_offset)}\n"
+        f"Corrected local start offset before padding: {seconds_to_clock(corrected_local_start_offset)}\n"
+        f"Live DVR start padding: {seconds_to_clock(start_padding)}\n"
+        f"Live DVR end padding: {seconds_to_clock(end_padding)}\n"
+        f"Final local start offset: {seconds_to_clock(local_start_offset)}\n"
+        f"Final output duration: {seconds_to_clock(duration)}\n"
         f"Local start offset: {seconds_to_clock(local_start_offset)}\n"
         f"Local playlist: {local_playlist}\n"
         f"Local playlist type: VOD\n"
@@ -2654,6 +2664,9 @@ def build_live_dvr_local_hls_playlist(job: DownloadJob, stream_info: dict) -> di
         "headers": headers,
         "local_start_offset": local_start_offset,
         "duration": duration,
+        "requested_duration": requested_duration,
+        "live_dvr_start_padding": start_padding,
+        "live_dvr_end_padding": end_padding,
         "details": details,
         "segment_count": len(playlist_segments),
         "segment_range": f"{playlist_first_index}-{last_index}",
@@ -2663,6 +2676,8 @@ def build_live_dvr_local_hls_playlist(job: DownloadJob, stream_info: dict) -> di
         "preroll_duration": preroll_duration,
         "pre_fine_local_start_offset": pre_fine_local_start_offset,
         "fine_trim_correction": fine_trim_correction,
+        "corrected_local_start_offset_before_padding": corrected_local_start_offset,
+        "final_local_start_offset": local_start_offset,
     })
     return result
 
