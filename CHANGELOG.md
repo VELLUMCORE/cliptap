@@ -3,6 +3,7 @@
 ## v1.4
 
 **ClipTap Helper**
+- Reduced live DVR trim padding to avoid clips ending slightly after the selected range.
 - Added small live DVR trim padding so clips include a tiny safety margin before and after the selected range.
 - Improved live DVR section trim accuracy by using multiple preroll segments and a larger fine trim correction for local HLS cuts.
 - Improved live DVR section trim accuracy with a small fine correction to the local HLS start offset after preroll segment selection.
