@@ -1,4 +1,8 @@
-This project has been moved to [Evqor/cliptap](https://github.com/Evqor/cliptap).
+# This project has been moved to [Evqor/cliptap](https://github.com/Evqor/cliptap).
+
+.<br>
+.<br>
+.
 
 # ClipTap
 
