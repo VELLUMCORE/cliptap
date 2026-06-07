@@ -1,3 +1,5 @@
+This project has been moved to [Evqor/cliptap](https://github.com/Evqor/cliptap).
+
 # ClipTap
 
 ClipTap is a local-first YouTube downloader that combines a browser extension with a local Helper manager. It adds native-style controls to YouTube so you can save full videos, selected video sections, playlists, and channels while keeping the actual download work on your own computer.
